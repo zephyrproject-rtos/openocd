@@ -33,17 +33,44 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> lsusb
 
-  $> openocd -f code/openocd.cfg [-d 3 -l <logfile>.log]
+  $> openocd -f openocd.cfg -d0 [-d 3 -l <logfile>.log] \
+  		-c "init" -c "halt" -c "reset halt"
 
-  $> telnet localhost 4444
+
+  $> telnet <host ip address>:4444
   Open On-Chip Debugger
   > ?
 
 
-  $> arc-linux-uclibc-gdb <app_to_debug>.elf
-  (gdb) target remote localhost:3333
+  $> bash
+  $> arc-elf32-gdb <app_to_debug>.elf		(had here: arc-linux-uclibc-gdb)
+  (gdb) target remote <host ip address>:3333         (can also be localhost)
+  (gdb) info registers
+
+  (gdb) x /2w 0x<address in memory>
+
   (gdb) break main
   (gdb) continue
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  ARC-GDB development commands:
+
+  (gdb) set arc-debug on
+  (gdb) set debug infrun 1
+  (gdb) set debug arch 1
+  (gdb) set debug event 1
+  (gdb) set debug frame 1
+  (gdb) set debug remote 1
+  (gdb) set debug target 1
+  
+  (gdb) set sysroot /home/mjonker/BE/arc_initramfs_BE
+  (gdb) file /home/mjonker/BE/arc_initramfs_BE/test
+
+  (gdb) target remote 192.168.0.2:10000
+  (gdb) ...
 
 
 
@@ -145,6 +172,9 @@ Usage: dadutil [--help] [--version] command [options]
     -v, --version           print program version
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  ARC OpenOCD:
+
 
 >$ ./configure --help
 
@@ -337,11 +367,20 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
 >$ 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
