@@ -20,19 +20,17 @@
 /* ARC core ARCompatISA register set */
 
 enum {
-	ARC32_PC = 63,
-	ARC32_NUM_CORE_REGS
+	ARC32_R0		= 0,
+	ARC32_CORE_REGS	= 27,
+	ARC32_GDB_PC 	= 38,
+	ARC32_NUM_GDB_REGS
 };
-
-/* dummy ARC floating point regs fp0 - fp31 + fsr and fir
- * we also add 18 "unknown" registers to handle gdb requests */
-
-#define ARC32_NUM_FP_REGS (34 + 18)
 
 enum arc32_isa_mode {
 	ARC32_ISA_ARC32 = 0,
 	ARC32_ISA_ARC16 = 1,
 };
+
 
 /* offsets into arc32 core register cache */
 struct arc32_comparator {
@@ -47,7 +45,7 @@ struct arc32_common {
 
 	struct arc_jtag jtag_info;
 
-	uint32_t core_regs[ARC32_NUM_CORE_REGS];
+	uint32_t core_regs[ARC32_NUM_GDB_REGS];
 	struct reg_cache *core_cache;
 
 	enum arc32_isa_mode isa_mode;
@@ -68,29 +66,38 @@ struct arc32_common {
 	int (*write_core_reg)(struct target *target, int num);
 };
 
+#define ARC32_FASTDATA_HANDLER_SIZE	0x80000
+
+
 struct arc32_core_reg {
 	uint32_t num;
 	struct target *target;
 	struct arc32_common *arc32_common;
 };
 
-/* ARC core Auxiliary register set */
+#define ARC32_NUM_CORE_REGS 64
 
-#define AUX_STATUS_REG			0x0  /* LEGACY IS OBSOLETE */
-#define AUX_SEMAPHORE_REG		0x1
+
+/* --------------------------------------------------------------------------
+ * ARC core Auxiliary register set
+ *      name:					id:		bitfield:	comment:
+ *      ------                  ----    ----------  ---------
+ */
+#define AUX_STATUS_REG			0x0					/* LEGACY, IS OBSOLETE */
+#define AUX_SEMAPHORE_REG	 	0x1
 #define AUX_LP_START_REG		0x2
 #define AUX_LP_END_REG			0x3
 #define AUX_IDENTITY_REG		0x4
 #define AUX_DEBUG_REG			0x5
-#define SET_CORE_SINGLE_STEP		(1 << 1)
-#define SET_CORE_FORCE_HALT			(1 << 2)
-#define SET_CORE_SINGLE_INSTR_STEP	(1 << 12)
-#define SET_CORE_RESET_APPLIED		(1 << 23)
-#define SET_CORE_SLEEP_MODE			(1 << 24)
-#define SET_CORE_USER_BREAKPOINT	(1 << 29)
-#define SET_CORE_BREAKPOINT_HALT	(1 << 30)
-#define SET_CORE_SELF_HALT			(1 << 31)
-#define SET_CORE_LOAD_PENDING		(1 << 32)
+#define SET_CORE_SINGLE_STEP			(1 << 1)
+#define SET_CORE_FORCE_HALT				(1 << 2)
+#define SET_CORE_SINGLE_INSTR_STEP		(1 << 12)
+#define SET_CORE_RESET_APPLIED			(1 << 23)
+#define SET_CORE_SLEEP_MODE				(1 << 24)
+#define SET_CORE_USER_BREAKPOINT		(1 << 29)
+#define SET_CORE_BREAKPOINT_HALT		(1 << 30)
+#define SET_CORE_SELF_HALT				(1 << 31)
+#define SET_CORE_LOAD_PENDING			(1 << 32)
 #define AUX_PC_REG				0x6
 #define AUX_STATUS32_REG		0xA
 #define AUX_STATUS32_L1_REG		0xB
@@ -101,8 +108,8 @@ struct arc32_core_reg {
 #define AUX_INT_VECTOR_BASE_REG	0x25
 #define AUX_MACMODE_REG			0x41
 #define AUX_IRQ_LV12_REG		0x43
-	/* 0x60 - 0x7F RESERVED */
-	/* 0xC0 - 0xFF RESERVED */
+													/* 0x60 - 0x7F RESERVED */
+													/* 0xC0 - 0xFF RESERVED */
 #define AUX_COUNT1_REG			0x100
 #define AUX_CONTROL1_REG		0x101
 #define AUX_LIMIT1_REG			0x102
@@ -125,7 +132,7 @@ struct arc32_core_reg {
 #define AUX_IRQ_PENDING_REG		0x416
 #define AUX_XFLAGS_REG			0x44F
 
-#define ARC32_NUM_AUX_REGS		38
+#define ARC32_NUM_AUX_REGS  37
 
 struct arc32_aux_reg {
 	uint32_t num;
@@ -160,9 +167,21 @@ struct reg_cache *arc32_build_reg_cache(struct target *target);
 
 int arc32_debug_entry(struct target *target);
 
+int arc32_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
+	int *reg_list_size);
+
+int arc32_arch_state(struct target *target);
+
+int arc32_pracc_read_mem(struct arc_jtag *jtag_info, uint32_t addr, int size,
+	int count, void *buf);
+int arc32_pracc_write_mem(struct arc_jtag *jtag_info, uint32_t addr, int size,
+	int count, void *buf);
 
 
-int arc_jtag_print_core_registers(struct arc_jtag *jtag_info);
-int arc_jtag_print_aux_registers(struct arc_jtag *jtag_info);
+
+
+
+int arc32_print_core_registers(struct arc_jtag *jtag_info);
+int arc32_print_aux_registers(struct arc_jtag *jtag_info);
 
 #endif /* ARC32_H */
