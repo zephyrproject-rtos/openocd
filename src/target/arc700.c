@@ -71,7 +71,7 @@ int arc700_poll(struct target *target)
 			(target->state == TARGET_RESET)) {
 
 			target->state = TARGET_HALTED;
-			printf("ARC core is halted or in reset.\n");
+			LOG_DEBUG("ARC core is halted or in reset.\n");
 
 			retval = arc32_debug_entry(target);
 			if (retval != ERROR_OK)
@@ -90,22 +90,12 @@ int arc700_poll(struct target *target)
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		} else {
 			if (PRINT) {
-				printf(" OpenOCD for ARC is ready to accept:"
-					" (gdb) target remote localhost:3333\n");
+				LOG_USER("OpenOCD for ARC is ready to accept:"
+					" (gdb) target remote <host ip address>:3333");
 				PRINT = 0;
 			}
 		}
 	}
-
-	return retval;
-}
-
-int arc700_arch_state(struct target *target)
-{
-	int retval = ERROR_OK;
-
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
-	LOG_DEBUG(">> Entering <<");
 
 	return retval;
 }
@@ -124,9 +114,40 @@ int arc700_target_request_data(struct target *target,
 int arc700_halt(struct target *target)
 {
 	int retval = ERROR_OK;
+//	struct arc32_common *arc32 = target_to_arc32(target);
+//	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+//	printf("target->state: %s\n", target_state_name(target));
+	LOG_DEBUG("target->state: %s", target_state_name(target));
+
+	if (target->state == TARGET_HALTED) {
+		LOG_DEBUG("target was already halted");
+		return ERROR_OK;
+	}
+
+	if (target->state == TARGET_UNKNOWN)
+		LOG_WARNING("target was in unknown state when halt was requested");
+
+	if (target->state == TARGET_RESET) {
+		if ((jtag_get_reset_config() & RESET_SRST_PULLS_TRST) && jtag_get_srst()) {
+			LOG_ERROR("can't request a halt while in reset if nSRST pulls nTRST");
+			return ERROR_TARGET_FAILURE;
+		} else {
+			/* we came here in a reset_halt or reset_init sequence
+			 * debug entry was already prepared in arc700_assert_reset()
+			 */
+			target->debug_reason = DBG_REASON_DBGRQ;
+
+			return ERROR_OK;
+		}
+	}
+
+	/* break processor */
+//	mips_ejtag_enter_debug(ejtag_info);
+
+	target->debug_reason = DBG_REASON_DBGRQ;
 
 	return retval;
 }
@@ -156,20 +177,79 @@ int arc700_step(struct target *target, int current,
 int arc700_assert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+//	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	LOG_DEBUG("target->state: %s", target_state_name(target));
+
+	enum reset_types jtag_reset_config = jtag_get_reset_config();
+
+	/* some cores support connecting while srst is asserted
+	 * use that mode is it has been configured */
+
+	bool srst_asserted = false;
+
+	if (!(jtag_reset_config & RESET_SRST_PULLS_TRST) &&
+			(jtag_reset_config & RESET_SRST_NO_GATING)) {
+		jtag_add_reset(0, 1);
+		srst_asserted = true;
+	}
+
+//	if (target->reset_halt) {
+		/* use hardware to catch reset */
+//		mips_ejtag_set_instr(ejtag_info, EJTAG_INST_EJTAGBOOT);
+//	} else
+//		mips_ejtag_set_instr(ejtag_info, EJTAG_INST_NORMALBOOT);
+
+	if (jtag_reset_config & RESET_HAS_SRST) {
+		/* here we should issue a srst only, but we may have to assert trst as well */
+		if (jtag_reset_config & RESET_SRST_PULLS_TRST)
+			jtag_add_reset(1, 1);
+		else if (!srst_asserted)
+			jtag_add_reset(0, 1);
+//	} else {
+//		if (mips_m4k->is_pic32mx) {
+//			LOG_DEBUG("Using MTAP reset to reset processor...");
+
+			/* use microchip specific MTAP reset */
+//			mips_ejtag_set_instr(ejtag_info, MTAP_SW_MTAP);
+//			mips_ejtag_set_instr(ejtag_info, MTAP_COMMAND);
+
+//			mips_ejtag_drscan_8_out(ejtag_info, MCHP_ASERT_RST);
+//			mips_ejtag_drscan_8_out(ejtag_info, MCHP_DE_ASSERT_RST);
+//			mips_ejtag_set_instr(ejtag_info, MTAP_SW_ETAP);
+//		} else {
+			/* use ejtag reset - not supported by all cores */
+//			uint32_t ejtag_ctrl = ejtag_info->ejtag_ctrl | EJTAG_CTRL_PRRST | EJTAG_CTRL_PERRST;
+//			LOG_DEBUG("Using EJTAG reset (PRRST) to reset processor...");
+//			mips_ejtag_set_instr(ejtag_info, EJTAG_INST_CONTROL);
+//			mips_ejtag_drscan_32_out(ejtag_info, ejtag_ctrl);
+//		}
+	}
+
+	target->state = TARGET_RESET;
+	jtag_add_sleep(50000);
+
+	register_cache_invalidate(arc32->core_cache);
+
+	if (target->reset_halt)
+		retval = target_halt(target);
 
 	return retval;
 }
-
 
 int arc700_deassert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	LOG_DEBUG("target->state: %s", target_state_name(target));
+
+	/* deassert reset lines */
+	jtag_add_reset(0, 0);
 
 	return retval;
 }
@@ -184,41 +264,79 @@ int arc700_soft_reset_halt(struct target *target)
 	return retval;
 }
 
-int arc700_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
-	int *reg_list_size)
-{
-	int retval = ERROR_OK;
-	int i;
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
-	LOG_DEBUG(">> Entering <<");
-
-	/* get pointers to arch-specific information */
-	*reg_list_size = ARC32_NUM_CORE_REGS + ARC32_NUM_FP_REGS;
-printf(" @ln:%d)\n",__LINE__);
-	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
-printf(" @ln:%d)\n",__LINE__);
-
-	for (i = 0; i < ARC32_NUM_CORE_REGS; i++)
-		(*reg_list)[i] = &arc32->core_cache->reg_list[i];
-printf(" @ln:%d)\n",__LINE__);
-
-	/* add dummy floating points regs ?? arc32.c build-reg-chache() */
-	for (i = ARC32_NUM_CORE_REGS; i < (ARC32_NUM_CORE_REGS + ARC32_NUM_FP_REGS); i++)
-		(*reg_list)[i] = &arc32_gdb_dummy_fp_reg;
-printf(" @ln:%d)\n",__LINE__);
-
-	return retval;
-}
-
 int arc700_read_memory(struct target *target, uint32_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+//	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
+		", count: 0x%8.8" PRIx32 "", address, size, count);
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* sanitize arguments */
+
+	if (((size != 4) && (size != 2) && (size != 1)) || (count == 0) || !(buffer))
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	if (((size == 4) && (address & 0x3u)) || ((size == 2) && (address & 0x1u)))
+		return ERROR_TARGET_UNALIGNED_ACCESS;
+
+	/* since we don't know if buffer is aligned, we allocate new mem that
+	 * is always aligned.
+	 */
+	void *tunnel = NULL;
+
+	if (size > 1) {
+		tunnel = malloc(count * size * sizeof(uint8_t));
+		if (tunnel == NULL) {
+			LOG_ERROR("Out of memory");
+			return ERROR_FAIL;
+		}
+	} else
+		tunnel = buffer;
+
+	/* if noDMA off, use DMAACC mode for memory read */
+
+//	if (jtag_info->impcode & JTAG_IMP_NODMA)
+		retval = arc32_pracc_read_mem(&arc32->jtag_info, address, size,
+			count, tunnel);
+//	else
+//		retval = arc32_dmaacc_read_mem(jtag_info, address, size,
+//			count, tunnel);
+
+	/* arc32_..._read_mem with size 4/2 returns uint32_t/uint16_t in host */
+	/* endianness, but byte array should represent target endianness       */
+	if (ERROR_OK == retval) {
+		switch (size) {
+		case 4:
+			target_buffer_set_u32_array(target, buffer, count, tunnel);
+#ifdef DEBUG
+			int i;
+			for(i = 0; i < count; i++) {
+				/* print byte position content of complete word */
+				printf("    **> 0x%02x",buffer[3 + (4 * i)]);
+				printf("%02x",buffer[2 + (4 * i)]);
+				printf("%02x",buffer[1 + (4 * i)]);
+				printf("%02x\n",buffer[0 + (4 * i)]);
+			}
+#endif
+			break;
+		case 2:
+			target_buffer_set_u16_array(target, buffer, count, tunnel);
+			break;
+		}
+	}
+
+	if ((size > 1) && (tunnel != NULL))
+		free(tunnel);
 
 	return retval;
 }
@@ -227,9 +345,69 @@ int arc700_write_memory(struct target *target, uint32_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "\n",
+			address, size, count);
+	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "",
+			address, size, count);
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* sanitize arguments */
+
+	if (((size != 4) && (size != 2) && (size != 1)) || (count == 0) || !(buffer))
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	if (((size == 4) && (address & 0x3u)) || ((size == 2) && (address & 0x1u)))
+		return ERROR_TARGET_UNALIGNED_ACCESS;
+
+	/* correct endianess if we have word or hword access */
+	void *tunnel = NULL;
+
+	if (size > 1) {
+		/*
+		 * arc32_..._write_mem with size 4/2 requires uint32_t/uint16_t
+		 * in host endianness, but byte array represents target endianness.
+		 */
+		tunnel = malloc(count * size * sizeof(uint8_t));
+		if (tunnel == NULL) {
+			LOG_ERROR("Out of memory");
+			return ERROR_FAIL;
+		}
+
+		switch (size) {
+		case 4:
+			target_buffer_get_u32_array(target, buffer, count,
+				(uint32_t *)tunnel);
+			break;
+		case 2:
+			target_buffer_get_u16_array(target, buffer, count,
+				(uint16_t *)tunnel);
+			break;
+		}
+		buffer = tunnel;
+	}
+
+	/*
+	 * if noDMA off, use DMAACC mode for memory write,
+	 * else, do direct memory transfer
+	 */
+	//if (jtag_info->dma_transfer & JTAG_IMP_NODMA)
+		retval = arc32_pracc_write_mem(jtag_info, address, size, count,
+			(void *)buffer);
+	//else
+		//retval = arc32_dmaacc_write_mem(jtag_info, address, size, count, (void *)buffer);
+
+	if (tunnel != NULL)
+		free(tunnel);
 
 	return retval;
 }
@@ -238,9 +416,82 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 	uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
+//	int write_t = 1;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "\n", address, count);
+	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* check alignment */
+	if (address & 0x3u)
+		return ERROR_TARGET_UNALIGNED_ACCESS;
+
+	if (arc32->fast_data_area == NULL) {
+		/*
+		 * Get memory for block write handler
+		 * we preserve this area between calls and gain a speed increase
+		 * of about 3kb/sec when writing flash
+		 * this will be released/nulled by the system when the target is
+		 * resumed or reset.
+		 */
+		retval = target_alloc_working_area(target,
+				ARC32_FASTDATA_HANDLER_SIZE,
+				&arc32->fast_data_area);
+
+		if (retval != ERROR_OK) {
+			LOG_WARNING("No working area available, falling back to non-bulk write");
+			return arc700_write_memory(target, address, 4, count, buffer);
+		} else {
+			LOG_WARNING(" !! ARC32_FASTDATA_HANDLER_SIZE too small !!");
+			retval = ERROR_OK;
+		}
+
+		/* reset fastadata state so the algo get reloaded */
+		jtag_info->fast_access_save = -1;
+	}
+
+	/* arc32_pracc_fastdata_xfer requires uint32_t in host endianness, */
+	/* but byte array represents target endianness                      */
+	uint32_t *tunnel = NULL;
+	tunnel = malloc(count * sizeof(uint32_t));
+	if (tunnel == NULL) {
+		LOG_ERROR("Out of memory");
+		return ERROR_FAIL;
+	}
+
+	target_buffer_get_u32_array(target, buffer, count, tunnel);
+
+//	retval = arc32_pracc_fastdata_xfer(jtag_info, arc32->fast_data_area,
+//			write_t, address, count, tunnel);
+#ifdef DEBUG
+	/* transfer big data block into target !! needs performance upgrade !! */
+	printf(" > going to store: 0x%08x\n", (uint32_t *)tunnel[0]);
+	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[1]);
+	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[2]);
+	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[3]);
+	printf(" >       ----->  : 0x%08x\n", (uint32_t *)tunnel[4]);
+	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[5]);
+	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[6]);
+#endif
+	retval = arc700_write_memory(target, address, 4, count, (uint8_t *)tunnel);
+
+	if (tunnel != NULL)
+		free(tunnel);
+
+	if (retval != ERROR_OK) {
+		/* FASTDATA access failed, try normal memory write */
+		LOG_DEBUG("Fastdata access Failed, falling back to non-bulk write");
+		retval = arc700_write_memory(target, address, 4, count, buffer);
+	}
 
 	return retval;
 }
@@ -418,7 +669,7 @@ int arc700_examine(struct target *target)
 			printf("target is still running !!\n");
 			target->state = TARGET_RUNNING;
 		} else {
-			printf("target is halted.\n");
+			LOG_DEBUG("target is halted.");
 			target->state = TARGET_RESET; /* means HALTED after restart */
 		}
 
@@ -514,7 +765,7 @@ struct target_type arc700_target = {
 	.name = "arc700",
 
 	.poll =	arc700_poll,
-	.arch_state = arc700_arch_state,
+	.arch_state = arc32_arch_state,
 
 	.target_request_data = arc700_target_request_data,
 
@@ -526,7 +777,7 @@ struct target_type arc700_target = {
 	.deassert_reset = arc700_deassert_reset,
 	.soft_reset_halt = arc700_soft_reset_halt,
 
-	.get_gdb_reg_list = arc700_get_gdb_reg_list,
+	.get_gdb_reg_list = (int)arc32_get_gdb_reg_list,
 
 	.read_memory = arc700_read_memory,
 	.write_memory = arc700_write_memory,
