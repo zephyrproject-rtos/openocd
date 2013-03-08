@@ -29,11 +29,11 @@
 #define ARC_JTAG_STAT_RA			(100000)
 
 #define ARC_TRANSACTION_CMD_REG 	0x9 /* Command to perform */
-#define ARC_JTAG_WRITE_TO_MEM		0x0
+#define ARC_JTAG_WRITE_TO_MEMORY	0x0
 #define ARC_JTAG_WRITE_TO_CORE_REG	0x1
 #define ARC_JTAG_WRITE_TO_AUX_REG	0x2
 #define ARC_JTAG_CMD_NIU			0x3 /* Not in use */
-#define ARC_JTAG_READ_FROM_MEM		0x4
+#define ARC_JTAG_READ_FROM_MEMORY	0x4
 #define ARC_JTAG_READ_FROM_CORE_REG	0x5
 #define ARC_JTAG_READ_FROM_AUX_REG	0x6
 
@@ -59,6 +59,8 @@ struct arc_jtag {
 	uint32_t cur_scan_chain;
 
 	uint32_t dpc; /* Debug PC value */
+
+	int fast_access_save;
 };
 
 /* ----- Exported JTAG functions ------------------------------------------- */
