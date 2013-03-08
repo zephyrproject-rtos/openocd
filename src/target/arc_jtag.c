@@ -210,8 +210,36 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_write_data(jtag_info, addr);
+	if (retval != ERROR_OK)
+		return retval;
+
+	//jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_MEMORY);
+	if (retval != ERROR_OK)
+		return retval;
+
+	jtag_info->tap_end_state = TAP_IDLE;
+
+	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_IDLE;
+	retval = arc_jtag_read_data(jtag_info, value);
+	if (retval != ERROR_OK)
+		return retval;
 
 	return retval;
 }
@@ -221,8 +249,34 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_write_data(jtag_info, addr - 4);
+	if (retval != ERROR_OK)
+		return retval;
+
+	//jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_MEMORY);
+	if (retval != ERROR_OK)
+		return retval;
+
+	jtag_info->tap_end_state = TAP_IDLE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+	if (retval != ERROR_OK)
+		return retval;
+	//jtag_info->tap_end_state = TAP_IDLE;
+	retval = arc_jtag_write_data(jtag_info, *value);
+	if (retval != ERROR_OK)
+		return retval;
 
 	return retval;
 }
