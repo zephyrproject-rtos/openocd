@@ -161,26 +161,49 @@ int arc32_read_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 
 	LOG_DEBUG(">> Entering <<");
 
-	/* read core registers R0-R26 */
+	/*
+	 * read core registers R0-R26
+	 * gdb requests:
+	 *       regmap[0]  = (&(pt_buf.scratch.r0)
+	 *       ...
+	 *       regmap[26] = (&(pt_buf.scratch.r26)
+	 */
 	for (i = 0; i < ARC32_CORE_REGS; i++)
 		arc_jtag_read_core_reg(jtag_info, i, regs + i);
 
 	/*
-	 * be carefull here, now reading specific registers for GDB.
-	 * we need to read aux registers (see: linux/arch/arc/include/asm/kgdb.h):
+	 * be carefull here, now we need to read specific registers for GDB.
+	 * gdb requests:
+	 *       regmap[27] = (&(pt_buf.scratch.fp)
+	 *       regmap[28] = (&(pt_buf.scratch.sp)
+	 *       gap of zerros
+	 *       regmap[31] = (&(pt_buf.scratch.blink)
+	 *       gap of zerros
+	 *       regmap[60] = (&(pt_buf.scratch.lp_count)
+	 *       gap of zerros
+	 *       regmap[64] = (&(pt_buf.scratch.ret)
+	 *       regmap[65] = (&(pt_buf.scratch.lp_start)
+	 *       regmap[66] = (&(pt_buf.scratch.lp_end)
+	 *       regmap[67] = (&(pt_buf.scratch.status32)
+	 *       gap of zerros
+	 *       regmap[77] = (&(pt_buf.efa)
+	 *       gap of zerros
+	 *       regmap[86] = -1
 	 */
-	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_REG,      regs + 27);
-	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, regs + 28);
-	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG,   regs + 29);
-	arc_jtag_read_aux_reg(jtag_info, AUX_COUNT0_REG,   regs + 30);
-	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, regs + 31);
-	arc_jtag_read_core_reg(jtag_info, 31, regs + 32);
-	arc_jtag_read_core_reg(jtag_info, 29, regs + 33);
-	arc_jtag_read_core_reg(jtag_info, 30, regs + 34);
-	arc_jtag_read_aux_reg(jtag_info, AUX_EFA_REG,      regs + 35);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ERET_REG,     regs + 36);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ERSTATUS_REG, regs + 37);
-	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG,       regs + 38);
+	arc_jtag_read_core_reg(jtag_info, 27, regs + 27); /* R27 = FP */
+	arc_jtag_read_core_reg(jtag_info, 28, regs + 28); /* R28 = SP */
+	/* gap of zerros */
+	arc_jtag_read_core_reg(jtag_info, 31, regs + 31); /* R31 = BLINK */
+	/* gap of zerros */
+	arc_jtag_read_aux_reg(jtag_info, AUX_COUNT0_REG,   regs + 60);
+	/* gap of zerros */
+	arc_jtag_read_aux_reg(jtag_info, AUX_ERET_REG,     regs + 64);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, regs + 65);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG,   regs + 66);
+	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, regs + 67);
+	/* gap of zerros */
+	arc_jtag_read_aux_reg(jtag_info, AUX_EFA_REG,      regs + 77);
+	/* gap of zerros */
 
 	return retval;
 }
@@ -211,84 +234,15 @@ int arc32_save_context(struct target *target)
 
 /* ----- Command handlers -------------------------------------------------- */
 
-#ifdef NEEDS_PORITNG_EFFORT
-
-static int mips32_verify_pointer(struct command_context *cmd_ctx,
-		struct mips32_common *mips32)
-{
-	if (mips32->common_magic != MIPS32_COMMON_MAGIC) {
-		command_print(cmd_ctx, "target is not an MIPS32");
-		return ERROR_TARGET_INVALID;
-	}
-	return ERROR_OK;
-}
-#endif /* NEEDS_PORITNG_EFFORT */
-
-
 /*
  * ARC32 targets expose command interface
  */
+
 COMMAND_HANDLER(arc32_handle_cp0_command)
 {
 	int retval = ERROR_OK;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
-
-
-#ifdef NEEDS_PORITNG_EFFORT
-	struct target *target = get_current_target(CMD_CTX);
-	struct mips32_common *mips32 = target_to_mips32(target);
-	struct mips_ejtag *ejtag_info = &mips32->ejtag_info;
-
-
-	retval = mips32_verify_pointer(CMD_CTX, mips32);
-	if (retval != ERROR_OK)
-		return retval;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "target must be stopped for \"%s\" command", CMD_NAME);
-		return ERROR_OK;
-	}
-
-	/* two or more argument, access a single register/select (write if third argument is given) */
-	if (CMD_ARGC < 2)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-	else {
-		uint32_t cp0_reg, cp0_sel;
-		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], cp0_reg);
-		COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], cp0_sel);
-
-		if (CMD_ARGC == 2) {
-			uint32_t value;
-
-			retval = mips32_cp0_read(ejtag_info, &value, cp0_reg, cp0_sel);
-			if (retval != ERROR_OK) {
-				command_print(CMD_CTX,
-						"couldn't access reg %" PRIi32,
-						cp0_reg);
-				return ERROR_OK;
-			}
-			retval = jtag_execute_queue();
-			if (retval != ERROR_OK)
-				return retval;
-
-			command_print(CMD_CTX, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
-					cp0_reg, cp0_sel, value);
-		} else if (CMD_ARGC == 3) {
-			uint32_t value;
-			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[2], value);
-			retval = mips32_cp0_write(ejtag_info, value, cp0_reg, cp0_sel);
-			if (retval != ERROR_OK) {
-				command_print(CMD_CTX,
-						"couldn't access cp0 reg %" PRIi32 ", select %" PRIi32,
-						cp0_reg,  cp0_sel);
-				return ERROR_OK;
-			}
-			command_print(CMD_CTX, "cp0 reg %" PRIi32 ", select %" PRIi32 ": %8.8" PRIx32,
-					cp0_reg, cp0_sel, value);
-		}
-	}
-#endif /* NEEDS_PORITNG_EFFORT */
 
 	return retval;
 }
@@ -393,7 +347,7 @@ struct reg_cache *arc32_build_reg_cache(struct target *target)
 int arc32_debug_entry(struct target *target)
 {
 	int retval = ERROR_OK;
-	uint32_t dpc; //, dinst;
+	uint32_t dpc;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	LOG_DEBUG(">> Entering <<");
@@ -481,17 +435,15 @@ int arc32_pracc_write_mem(struct arc_jtag *jtag_info, uint32_t addr, int size,
 
 	for(i = 0; i < count; i++) {
 #ifdef DEBUG
-		printf(" >> gone write: 0x%x @ 0x%x\n", *(uint32_t *)(buf + (i * size)),
+		printf(" >> write: 0x%x @ 0x%x\n", *(uint32_t *)(buf + (i * size)),
 			addr + (i * size));
 #endif
-
-		retval = arc_jtag_write_memory(jtag_info, addr + (i * size),
-			buf + (i * size));
-
+		retval = arc_jtag_write_memory(jtag_info, (addr + (i * size)),
+			(buf + (i * size)));
 #ifdef DEBUG
 		uint32_t buffer;
 		retval = arc_jtag_read_memory(jtag_info, addr + (i * size), &buffer);
-		printf(" >   get value: 0x%x @: 0x%x\n", buffer, addr + (i * 4));
+		printf(" >         0x%x @: 0x%x\n", buffer, addr + (i * 4));
 #endif
 	}
 
@@ -618,82 +570,3 @@ int arc32_print_aux_registers(struct arc_jtag *jtag_info)
 
 	return retval;
 }
-
-
-
-
-/* ....................................................................... */
-
-#ifdef STUFF_WHAT_IS_NOT_IN_USE
-
-
-/* Auxilary reigsters */
-
-static char *arc32_aux_reg_list[] = {
-	"status", "semaphore", "lp start", "lp end",
-	"identity", "debug", "pc", "status32",
-	"status32 l1", "status32 l2", "count0", "control0",
-	"limit0", "int vector base", "aux macmode", "aux irq lv12",
-	"count1", "control1", "limit1", "aux irq lev",
-	"aux irq hint", "eret", "erbta", "erstatus",
-	"ecr", "efa", "icause1", "icause2",
-	"aux ienable", "aux itrigger", "xpu", "bta",
-	"bta l1", "bta l2", "aux irq pulse cancel", "aux irq pending",
-	"xflags"
-};
-
-static struct arc32_aux_reg
-	arc32_aux_reg_list_arch_info[ARC32_NUM_AUX_REGS] = {
-	{AUX_STATUS_REG,			NULL, NULL},
-	{AUX_SEMAPHORE_REG,			NULL, NULL},
-	{AUX_LP_START_REG,			NULL, NULL},
-	{AUX_LP_END_REG,			NULL, NULL},
-	{AUX_IDENTITY_REG,			NULL, NULL},
-	{AUX_DEBUG_REG,				NULL, NULL},
-	{AUX_PC_REG,				NULL, NULL},
-	{AUX_STATUS32_REG,			NULL, NULL},
-	{AUX_STATUS32_L1_REG,		NULL, NULL},
-	{AUX_STATUS32_L2_REG,		NULL, NULL},
-	{AUX_COUNT0_REG,			NULL, NULL},
-	{AUX_CONTROL0_REG,			NULL, NULL},
-	{AUX_LIMIT0_REG,			NULL, NULL},
-	{AUX_INT_VECTOR_BASE_REG,	NULL, NULL},
-	{AUX_MACMODE_REG,			NULL, NULL},
-	{AUX_IRQ_LV12_REG,			NULL, NULL},
-	{AUX_COUNT1_REG,			NULL, NULL},
-	{AUX_CONTROL1_REG,			NULL, NULL},
-	{AUX_LIMIT1_REG,			NULL, NULL},
-	{AUX_IRQ_LEV_REG,			NULL, NULL},
-	{AUX_IRQ_HINT_REG,			NULL, NULL},
-	{AUX_ERET_REG,				NULL, NULL},
-	{AUX_ERBTA_REG,				NULL, NULL},
-	{AUX_ERSTATUS_REG,			NULL, NULL},
-	{AUX_ECR_REG,				NULL, NULL},
-	{AUX_EFA_REG,				NULL, NULL},
-	{AUX_ICAUSE1_REG,			NULL, NULL},
-	{AUX_ICAUSE2_REG,			NULL, NULL},
-	{AUX_IENABLE_REG,			NULL, NULL},
-	{AUX_ITRIGGER_REG,			NULL, NULL},
-	{AUX_XPU_REG,				NULL, NULL},
-	{AUX_BTA_REG,				NULL, NULL},
-	{AUX_BTA_L1_REG,			NULL, NULL},
-	{AUX_BTA_L2_REG,			NULL, NULL},
-	{AUX_IRQ_PULSE_CAN_REG,		NULL, NULL},
-	{AUX_IRQ_PENDING_REG,		NULL, NULL},
-	{AUX_XFLAGS_REG,			NULL, NULL}
-};
-
-static uint8_t arc32_gdb_dummy_fp_value[] = {0, 0, 0, 0};
-
-static struct reg arc32_gdb_dummy_fp_reg = {
-	.name = "GDB dummy floating-point register",
-	.value = arc32_gdb_dummy_fp_value,
-	.dirty = 0,
-	.valid = 1,
-	.size = 32,
-	.arch_info = NULL
-};
-
-
-
-#endif
