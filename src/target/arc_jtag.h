@@ -32,7 +32,7 @@
 #define ARC_JTAG_WRITE_TO_MEMORY	0x0
 #define ARC_JTAG_WRITE_TO_CORE_REG	0x1
 #define ARC_JTAG_WRITE_TO_AUX_REG	0x2
-#define ARC_JTAG_CMD_NIU			0x3 /* Not in use */
+#define ARC_JTAG_CMD_NOP			0x3 /* Not in use */
 #define ARC_JTAG_READ_FROM_MEMORY	0x4
 #define ARC_JTAG_READ_FROM_CORE_REG	0x5
 #define ARC_JTAG_READ_FROM_AUX_REG	0x6
@@ -72,6 +72,11 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
 int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
+
+int arc_jtag_read_block(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t size,  uint32_t count, uint32_t *value);
+int arc_jtag_write_block(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t size,  uint32_t count, uint32_t *value);
 
 int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
