@@ -46,6 +46,97 @@ static int arc700_init_arch_info(struct target *target,
 	return retval;
 }
 
+static int arc700_set_breakpoint(struct target *target,
+		struct breakpoint *breakpoint)
+{
+	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc32_comparator *comparator_list = arc32->inst_break_list;
+
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
+	LOG_DEBUG(">> Entering <<");
+
+	if (breakpoint->set) {
+		LOG_WARNING("breakpoint already set");
+		return ERROR_OK;
+	}
+
+	if (breakpoint->type == BKPT_HARD) {
+		int bp_num = 0;
+
+		while (comparator_list[bp_num].used && (bp_num < arc32->num_inst_bpoints))
+			bp_num++;
+
+		if (bp_num >= arc32->num_inst_bpoints) {
+			LOG_ERROR("Can not find free FP Comparator(bpid: %d)",
+					breakpoint->unique_id);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+
+		breakpoint->set = bp_num + 1;
+		comparator_list[bp_num].used = 1;
+		comparator_list[bp_num].bp_value = breakpoint->address;
+		target_write_u32(target, comparator_list[bp_num].reg_address,
+				comparator_list[bp_num].bp_value);
+		target_write_u32(target, comparator_list[bp_num].reg_address + 0x08, 0x00000000);
+		target_write_u32(target, comparator_list[bp_num].reg_address + 0x18, 1);
+
+		LOG_DEBUG("bpid: %d, bp_num %i bp_value 0x%" PRIx32 "",
+				  breakpoint->unique_id,
+				  bp_num, comparator_list[bp_num].bp_value);
+	} else if (breakpoint->type == BKPT_SOFT) {
+		LOG_DEBUG("bpid: %d", breakpoint->unique_id);
+
+		if (breakpoint->length <= 4) { /* WAS: == 4) { but we have only 32 bits access !!*/
+			uint32_t verify = 0xffffffff;
+
+			retval = target_read_memory(target, breakpoint->address, breakpoint->length, 1,
+					breakpoint->orig_instr);
+			if (retval != ERROR_OK)
+				return retval;
+
+			retval = target_write_u32(target, breakpoint->address, ARC32_OPC_SDBBP);
+			if (retval != ERROR_OK)
+				return retval;
+
+			retval = target_read_u32(target, breakpoint->address, &verify);
+
+			if (retval != ERROR_OK)
+				return retval;
+				if (verify != ARC32_OPC_SDBBP) {
+				LOG_ERROR("Unable to set 32bit breakpoint at address %08" PRIx32
+						" - check that memory is read/writable", breakpoint->address);
+				return ERROR_OK;
+			}
+		} else {
+			uint16_t verify = 0xffff;
+
+			retval = target_read_memory(target, breakpoint->address, breakpoint->length, 1,
+					breakpoint->orig_instr);
+			if (retval != ERROR_OK)
+				return retval;
+			retval = target_write_u16(target, breakpoint->address, ARC16_OPC_SDBBP);
+			if (retval != ERROR_OK)
+				return retval;
+
+			retval = target_read_u16(target, breakpoint->address, &verify);
+			if (retval != ERROR_OK)
+				return retval;
+			if (verify != ARC16_OPC_SDBBP) {
+				LOG_ERROR("Unable to set 16bit breakpoint at address %08" PRIx32
+						" - check that memory is read/writable", breakpoint->address);
+				return ERROR_OK;
+			}
+		}
+
+		breakpoint->set = 64; /* Any nice value but 0 */
+	}
+
+	return retval;
+}
+
+
+
 
 
 /* ----- Target command handler functions ---------------------------------- */
@@ -108,6 +199,8 @@ int arc700_target_request_data(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -160,6 +253,8 @@ int arc700_resume(struct target *target, int current,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -170,6 +265,8 @@ int arc700_step(struct target *target, int current,
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ software to do so :-) !!\n");
 
 	return retval;
 }
@@ -261,6 +358,8 @@ int arc700_soft_reset_halt(struct target *target)
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -273,6 +372,8 @@ int arc700_read_memory(struct target *target, uint32_t address,
 
 	LOG_DEBUG(">> Entering <<");
 
+//	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
+//		", count: 0x%8.8" PRIx32 "\n", address, size, count);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
 		", count: 0x%8.8" PRIx32 "", address, size, count);
 
@@ -348,11 +449,10 @@ int arc700_write_memory(struct target *target, uint32_t address,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "\n",
-			address, size, count);
+	printf("start writing @ address: 0x%8.8" PRIx32 " : %d bytes\n",
+			address, count);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "",
 			address, size, count);
 
@@ -404,7 +504,8 @@ int arc700_write_memory(struct target *target, uint32_t address,
 		retval = arc32_pracc_write_mem(jtag_info, address, size, count,
 			(void *)buffer);
 	//else
-		//retval = arc32_dmaacc_write_mem(jtag_info, address, size, count, (void *)buffer);
+		//retval = arc32_dmaacc_write_mem(jtag_info, address, size, count,
+		//(void *)buffer);
 
 	if (tunnel != NULL)
 		free(tunnel);
@@ -416,14 +517,11 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 	uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
-//	int write_t = 1;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "\n", address, count);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
 
 	if (target->state != TARGET_HALTED) {
@@ -470,8 +568,6 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 
 	target_buffer_get_u32_array(target, buffer, count, tunnel);
 
-//	retval = arc32_pracc_fastdata_xfer(jtag_info, arc32->fast_data_area,
-//			write_t, address, count, tunnel);
 #ifdef DEBUG
 	/* transfer big data block into target !! needs performance upgrade !! */
 	printf(" > going to store: 0x%08x\n", (uint32_t *)tunnel[0]);
@@ -482,7 +578,10 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[5]);
 	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[6]);
 #endif
-	retval = arc700_write_memory(target, address, 4, count, (uint8_t *)tunnel);
+	//retval = arc700_write_memory(target, address, 4, count, (uint8_t *)tunnel);
+	retval = arc_jtag_write_block(jtag_info, address, 4, count, (uint32_t *)tunnel);
+	/* end of progress indication ... */
+	printf("Done with download.\n");
 
 	if (tunnel != NULL)
 		free(tunnel);
@@ -504,6 +603,8 @@ int arc700_checksum_memory(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -514,6 +615,8 @@ int arc700_blank_check_memory(struct target *target,
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ software to do so :-) !!\n");
 
 	return retval;
 }
@@ -529,6 +632,8 @@ int arc700_run_algorithm(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -542,6 +647,8 @@ int arc700_start_algorithm(struct target *target,
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ software to do so :-) !!\n");
 
 	return retval;
 }
@@ -557,6 +664,8 @@ int arc700_wait_algorithm(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -567,7 +676,19 @@ int arc700_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	return retval;
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	if (breakpoint->type == BKPT_HARD) {
+		if (arc32->num_inst_bpoints_avail < 1) {
+			printf(" >> no hardware breakpoint available yet.\n");
+			LOG_INFO("no hardware breakpoint available yet.");
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+
+		arc32->num_inst_bpoints_avail--;
+	}
+
+	return arc700_set_breakpoint(target, breakpoint);
 }
 
 int arc700_remove_breakpoint(struct target *target,
@@ -577,6 +698,8 @@ int arc700_remove_breakpoint(struct target *target,
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ software to do so :-) !!\n");
 
 	return retval;
 }
@@ -588,6 +711,8 @@ int arc700_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf(" !! @ software to do so :-) !!\n");
+
 	return retval;
 }
 
@@ -598,6 +723,8 @@ int arc700_remove_watchpoint(struct target *target,
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ software to do so :-) !!\n");
 
 	return retval;
 }
@@ -688,6 +815,8 @@ COMMAND_HANDLER(handle_arc700_smp_gdb_command)
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
+
+	printf(" !! @ adapt software to get it working :-) !!\n");
 
 	struct target *target = get_current_target(CMD_CTX);
 
