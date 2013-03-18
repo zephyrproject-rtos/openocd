@@ -44,14 +44,25 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> bash
   $> arc-elf32-gdb <app_to_debug>.elf		(had here: arc-linux-uclibc-gdb)
-  (gdb) target remote <host ip address>:3333         (can also be localhost)
+
+  (gdb) set remotetimeout 1000
+  (gdb) target extended-remote <host ip address>:3333         (can also be localhost)
   (gdb) info registers
 
   (gdb) x /2w 0x<address in memory>
 
+  (gdb) load
+
+  (gdb) step 0x8fd00000
+  (gdb) info target
+  (gdb) run
+
+  (gdb) continue
   (gdb) break main
   (gdb) continue
 
+  (gdb) info breakpoint
+  (gdb) break *0x8fd01000
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -69,10 +80,20 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
   (gdb) set sysroot /home/mjonker/BE/arc_initramfs_BE
   (gdb) file /home/mjonker/BE/arc_initramfs_BE/test
 
-  (gdb) target remote 192.168.0.2:10000
+  (gdb) target extended-remote 192.168.0.2:10000
   (gdb) ...
 
+  (gdb) set {long long}0x80000000 = 0
+  (gdb) x /4w 0x80000000
 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  $>  arc-elf32-readelf u-boot.elf
+  $>  arc-elf32-readelf -S u-boot.elf
+  $>  arc-elf32-readelf u-boot.elf
+  $>  arc-elf32-readelf -x --hex-dump=.text u-boot.elf | more
+  $>  arc-elf32-readelf -x --hex-dump=1 u-boot.elf | more
+  $>  arc-elf32-readelf -x 1 u-boot.elf | more
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
