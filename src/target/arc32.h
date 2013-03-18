@@ -23,7 +23,9 @@ enum {
 	ARC32_R0		= 0,
 	ARC32_CORE_REGS	= 27,
 	ARC32_GDB_PC 	= 38,
-	ARC32_NUM_GDB_REGS
+	/* if arc-linux-uclibc-gdb;	ARC32_NUM_GDB_REGS = 39 */
+	/* if arc-elf32-gdb; 		ARC32_NUM_GDB_REGS = 64 */
+	ARC32_NUM_GDB_REGS = 87
 };
 
 enum arc32_isa_mode {
@@ -66,7 +68,7 @@ struct arc32_common {
 	int (*write_core_reg)(struct target *target, int num);
 };
 
-#define ARC32_FASTDATA_HANDLER_SIZE	0x80000
+#define ARC32_FASTDATA_HANDLER_SIZE	0x8000
 
 
 struct arc32_core_reg {
@@ -76,6 +78,14 @@ struct arc32_core_reg {
 };
 
 #define ARC32_NUM_CORE_REGS 64
+
+/* ARC 32bits Compact v2 opcodes */
+#define ARC32_OPC_SDBBP 0x226F003F  /* TRAP0 */
+
+/* ARC 16bits Compact v2 opcodes */
+#define ARC16_OPC_SDBBP 0x781E  /* TRAP_S0 */
+
+
 
 
 /* --------------------------------------------------------------------------
