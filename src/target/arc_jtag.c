@@ -217,7 +217,7 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* leave, otherwise 4Byte behind */
+	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 4Byte behind */
 	retval = arc_jtag_write_data(jtag_info, addr);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
@@ -328,32 +328,22 @@ int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 
 	LOG_DEBUG(">> Entering <<");
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-	if (retval != ERROR_OK)
-		return retval;
+	arc_jtag_transaction_reset(jtag_info);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_DRPAUSE;
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_CORE_REG);
-	if (retval != ERROR_OK)
-		return retval;
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
+	retval = arc_jtag_write_data(jtag_info, addr);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
 	retval = arc_jtag_read_data(jtag_info, value);
-	if (retval != ERROR_OK)
-		return retval;
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -367,31 +357,22 @@ int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 
 	LOG_DEBUG(">> Entering <<");
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-	if (retval != ERROR_OK)
-		return retval;
+	arc_jtag_transaction_reset(jtag_info);
+
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_DRPAUSE;
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_CORE_REG);
-	if (retval != ERROR_OK)
-		return retval;
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_write_data(jtag_info, addr);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	retval = arc_jtag_write_data(jtag_info, value);
-	if (retval != ERROR_OK)
-		return retval;
+	retval = arc_jtag_write_data(jtag_info, *value);
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -405,31 +386,22 @@ int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 
 	LOG_DEBUG(">> Entering <<");
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-	if (retval != ERROR_OK)
-		return retval;
+	arc_jtag_transaction_reset(jtag_info);
+
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_DRPAUSE;
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG);
-	if (retval != ERROR_OK)
-		return retval;
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
+	retval = arc_jtag_write_data(jtag_info, addr);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
 	retval = arc_jtag_read_data(jtag_info, value);
-	if (retval != ERROR_OK)
-		return retval;
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -443,31 +415,22 @@ int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 
 	LOG_DEBUG(">> Entering <<");
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-	if (retval != ERROR_OK)
-		return retval;
+	arc_jtag_transaction_reset(jtag_info);
+
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_DRPAUSE;
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG);
-	if (retval != ERROR_OK)
-		return retval;
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_write_data(jtag_info, addr);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	if (retval != ERROR_OK)
-		return retval;
 	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	retval = arc_jtag_write_data(jtag_info, value);
-	if (retval != ERROR_OK)
-		return retval;
+	retval = arc_jtag_write_data(jtag_info, *value);
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -479,6 +442,8 @@ int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value)
 	int retval = ERROR_OK;
 
 	LOG_DEBUG(">> Entering <<");
+
+	arc_jtag_transaction_reset(jtag_info);
 
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_JTAG_STATUS_REG);
@@ -502,6 +467,8 @@ int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value)
 
 	LOG_DEBUG(">> Entering <<");
 
+	arc_jtag_transaction_reset(jtag_info);
+
 	jtag_info->tap_end_state = TAP_IRPAUSE;
 	retval = arc_jtag_set_instruction(jtag_info, ARC_IDCODE_REG);
 	if (retval != ERROR_OK)
@@ -523,17 +490,119 @@ int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value)
 int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 {
 	int retval = ERROR_OK;
-	//int i;
-	//uint32_t value, status;
+	uint32_t value;
+
+
+#define AUX_STATUS_REG			0x0
+#define AUX_SEMAPHORE_REG	 	0x1
+#define AUX_LP_START_REG		0x2
+#define AUX_LP_END_REG			0x3
+#define AUX_IDENTITY_REG		0x4
+#define AUX_DEBUG_REG			0x5
+#define AUX_PC_REG				0x6
+#define AUX_STATUS32_REG		0xA
+
+#define SET_CORE_SINGLE_STEP			(1)
+#define SET_CORE_FORCE_HALT				(1 << 1)
+#define SET_CORE_SINGLE_INSTR_STEP		(1 << 11)
+#define SET_CORE_RESET_APPLIED			(1 << 22)
+#define SET_CORE_SLEEP_MODE				(1 << 23)
+#define SET_CORE_USER_BREAKPOINT		(1 << 28)
+#define SET_CORE_BREAKPOINT_HALT		(1 << 29)
+#define SET_CORE_SELF_HALT				(1 << 30)
+#define SET_CORE_LOAD_PENDING			(1 << 31)
+
 
 	LOG_DEBUG(">> Entering <<");
 	printf("\n >> Start our tests: <<\n\n");
 
 	printf("\t...\n");
-
-	printf(" !! @ software to do so :-) !!\n");
-
+	printf(" # SET_CORE_SINGLE_STEP       : %u\n",SET_CORE_SINGLE_STEP);
+	printf(" # SET_CORE_FORCE_HALT        : %u\n",SET_CORE_FORCE_HALT);
+	printf(" # SET_CORE_SINGLE_INSTR_STEP : %u\n",SET_CORE_SINGLE_INSTR_STEP);
+	printf(" # SET_CORE_RESET_APPLIED     : %u\n",SET_CORE_RESET_APPLIED);
+	printf(" # SET_CORE_SLEEP_MODE        : %u\n",SET_CORE_SLEEP_MODE);
+	printf(" # SET_CORE_USER_BREAKPOINT   : %u\n",SET_CORE_USER_BREAKPOINT);
+	printf(" # SET_CORE_BREAKPOINT_HALT   : %u\n",SET_CORE_BREAKPOINT_HALT);
+	printf(" # SET_CORE_SELF_HALT         : %u\n",SET_CORE_SELF_HALT);
+	printf(" # SET_CORE_LOAD_PENDING      : %u\n",SET_CORE_LOAD_PENDING);
 	printf("\t...\n");
+
+	printf(" !! @ software to do so :-) !!\n\n");
+
+	printf("\n\t...\n");
+
+	arc_jtag_read_core_reg(jtag_info, 22, &value);
+	printf(" R22 = 0x%x (?)\n",value);
+	arc_jtag_read_core_reg(jtag_info, 9, &value);
+	printf(" R9 = 0x%x (?)\n",value);
+	arc_jtag_read_core_reg(jtag_info, 63, &value);
+	printf(" R63(PC) = 0x%x (?)\n",value);
+
+	value = 8;
+	arc_jtag_write_core_reg(jtag_info, 9, &value);
+	value = 11;
+	arc_jtag_write_core_reg(jtag_info, 22, &value);
+	value = 0x8fd00000;
+	arc_jtag_write_core_reg(jtag_info, 63, &value);
+	printf("\n\t...\n");
+
+	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
+	printf(" STATUS:           0x%08X\t(@:0x%03X)\n", value, AUX_STATUS_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_SEMAPHORE_REG, &value);
+	printf(" SEMAPHORE:        0x%08X\t(@:0x%03X)\n", value, AUX_SEMAPHORE_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, &value);
+	printf(" LP START:         0x%08X\t(@:0x%03X)\n", value, AUX_LP_START_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG, &value);
+	printf(" LP END:           0x%08X\t(@:0x%03X)\n", value, AUX_LP_END_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_IDENTITY_REG, &value);
+	printf(" IDENTITY:         0x%08X\t(@:0x%03X)\n", value, AUX_IDENTITY_REG);
+
+	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
+	printf("\n DEBUG:            0x%08X\t(@:0x%03X)\n", value, AUX_DEBUG_REG);
+	value = SET_CORE_RESET_APPLIED;
+	arc_jtag_write_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
+	value = 0;
+	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
+	printf(" DEBUG:            0x%08X\t(@:0x%03X)\n\n", value, AUX_DEBUG_REG);
+
+	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
+	printf(" PC:               0x%08X\t(@:0x%03X)\n", value, AUX_PC_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, &value);
+	printf(" STATUS32:         0x%08X\t(@:0x%03X)\n", value, AUX_STATUS32_REG);
+
+	printf("\n\t...\n");
+	value = 0x5463728;
+	arc_jtag_write_aux_reg(jtag_info, AUX_LP_START_REG, &value);
+	value = 0x8765432;
+	arc_jtag_write_aux_reg(jtag_info, AUX_LP_END_REG, &value);
+	value = 0x8fd00000;
+	arc_jtag_write_aux_reg(jtag_info, AUX_PC_REG, &value);
+	printf("\n\t...\n");
+
+	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
+	printf(" STATUS:           0x%08X\t(@:0x%03X)\n", value, AUX_STATUS_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_SEMAPHORE_REG, &value);
+	printf(" SEMAPHORE:        0x%08X\t(@:0x%03X)\n", value, AUX_SEMAPHORE_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, &value);
+	printf(" LP START:         0x%08X\t(@:0x%03X)\n", value, AUX_LP_START_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG, &value);
+	printf(" LP END:           0x%08X\t(@:0x%03X)\n", value, AUX_LP_END_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_IDENTITY_REG, &value);
+	printf(" IDENTITY:         0x%08X\t(@:0x%03X)\n", value, AUX_IDENTITY_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
+	printf(" DEBUG:            0x%08X\t(@:0x%03X)\n", value, AUX_DEBUG_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
+	printf(" PC:               0x%08X\t(@:0x%03X)\n", value, AUX_PC_REG);
+	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, &value);
+	printf(" STATUS32:         0x%08X\t(@:0x%03X)\n", value, AUX_STATUS32_REG);
+
+	arc_jtag_read_core_reg(jtag_info, 22, &value);
+	printf(" R22 = 0x%x (?=11)\n",value);
+	arc_jtag_read_core_reg(jtag_info, 9, &value);
+	printf(" R9 = 0x%x (?=8)\n",value);
+	arc_jtag_read_core_reg(jtag_info, 63, &value);
+	printf(" R63(PC) = 0x%x (?=0x8fd00000)\n",value);
 
 	printf("\n << Done, hit ^C >>\n");
 	sleep(10);
