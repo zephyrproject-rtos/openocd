@@ -27,7 +27,7 @@
 static int PRINT = 1;
 
 
-/* ----- Supporting functions ---------------------------------------------- */
+/* -- Supporting functions ------------------------------------------------- */
 
 static int arc700_init_arch_info(struct target *target,
 	struct arc700_common *arc700, struct jtag_tap *tap)
@@ -45,6 +45,8 @@ static int arc700_init_arch_info(struct target *target,
 
 	return retval;
 }
+
+/* -- Breakpoints ---------------------------------------------------------- */
 
 static int arc700_set_breakpoint(struct target *target,
 		struct breakpoint *breakpoint)
@@ -95,7 +97,7 @@ static int arc700_set_breakpoint(struct target *target,
 			if (retval != ERROR_OK)
 				return retval;
 
-			retval = target_write_u32(target, breakpoint->address, ARC32_OPC_SDBBP);
+			retval = target_write_u32(target, breakpoint->address, ARC32_SDBBP);
 			if (retval != ERROR_OK)
 				return retval;
 
@@ -103,7 +105,7 @@ static int arc700_set_breakpoint(struct target *target,
 
 			if (retval != ERROR_OK)
 				return retval;
-				if (verify != ARC32_OPC_SDBBP) {
+				if (verify != ARC32_SDBBP) {
 				LOG_ERROR("Unable to set 32bit breakpoint at address %08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
@@ -115,14 +117,14 @@ static int arc700_set_breakpoint(struct target *target,
 					breakpoint->orig_instr);
 			if (retval != ERROR_OK)
 				return retval;
-			retval = target_write_u16(target, breakpoint->address, ARC16_OPC_SDBBP);
+			retval = target_write_u16(target, breakpoint->address, ARC16_SDBBP);
 			if (retval != ERROR_OK)
 				return retval;
 
 			retval = target_read_u16(target, breakpoint->address, &verify);
 			if (retval != ERROR_OK)
 				return retval;
-			if (verify != ARC16_OPC_SDBBP) {
+			if (verify != ARC16_SDBBP) {
 				LOG_ERROR("Unable to set 16bit breakpoint at address %08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
@@ -135,23 +137,238 @@ static int arc700_set_breakpoint(struct target *target,
 	return retval;
 }
 
+static int arc700_unset_breakpoint(struct target *target,
+		struct breakpoint *breakpoint)
+{
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc32_comparator *comparator_list = arc32->inst_break_list;
+	int retval;
+
+	if (!breakpoint->set) {
+		LOG_WARNING("breakpoint not set");
+		return ERROR_OK;
+	}
+
+	if (breakpoint->type == BKPT_HARD) {
+		int bp_num = breakpoint->set - 1;
+		if ((bp_num < 0) || (bp_num >= arc32->num_inst_bpoints)) {
+			LOG_DEBUG("Invalid FP Comparator number in breakpoint (bpid: %d)",
+					  breakpoint->unique_id);
+			return ERROR_OK;
+		}
+		LOG_DEBUG("bpid: %d - releasing hw: %d",
+				breakpoint->unique_id,
+				bp_num);
+		comparator_list[bp_num].used = 0;
+		comparator_list[bp_num].bp_value = 0;
+		target_write_u32(target, comparator_list[bp_num].reg_address + 0x18, 0);
+
+	} else {
+		/* restore original instruction (kept in target endianness) */
+		LOG_DEBUG("bpid: %d", breakpoint->unique_id);
+		if (breakpoint->length == 4) {
+			uint32_t current_instr;
+
+			/* check that user program has not modified breakpoint instruction */
+			retval = target_read_memory(target, breakpoint->address, 4, 1,
+					(uint8_t *)&current_instr);
+			if (retval != ERROR_OK)
+				return retval;
+
+			/*
+			 * target_read_memory() gets us data in _target_ endianess.
+			 * If we want to use this data on the host for comparisons with some macros
+			 * we must first transform it to _host_ endianess using target_buffer_get_u32().
+			 */
+			current_instr = target_buffer_get_u32(target, (uint8_t *)&current_instr);
+
+			if (current_instr == ARC32_SDBBP) {
+				retval = target_write_memory(target, breakpoint->address, 4, 1,
+						breakpoint->orig_instr);
+				if (retval != ERROR_OK)
+					return retval;
+			}
+		} else {
+			uint16_t current_instr;
+
+			/* check that user program has not modified breakpoint instruction */
+			retval = target_read_memory(target, breakpoint->address, 2, 1,
+					(uint8_t *)&current_instr);
+			if (retval != ERROR_OK)
+				return retval;
+			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
+			if (current_instr == ARC16_SDBBP) {
+				retval = target_write_memory(target, breakpoint->address, 2, 1,
+						breakpoint->orig_instr);
+				if (retval != ERROR_OK)
+					return retval;
+			}
+		}
+	}
+	breakpoint->set = 0;
+
+	return ERROR_OK;
+}
+
+static void arc700_enable_breakpoints(struct target *target)
+{
+	struct breakpoint *breakpoint = target->breakpoints;
+
+	/* set any pending breakpoints */
+	while (breakpoint) {
+		if (breakpoint->set == 0)
+			arc700_set_breakpoint(target, breakpoint);
+		breakpoint = breakpoint->next;
+	}
+}
+
+/* -- Watchpoints ---------------------------------------------------------- */
+
+static int arc700_set_watchpoint(struct target *target,
+		struct watchpoint *watchpoint)
+{
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc32_comparator *comparator_list = arc32->data_break_list;
+	int wp_num = 0;
+	/*
+	 * watchpoint enabled, ignore all byte lanes in value register
+	 * and exclude both load and store accesses from  watchpoint
+	 * condition evaluation
+	*/
+	int enable = 1;
+	//int enable = EJTAG_DBCn_NOSB | EJTAG_DBCn_NOLB | EJTAG_DBCn_BE |
+		//	(0xff << EJTAG_DBCn_BLM_SHIFT);
+
+	if (watchpoint->set) {
+		LOG_WARNING("watchpoint already set");
+		return ERROR_OK;
+	}
+
+	while (comparator_list[wp_num].used && (wp_num < arc32->num_data_bpoints))
+		wp_num++;
+	if (wp_num >= arc32->num_data_bpoints) {
+		LOG_ERROR("Can not find free FP Comparator");
+		return ERROR_FAIL;
+	}
+
+	if (watchpoint->length != 4) {
+		LOG_ERROR("Only watchpoints of length 4 are supported");
+		return ERROR_TARGET_UNALIGNED_ACCESS;
+	}
+
+	if (watchpoint->address % 4) {
+		LOG_ERROR("Watchpoints address should be word aligned");
+		return ERROR_TARGET_UNALIGNED_ACCESS;
+	}
+#ifdef NEEDS_PORTING
+	switch (watchpoint->rw) {
+		case WPT_READ:
+			enable &= ~EJTAG_DBCn_NOLB;
+			break;
+		case WPT_WRITE:
+			enable &= ~EJTAG_DBCn_NOSB;
+			break;
+		case WPT_ACCESS:
+			enable &= ~(EJTAG_DBCn_NOLB | EJTAG_DBCn_NOSB);
+			break;
+		default:
+			LOG_ERROR("BUG: watchpoint->rw neither read, write nor access");
+	}
+#endif
+	watchpoint->set = wp_num + 1;
+	comparator_list[wp_num].used = 1;
+	comparator_list[wp_num].bp_value = watchpoint->address;
+	target_write_u32(target, comparator_list[wp_num].reg_address, comparator_list[wp_num].bp_value);
+	target_write_u32(target, comparator_list[wp_num].reg_address + 0x08, 0x00000000);
+	target_write_u32(target, comparator_list[wp_num].reg_address + 0x10, 0x00000000);
+	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, enable);
+	target_write_u32(target, comparator_list[wp_num].reg_address + 0x20, 0);
+	LOG_DEBUG("wp_num %i bp_value 0x%" PRIx32 "", wp_num, comparator_list[wp_num].bp_value);
+
+	return ERROR_OK;
+}
+
+static int arc700_unset_watchpoint(struct target *target,
+		struct watchpoint *watchpoint)
+{
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc32_comparator *comparator_list = arc32->data_break_list;
+
+	if (!watchpoint->set) {
+		LOG_WARNING("watchpoint not set");
+		return ERROR_OK;
+	}
+
+	int wp_num = watchpoint->set - 1;
+	if ((wp_num < 0) || (wp_num >= arc32->num_data_bpoints)) {
+		LOG_DEBUG("Invalid FP Comparator number in watchpoint");
+		return ERROR_OK;
+	}
+	comparator_list[wp_num].used = 0;
+	comparator_list[wp_num].bp_value = 0;
+	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, 0);
+	watchpoint->set = 0;
+
+	return ERROR_OK;
+}
+
+static void arc700_enable_watchpoints(struct target *target)
+{
+	struct watchpoint *watchpoint = target->watchpoints;
+
+	/* set any pending watchpoints */
+	while (watchpoint) {
+		if (watchpoint->set == 0)
+			arc700_set_watchpoint(target, watchpoint);
+		watchpoint = watchpoint->next;
+	}
+}
+
+/* -- Walking the code ----------------------------------------------------- */
+
+static int arc700_single_step_core(struct target *target)
+{
+//	struct arc32_common *arc32 = target_to_arc32(target);
+//	struct arc_jtag *jtag_info = &arc32->jtag_info;
+
+	/* configure single step mode */
+	arc32_config_step(target, 1);
+
+	/* disable interrupts while stepping */
+	arc32_enable_interrupts(target, 0);
+
+	/* exit debug mode */
+	arc32_exit_debug(target);
+
+	arc32_debug_entry(target);
+
+	return ERROR_OK;
+}
 
 
 
 
-/* ----- Target command handler functions ---------------------------------- */
 
-int arc700_poll(struct target *target)
+/* ...........................................................................
+ * -- ARC-ELF32-GDB target command handler functions -------------------------
+ * ...........................................................................
+ */
+
+static int arc700_poll(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	/* gdb calls continuously through this arc_poll() function  */
 	LOG_DEBUG(">> Entering <<");
 
 	retval = arc_jtag_status(&arc32->jtag_info, &status);
 	if (retval != ERROR_OK)
 		return retval;
+
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
@@ -191,7 +408,7 @@ int arc700_poll(struct target *target)
 	return retval;
 }
 
-int arc700_target_request_data(struct target *target,
+static int arc700_target_request_data(struct target *target,
 	uint32_t size, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
@@ -199,20 +416,21 @@ int arc700_target_request_data(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
 
 	return retval;
 }
 
-int arc700_halt(struct target *target)
+static int arc700_halt(struct target *target)
 {
 	int retval = ERROR_OK;
 //	struct arc32_common *arc32 = target_to_arc32(target);
 //	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-//	printf("target->state: %s\n", target_state_name(target));
+	printf("target->state: %s\n", target_state_name(target));
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	if (target->state == TARGET_HALTED) {
@@ -238,27 +456,92 @@ int arc700_halt(struct target *target)
 	}
 
 	/* break processor */
-//	mips_ejtag_enter_debug(ejtag_info);
+	arc32_enter_debug(target);
 
 	target->debug_reason = DBG_REASON_DBGRQ;
 
 	return retval;
 }
 
-int arc700_resume(struct target *target, int current,
+static int arc700_resume(struct target *target, int current,
 	uint32_t address, int handle_breakpoints, int debug_execution)
 {
 	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct breakpoint *breakpoint = NULL;
+	uint32_t resume_pc = 0;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (!debug_execution) {
+		target_free_all_working_areas(target);
+		arc700_enable_breakpoints(target);
+		arc700_enable_watchpoints(target);
+	}
+
+	printf(" >> current:%d  address:0x%x  loadaddr:0x%x \n",current,address,
+		buf_get_u32(arc32->core_cache->reg_list[ARC32_PC].value, 0, 32));
+
+	/* current = 1: continue on current pc, otherwise continue at <address> */
+	if (!current) {
+		buf_set_u32(arc32->core_cache->reg_list[ARC32_PC].value, 0, 32, address);
+		arc32->core_cache->reg_list[ARC32_PC].dirty = 1;
+		arc32->core_cache->reg_list[ARC32_PC].valid = 1;
+	}
+
+	if (!current)
+		resume_pc = address;
+	else
+		resume_pc = buf_get_u32(arc32->core_cache->reg_list[ARC32_PC].value, 0, 32);
+
+	printf(" >> RESUMING @: 0x%X ($pc)\n",resume_pc);
+
+	arc32_restore_context(target);
+
+	/* the front-end may request us not to handle breakpoints */
+	if (handle_breakpoints) {
+		/* Single step past breakpoint at current address */
+		breakpoint = breakpoint_find(target, resume_pc);
+		if (breakpoint) {
+			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 "", breakpoint->address);
+			arc700_unset_breakpoint(target, breakpoint);
+			arc700_single_step_core(target);
+			arc700_set_breakpoint(target, breakpoint);
+		}
+	}
+
+	/* enable interrupts if we are running */
+	arc32_enable_interrupts(target, !debug_execution);
+
+	/* exit debug mode */
+	arc32_exit_debug(target);
+	target->debug_reason = DBG_REASON_NOTHALTED;
+
+	/* registers are now invalid */
+	register_cache_invalidate(arc32->core_cache);
+
+	if (!debug_execution) {
+		target->state = TARGET_RUNNING;
+		target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
+		printf("target resumes at 0x%" PRIx32 " (@:%d)\n", resume_pc,__LINE__);
+		LOG_DEBUG("target resumed at 0x%" PRIx32 "", resume_pc);
+	} else {
+		target->state = TARGET_DEBUG_RUNNING;
+		target_call_event_callbacks(target, TARGET_EVENT_DEBUG_RESUMED);
+		printf("target debug resumes at 0x%" PRIx32 " (@:%d)\n", resume_pc,__LINE__);
+		LOG_DEBUG("target debug resumed at 0x%" PRIx32 "", resume_pc);
+	}
 
 	return retval;
 }
 
-int arc700_step(struct target *target, int current,
+static int arc700_step(struct target *target, int current,
 	uint32_t address, int handle_breakpoints)
 {
 	int retval = ERROR_OK;
@@ -266,17 +549,67 @@ int arc700_step(struct target *target, int current,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct breakpoint *breakpoint = NULL;
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	/* current = 1: continue on current pc, otherwise continue at <address> */
+	if (!current) {
+		buf_set_u32(arc32->core_cache->reg_list[ARC32_PC].value, 0, 32, address);
+		arc32->core_cache->reg_list[ARC32_PC].dirty = 1;
+		arc32->core_cache->reg_list[ARC32_PC].valid = 1;
+	}
+
+	/* the front-end may request us not to handle breakpoints */
+	if (handle_breakpoints) {
+		breakpoint = breakpoint_find(target,
+				buf_get_u32(arc32->core_cache->reg_list[ARC32_PC].value, 0, 32));
+		if (breakpoint)
+			arc700_unset_breakpoint(target, breakpoint);
+	}
+
+	/* restore context */
+	arc32_restore_context(target);
+
+	/* configure single step mode */
+	arc32_config_step(target, 1);
+
+	target->debug_reason = DBG_REASON_SINGLESTEP;
+
+	target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
+
+	/* disable interrupts while stepping */
+	arc32_enable_interrupts(target, 0);
+
+	/* exit debug mode */
+	arc32_exit_debug(target);
+
+	/* registers are now invalid */
+	register_cache_invalidate(arc32->core_cache);
+
+	if (breakpoint)
+		arc700_set_breakpoint(target, breakpoint);
+
+	LOG_DEBUG("target stepped ");
+
+	arc32_debug_entry(target);
+	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
 	return retval;
 }
 
-int arc700_assert_reset(struct target *target)
+static int arc700_assert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 //	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
@@ -337,10 +670,11 @@ int arc700_assert_reset(struct target *target)
 	return retval;
 }
 
-int arc700_deassert_reset(struct target *target)
+static int arc700_deassert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
@@ -351,29 +685,42 @@ int arc700_deassert_reset(struct target *target)
 	return retval;
 }
 
-int arc700_soft_reset_halt(struct target *target)
+static int arc700_soft_reset_halt(struct target *target)
 {
 	int retval = ERROR_OK;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	/*
+	 * A jump to the Reset vector, a soft reset, will not pre-set any
+	 * of the internal states of the ARCompact based processor.
+	 */
+
 	printf(" !! @ software to do so :-) !!\n");
+
+	printf("\n CALL INTO TEST PROCEDURES FOR NOW !! \n\n");
+	arc_ocd_start_test(jtag_info,0,0);
 
 	return retval;
 }
 
-int arc700_read_memory(struct target *target, uint32_t address,
+static int arc700_read_memory(struct target *target, uint32_t address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 //	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-//	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
-//		", count: 0x%8.8" PRIx32 "\n", address, size, count);
+#ifdef DEBUG
+	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
+		", count: 0x%8.8" PRIx32 "\n", address, size, count);
+#endif
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
 		", count: 0x%8.8" PRIx32 "", address, size, count);
 
@@ -407,7 +754,7 @@ int arc700_read_memory(struct target *target, uint32_t address,
 	/* if noDMA off, use DMAACC mode for memory read */
 
 //	if (jtag_info->impcode & JTAG_IMP_NODMA)
-		retval = arc32_pracc_read_mem(&arc32->jtag_info, address, size,
+		retval = arc32_read_mem_block(&arc32->jtag_info, address, size,
 			count, tunnel);
 //	else
 //		retval = arc32_dmaacc_read_mem(jtag_info, address, size,
@@ -442,13 +789,14 @@ int arc700_read_memory(struct target *target, uint32_t address,
 	return retval;
 }
 
-int arc700_write_memory(struct target *target, uint32_t address,
+static int arc700_write_memory(struct target *target, uint32_t address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	printf("start writing @ address: 0x%8.8" PRIx32 " : %d bytes\n",
@@ -501,7 +849,7 @@ int arc700_write_memory(struct target *target, uint32_t address,
 	 * else, do direct memory transfer
 	 */
 	//if (jtag_info->dma_transfer & JTAG_IMP_NODMA)
-		retval = arc32_pracc_write_mem(jtag_info, address, size, count,
+		retval = arc32_write_mem_block(jtag_info, address, size, count,
 			(void *)buffer);
 	//else
 		//retval = arc32_dmaacc_write_mem(jtag_info, address, size, count,
@@ -513,15 +861,17 @@ int arc700_write_memory(struct target *target, uint32_t address,
 	return retval;
 }
 
-int arc700_bulk_write_memory(struct target *target, uint32_t address,
+static int arc700_bulk_write_memory(struct target *target, uint32_t address,
 	uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
+	printf("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "\n", address, count);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
 
 	if (target->state != TARGET_HALTED) {
@@ -580,8 +930,6 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 #endif
 	//retval = arc700_write_memory(target, address, 4, count, (uint8_t *)tunnel);
 	retval = arc_jtag_write_block(jtag_info, address, 4, count, (uint32_t *)tunnel);
-	/* end of progress indication ... */
-	printf("Done with download.\n");
 
 	if (tunnel != NULL)
 		free(tunnel);
@@ -595,7 +943,7 @@ int arc700_bulk_write_memory(struct target *target, uint32_t address,
 	return retval;
 }
 
-int arc700_checksum_memory(struct target *target,
+static int arc700_checksum_memory(struct target *target,
 	uint32_t address, uint32_t count, uint32_t *checksum)
 {
 	int retval = ERROR_OK;
@@ -608,7 +956,7 @@ int arc700_checksum_memory(struct target *target,
 	return retval;
 }
 
-int arc700_blank_check_memory(struct target *target,
+static int arc700_blank_check_memory(struct target *target,
 	uint32_t address, uint32_t count, uint32_t *blank)
 {
 	int retval = ERROR_OK;
@@ -621,7 +969,7 @@ int arc700_blank_check_memory(struct target *target,
 	return retval;
 }
 
-int arc700_run_algorithm(struct target *target,
+static int arc700_run_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t entry_point, uint32_t exit_point,
@@ -632,12 +980,12 @@ int arc700_run_algorithm(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
 
 	return retval;
 }
 
-int arc700_start_algorithm(struct target *target,
+static int arc700_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t entry_point, uint32_t exit_point,
@@ -648,12 +996,12 @@ int arc700_start_algorithm(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
 
 	return retval;
 }
 
-int arc700_wait_algorithm(struct target *target,
+static int arc700_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
 	uint32_t exit_point, int timeout_ms,
@@ -664,15 +1012,13 @@ int arc700_wait_algorithm(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
 
 	return retval;
 }
 
-int arc700_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
+static int arc700_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
-
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
@@ -691,7 +1037,7 @@ int arc700_add_breakpoint(struct target *target, struct breakpoint *breakpoint)
 	return arc700_set_breakpoint(target, breakpoint);
 }
 
-int arc700_remove_breakpoint(struct target *target,
+static int arc700_remove_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
 	int retval = ERROR_OK;
@@ -699,24 +1045,46 @@ int arc700_remove_breakpoint(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (breakpoint->set)
+		arc700_unset_breakpoint(target, breakpoint);
+
+	if (breakpoint->type == BKPT_HARD)
+		arc32->num_inst_bpoints_avail++;
 
 	return retval;
 }
 
-int arc700_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
+static int arc700_add_watchpoint(struct target *target, struct watchpoint *watchpoint)
 {
 	int retval = ERROR_OK;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	if (arc32->num_data_bpoints_avail < 1) {
+		printf("no hardware watchpoints available\n");
+		LOG_INFO("no hardware watchpoints available");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
+	arc32->num_data_bpoints_avail--;
+
+	arc700_set_watchpoint(target, watchpoint);
 
 	return retval;
 }
 
-int arc700_remove_watchpoint(struct target *target,
+static int arc700_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
 	int retval = ERROR_OK;
@@ -724,15 +1092,27 @@ int arc700_remove_watchpoint(struct target *target,
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (watchpoint->set)
+		arc700_unset_watchpoint(target, watchpoint);
+
+	arc32->num_data_bpoints_avail++;
 
 	return retval;
 }
 
-int arc700_target_create(struct target *target, Jim_Interp *interp)
+static int arc700_target_create(struct target *target, Jim_Interp *interp)
 {
 	int retval = ERROR_OK;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc700_common *arc700 = calloc(1, sizeof(struct arc700_common));
@@ -742,11 +1122,12 @@ int arc700_target_create(struct target *target, Jim_Interp *interp)
 	return retval;
 }
 
-int arc700_init_target(struct command_context *cmd_ctx,
+static int arc700_init_target(struct command_context *cmd_ctx,
 	struct target *target)
 {
 	int retval = ERROR_OK;
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	arc32_build_reg_cache(target);
@@ -754,12 +1135,13 @@ int arc700_init_target(struct command_context *cmd_ctx,
 	return retval;
 }
 
-int arc700_examine(struct target *target)
+static int arc700_examine(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t value, status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	retval = arc_jtag_startup(&arc32->jtag_info);
@@ -896,7 +1278,7 @@ struct target_type arc700_target = {
 	.poll =	arc700_poll,
 	.arch_state = arc32_arch_state,
 
-	.target_request_data = arc700_target_request_data,
+	.target_request_data = arc700_target_request_data, /* NOT supported */
 
 	.halt = arc700_halt,
 	.resume = arc700_resume,
@@ -906,7 +1288,7 @@ struct target_type arc700_target = {
 	.deassert_reset = arc700_deassert_reset,
 	.soft_reset_halt = arc700_soft_reset_halt,
 
-	.get_gdb_reg_list = (int)arc32_get_gdb_reg_list,
+	.get_gdb_reg_list = arc32_get_gdb_reg_list,
 
 	.read_memory = arc700_read_memory,
 	.write_memory = arc700_write_memory,
@@ -914,9 +1296,9 @@ struct target_type arc700_target = {
 	.checksum_memory = arc700_checksum_memory,
 	.blank_check_memory = arc700_blank_check_memory,
 
-	.run_algorithm = arc700_run_algorithm,
-	.start_algorithm = arc700_start_algorithm,
-	.wait_algorithm = arc700_wait_algorithm,
+	.run_algorithm = arc700_run_algorithm, /* NOT supported */
+	.start_algorithm = arc700_start_algorithm, /* NOT supported */
+	.wait_algorithm = arc700_wait_algorithm, /* NOT supported */
 
 	.add_breakpoint = arc700_add_breakpoint,
 	.remove_breakpoint = arc700_remove_breakpoint,
