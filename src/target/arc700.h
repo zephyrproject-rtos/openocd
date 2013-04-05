@@ -8,12 +8,12 @@
  *   Maintainer: frank.dols@synopsys.com
  */
 
-#ifndef ARC_700_H
-#define ARC_700_H
+#ifndef ARC700_H
+#define ARC700_H
 
-#include "target.h"
-#include "arc32.h"
-#include "arc_jtag.h"
+//#include "target.h"
+//#include "arc32.h"
+//#include "arc_jtag.h"
 
 
 #define ARC700_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
