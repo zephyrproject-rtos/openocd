@@ -11,9 +11,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "target.h"
 
-#include "arc_jtag.h"
+#include "arc.h"
+
 
 
 /* ----- Supporting functions ---------------------------------------------- */
@@ -279,9 +279,6 @@ int arc_jtag_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t i;
 
 	LOG_DEBUG(">> Entering <<");
-
-	/* give us progress indication ... */
-	printf(".");
 
 	assert(size <= 4); /* 4 = 32bits */
 
