@@ -8,10 +8,8 @@
  *   Maintainer: frank.dols@synopsys.com
  */
 
-#ifndef ARC_JTAG
-#define ARC_JTAG
-
-#include <jtag/jtag.h>
+#ifndef ARC_JTAG_H
+#define ARC_JTAG_H
 
 
 /* JTAG TAP instructions = IEEE 1149.1 */
@@ -96,4 +94,4 @@ int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value);
 
 int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits);
 
-#endif /* ARC_JTAG */
+#endif /* ARC_JTAG_H */
