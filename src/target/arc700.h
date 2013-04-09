@@ -11,10 +11,6 @@
 #ifndef ARC700_H
 #define ARC700_H
 
-//#include "target.h"
-//#include "arc32.h"
-//#include "arc_jtag.h"
-
 
 #define ARC700_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 #define ARC700_NUM_REGS		32
