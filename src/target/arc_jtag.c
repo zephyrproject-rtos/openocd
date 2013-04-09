@@ -23,14 +23,18 @@ static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
 	int retval = ERROR_OK;
 	struct jtag_tap *tap;
 
+#ifdef DEBUG
 	LOG_DEBUG("  >>> Calling into <<<");
+#endif
 
 	tap = jtag_info->tap;
 	if (tap == NULL)
 		return ERROR_FAIL;
 
+#ifdef DEBUG
 	LOG_INFO(" cur_instr: 0x%x new_instr: 0x%x",
 		buf_get_u32(tap->cur_instr, 0, tap->ir_length), new_instr);
+#endif
 
 	if (buf_get_u32(tap->cur_instr, 0, tap->ir_length) != (uint32_t)new_instr) {
 		struct scan_field field;
@@ -47,8 +51,10 @@ static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
 		if (jtag_execute_queue() != ERROR_OK) {
 			LOG_ERROR("%s: setting new instruction failed", __func__);
 			return ERROR_FAIL;
+#ifdef DEBUG
 		} else {
 			LOG_INFO(" set JTAG instruction: 0x%x", new_instr);
+#endif
 		}
 	}
 
@@ -60,18 +66,22 @@ static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, int new_trans)
 	int retval = ERROR_OK;
 	struct jtag_tap *tap;
 
+#ifdef DEBUG
 	LOG_DEBUG("  >>> Calling into <<<");
+#endif
 
 	tap = jtag_info->tap;
 	if (tap == NULL)
 		return ERROR_FAIL;
 
+#ifdef DEBUG
 	LOG_INFO(" in:  cur_trans: 0x%x new_trans: 0x%x",
 		jtag_info->cur_trans,new_trans);
+#endif
 
 	if (jtag_info->cur_trans != (uint32_t)new_trans) {
 		struct scan_field field[1];
-		uint8_t trans[4];
+		uint8_t trans[4] = {0};
 		uint8_t ret[4];
 
 		field[0].num_bits = 4;
@@ -85,7 +95,9 @@ static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, int new_trans)
 			LOG_ERROR("%s: setting new transaction failed", __func__);
 			return ERROR_FAIL;
 		} else {
+#ifdef DEBUG
 			LOG_INFO(" set JTAG transaction: 0x%x\n", new_trans);
+#endif
 			jtag_info->cur_trans = new_trans;
 		}
 	}
@@ -99,7 +111,9 @@ static int arc_jtag_read_data(struct arc_jtag *jtag_info, uint32_t *pdata)
 	struct scan_field fields[1];
 	uint8_t data_buf[4];
 
+#ifdef DEBUG
 	LOG_DEBUG("  >>> Calling into <<<");
+#endif
 
 	memset(data_buf, 0, sizeof(data_buf));
 
@@ -125,7 +139,9 @@ static int arc_jtag_write_data(struct arc_jtag *jtag_info,	uint32_t data)
 	struct scan_field fields[1];
 	uint8_t data_buf[4];
 
+#ifdef DEBUG
 	LOG_DEBUG("  >>> Calling into <<<");
+#endif
 
 	memset(data_buf, 0, sizeof(data_buf));
 
@@ -166,7 +182,9 @@ int arc_jtag_startup(struct arc_jtag *jtag_info)
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	jtag_info->tap_end_state = TAP_IDLE;
 
@@ -206,7 +224,9 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -235,7 +255,9 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -278,7 +300,9 @@ int arc_jtag_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 	int retval = ERROR_OK;
 	uint32_t i;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	assert(size <= 4); /* 4 = 32bits */
 
@@ -323,7 +347,9 @@ int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -352,7 +378,9 @@ int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -381,7 +409,9 @@ int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -410,7 +440,9 @@ int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -438,7 +470,9 @@ int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value)
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -451,7 +485,9 @@ int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value)
 	if (retval != ERROR_OK)
 		return retval;
 
+#ifdef DEBUG
 	LOG_INFO(" JTAG status: 0x%x",*value);
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -462,7 +498,9 @@ int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value)
 {
 	int retval = ERROR_OK;
 
+#ifdef DEBUG
 	LOG_DEBUG(">> Entering <<");
+#endif
 
 	arc_jtag_transaction_reset(jtag_info);
 
@@ -510,7 +548,8 @@ int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 #define SET_CORE_LOAD_PENDING			(1 << 31)
 
 
-	LOG_DEBUG(">> Entering <<");
+	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
+
 	printf("\n >> Start our tests: <<\n\n");
 
 	printf("\t...\n");
