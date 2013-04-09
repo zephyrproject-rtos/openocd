@@ -131,11 +131,6 @@ int arc32_arch_state(struct target *target);
 int arc32_get_current_pc(struct target *target);
 
 
-int arc32_read_mem_block(struct arc_jtag *jtag_info, uint32_t addr, int size,
-	int count, void *buf);
-int arc32_write_mem_block(struct arc_jtag *jtag_info, uint32_t addr, int size,
-	int count, void *buf);
-
 
 
 
