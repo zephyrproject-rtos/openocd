@@ -14,11 +14,6 @@
 
 #include "arc.h"
 
-
-
-
-
-
 static int PRINT = 1;
 
 
@@ -350,16 +345,16 @@ static int arc700_single_step_core(struct target *target)
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	/* configure single step mode */
-	arc32_config_step(target, 1);
+	arc32_debug_entry(target);
 
 	/* disable interrupts while stepping */
 	arc32_enable_interrupts(target, 0);
 
+	/* configure single step mode */
+	arc32_config_step(target, 1);
+
 	/* exit debug mode */
 	arc32_exit_debug(target);
-
-	arc32_debug_entry(target);
 
 	return ERROR_OK;
 }
@@ -388,12 +383,9 @@ static int arc700_poll(struct target *target)
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
-		printf("target is still running !!\n");
+		printf(" >> target is still running !!\n");
 		target->state = TARGET_RUNNING;
 	} else {
-		/* get our current PC */
-		//arc32_get_current_pc(target);
-
 		if ((target->state == TARGET_RUNNING) ||
 			(target->state == TARGET_RESET)) {
 
@@ -404,8 +396,6 @@ static int arc700_poll(struct target *target)
 			if (retval != ERROR_OK)
 				return retval;
 
-		/* get our current PC */
-		//arc32_get_current_pc(target);
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		} else if (target->state == TARGET_DEBUG_RUNNING) {
 
@@ -416,11 +406,9 @@ static int arc700_poll(struct target *target)
 			if (retval != ERROR_OK)
 				return retval;
 
-		/* get our current PC */
-		//arc32_get_current_pc(target);
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		} else {
-			if (PRINT) {
+			if (PRINT == 1) {
 				LOG_USER("OpenOCD for ARC is ready to accept:"
 					" (gdb) target remote <host ip address>:3333");
 				PRINT = 0;
@@ -428,54 +416,6 @@ static int arc700_poll(struct target *target)
 		}
 	}
 
-
-#ifdef FF_NU_NIET
-	/* check for processor execution state */
-	if (status & ARC_JTAG_STAT_RU) {
-		printf("target is still running !!\n");
-		target->state = TARGET_RUNNING;
-	} else {
-		/* get our current PC */
-//		arc32_get_current_pc(target);
-
-		if ((target->state == TARGET_HALTED) ||
-			(target->state == TARGET_RESET)) {
-
-			target->state = TARGET_HALTED;
-			LOG_DEBUG("ARC core is halted or in reset.");
-
-			retval = arc32_debug_entry(target);
-			if (retval != ERROR_OK)
-				return retval;
-//printf(">> @:%d\n",__LINE__);
-
-			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-		} else if (target->state == TARGET_DEBUG_RUNNING) {
-
-			target->state = TARGET_HALTED;
-			LOG_DEBUG("ARC core is in debug running.");
-
-			retval = arc32_debug_entry(target);
-			if (retval != ERROR_OK)
-				return retval;
-
-//printf(">> @:%d\n",__LINE__);
-			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-		} else if (target->state == TARGET_RUNNING) {
-
-			LOG_DEBUG("ARC core is running.");
-
-//printf(">> @:%d\n",__LINE__);
-			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
-		} else {
-			if (PRINT) {
-				LOG_USER("OpenOCD for ARC is ready to accept:"
-					" (gdb) target extended-remote <host ip address>:3333");
-				PRINT = 0; /* due to endless looping through ;-) */
-			}
-		}
-	}
-#endif
 	return retval;
 }
 
@@ -496,10 +436,8 @@ static int arc700_halt(struct target *target)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf("target->state: %s\n", target_state_name(target));
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	if (target->state == TARGET_HALTED) {
@@ -541,9 +479,10 @@ static int arc700_resume(struct target *target, int current,
 	uint32_t resume_pc = 0;
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
-	printf("     current:%d, address:%d, handle_breakpoints:%d, debug_execution:%d\n",
-		current, address, handle_breakpoints, debug_execution);
 	LOG_DEBUG(">> Entering <<");
+	LOG_DEBUG("     current:%d, address:%d, handle_breakpoints:%d,"
+		" debug_execution:%d\n", current, address, handle_breakpoints,
+		debug_execution);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -552,16 +491,11 @@ static int arc700_resume(struct target *target, int current,
 
 	if (!debug_execution) {
 		/* (gdb) continue = execute until we hit break/watch-point */
-	printf(" -> debug_exeuction(@:%d)\n", __LINE__);
+		LOG_DEBUG(" -> we are in debug exeuction mode @ln:%d\n", __LINE__);
 		target_free_all_working_areas(target);
 		arc700_enable_breakpoints(target);
 		arc700_enable_watchpoints(target);
 	}
-
-	printf(" >> current:%d  loadaddr:0x%x  reg-cache PCL:0x%x  reg-cache PC:0x%x \n",
-		current,address,
-		buf_get_u32(arc32->core_cache->reg_list[PCL_REG].value, 0, 32),
-		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
 
 	/* current = 1: continue on current PC, otherwise continue at <address> */
 	if (!current) {
@@ -574,20 +508,36 @@ static int arc700_resume(struct target *target, int current,
 	if (!current)
 		resume_pc = address;
 	else
-		resume_pc = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
-
-	printf(" >> RESUMING @: 0x%X ($PC)\n",resume_pc);
+		resume_pc = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value,
+			0, 32);
 
 	arc32_restore_context(target);
+
+	LOG_DEBUG(" >> RESUMING @: 0x%X ($PC)\n",resume_pc);
+	LOG_DEBUG("         dirty:%d  valid: %d\n",
+		arc32->core_cache->reg_list[PC_REG].dirty,
+		arc32->core_cache->reg_list[PC_REG].valid);
+	
+	/* check if GDB tells to set our PC where to continue from */
+	if ((arc32->core_cache->reg_list[PC_REG].valid == 1) &&
+		(resume_pc == buf_get_u32(arc32->core_cache->reg_list[PC_REG].value,
+			0, 32))) {
+
+		uint32_t value;
+		value = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
+		LOG_DEBUG("resume Core (when start-core) with PC @:0x%x\n",value);
+		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
+	}
 
 	/* the front-end may request us not to handle breakpoints */
 	if (handle_breakpoints) {
 		/* Single step past breakpoint at current address */
 		breakpoint = breakpoint_find(target, resume_pc);
 		if (breakpoint) {
-			printf(" >> unset breakpoint at 0x%8.8" PRIx32 "\n", breakpoint->address);
-			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 "", breakpoint->address);
+			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 "",
+				breakpoint->address);
 			arc700_unset_breakpoint(target, breakpoint);
+		printf(" %% ping pong pang %% %s @ %d\n",__FILE__,__LINE__);
 			arc700_single_step_core(target);
 			arc700_set_breakpoint(target, breakpoint);
 		}
@@ -600,11 +550,18 @@ static int arc700_resume(struct target *target, int current,
 	arc32_exit_debug(target);
 	target->debug_reason = DBG_REASON_NOTHALTED;
 
+	arc32_print_core_state(target);
+
+	/* ready to get us going again */
+	arc32_start_core(target);
+
+	/* wait until we are halted again */
+	arc32_wait_until_core_is_halted(target);
+
 	/* registers are now invalid */
 	register_cache_invalidate(arc32->core_cache);
 
 	if (!debug_execution) {
-		printf(" -> debug_exeuction(@:%d)\n", __LINE__);
 		target->state = TARGET_RUNNING;
 		target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
 		printf("target resumes at 0x%" PRIx32 " (@:%d)\n", resume_pc,__LINE__);
@@ -615,9 +572,6 @@ static int arc700_resume(struct target *target, int current,
 		printf("target debug resumes at 0x%" PRIx32 " (@:%d)\n", resume_pc,__LINE__);
 		LOG_DEBUG("target debug resumed at 0x%" PRIx32 "", resume_pc);
 	}
-
-	/* ready to get us going again */
-	arc32_start_core(target);
 
 	return retval;
 }
@@ -639,12 +593,6 @@ static int arc700_step(struct target *target, int current,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	printf(" >> current:%d  loadaddr:0x%x  reg-cache PCL:0x%x  reg-cache PC:0x%x \n",
-		current,address,
-		buf_get_u32(arc32->core_cache->reg_list[PCL_REG].value, 0, 32),
-		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
-
-
 	/* current = 1: continue on current pc, otherwise continue at <address> */
 	if (!current) {
 		buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, address);
@@ -663,9 +611,6 @@ static int arc700_step(struct target *target, int current,
 	/* restore context */
 	arc32_restore_context(target);
 
-	/* configure single step mode */
-//	arc32_config_step(target, 1);
-
 	target->debug_reason = DBG_REASON_SINGLESTEP;
 
 	target_call_event_callbacks(target, TARGET_EVENT_RESUMED);
@@ -674,9 +619,15 @@ static int arc700_step(struct target *target, int current,
 	arc32_enable_interrupts(target, 0);
 
 	/* exit debug mode */
-	//arc32_exit_debug(target); // this manipulates our PC !!
+	arc32_exit_debug(target);
 
-arc32_config_step(target, 1);
+	arc32_print_core_state(target);
+
+	/* do a single step */
+	arc32_config_step(target, 1);
+
+	/* make sure we done our step */
+	sleep(1);
 
 	/* registers are now invalid */
 	register_cache_invalidate(arc32->core_cache);
@@ -689,9 +640,6 @@ arc32_config_step(target, 1);
 	arc32_debug_entry(target);
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
-	/* !! check where to do exactly, ready to get us going again */
-	//arc32_start_core(target);
-
 	return retval;
 }
 
@@ -699,9 +647,7 @@ static int arc700_assert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
-//	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
@@ -719,36 +665,12 @@ static int arc700_assert_reset(struct target *target)
 		srst_asserted = true;
 	}
 
-//	if (target->reset_halt) {
-		/* use hardware to catch reset */
-//		mips_ejtag_set_instr(ejtag_info, EJTAG_INST_EJTAGBOOT);
-//	} else
-//		mips_ejtag_set_instr(ejtag_info, EJTAG_INST_NORMALBOOT);
-
 	if (jtag_reset_config & RESET_HAS_SRST) {
-		/* here we should issue a srst only, but we may have to assert trst as well */
+		/* should issue a srst only, but we may have to assert trst as well */
 		if (jtag_reset_config & RESET_SRST_PULLS_TRST)
 			jtag_add_reset(1, 1);
 		else if (!srst_asserted)
 			jtag_add_reset(0, 1);
-//	} else {
-//		if (mips_m4k->is_pic32mx) {
-//			LOG_DEBUG("Using MTAP reset to reset processor...");
-
-			/* use microchip specific MTAP reset */
-//			mips_ejtag_set_instr(ejtag_info, MTAP_SW_MTAP);
-//			mips_ejtag_set_instr(ejtag_info, MTAP_COMMAND);
-
-//			mips_ejtag_drscan_8_out(ejtag_info, MCHP_ASERT_RST);
-//			mips_ejtag_drscan_8_out(ejtag_info, MCHP_DE_ASSERT_RST);
-//			mips_ejtag_set_instr(ejtag_info, MTAP_SW_ETAP);
-//		} else {
-			/* use ejtag reset - not supported by all cores */
-//			uint32_t ejtag_ctrl = ejtag_info->ejtag_ctrl | EJTAG_CTRL_PRRST | EJTAG_CTRL_PERRST;
-//			LOG_DEBUG("Using EJTAG reset (PRRST) to reset processor...");
-//			mips_ejtag_set_instr(ejtag_info, EJTAG_INST_CONTROL);
-//			mips_ejtag_drscan_32_out(ejtag_info, ejtag_ctrl);
-//		}
 	}
 
 	target->state = TARGET_RESET;
@@ -766,7 +688,6 @@ static int arc700_deassert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
@@ -1209,7 +1130,6 @@ static int arc700_target_create(struct target *target, Jim_Interp *interp)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc700_common *arc700 = calloc(1, sizeof(struct arc700_common));
@@ -1224,7 +1144,6 @@ static int arc700_init_target(struct command_context *cmd_ctx,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	arc_regs_build_reg_cache(target);
@@ -1238,7 +1157,6 @@ static int arc700_examine(struct target *target)
 	uint32_t value, status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	retval = arc_jtag_startup(&arc32->jtag_info);
@@ -1253,11 +1171,11 @@ static int arc700_examine(struct target *target)
 
 		/* bring processor into HALT */
 		printf("bring ARC core into HALT state.\n");
-		//value = SET_CORE_FORCE_HALT;
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value |= SET_CORE_FORCE_HALT;
 		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		sleep(2); /* just give us once some time */
+		sleep(1); /* just give us once some time to come to rest */
+
 		arc_jtag_status(&arc32->jtag_info, &status);
 		printf("JTAG status: 0x%x\n", status);
 
