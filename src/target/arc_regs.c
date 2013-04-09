@@ -123,19 +123,18 @@ static const struct reg_arch_type arc32_reg_type = {
 
 struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 {
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
+	int num_regs = ARC32_NUM_GDB_REGS;
+	int i;
+
 	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
-
-	int num_regs = ARC32_NUM_GDB_REGS;
 	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
 	struct reg_cache *cache = malloc(sizeof(struct reg_cache));
 	struct reg *reg_list = malloc(sizeof(struct reg) * num_regs);
 	struct arc32_core_reg *arch_info = 
 		malloc(sizeof(struct arc32_core_reg) * num_regs);
-	int i;
 
 	/* Build the process context cache */
 	cache->name = "arc32 registers";
@@ -166,7 +165,6 @@ int arc_regs_read_core_reg(struct target *target, int num)
 	int retval = ERROR_OK;
 	uint32_t reg_value;
 
-//	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG("  >>> Calling into <<<");
 
 	/* get pointers to arch-specific information */
@@ -189,7 +187,6 @@ int arc_regs_write_core_reg(struct target *target, int num)
 	int retval = ERROR_OK;
 	uint32_t reg_value;
 
-//	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG("  >>> Calling into <<<");
 
 	/* get pointers to arch-specific information */
@@ -211,9 +208,7 @@ int arc_regs_read_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 {
 	int retval = ERROR_OK;
 	int i;
-	uint32_t value, buffer;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/*
@@ -258,13 +253,6 @@ int arc_regs_read_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
 
-	arc_jtag_read_core_reg(jtag_info, PCL_REG, &value);
-	printf("\n ==>  PCL: 0x%x (@:%d)\n",value,__LINE__);
-	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
-	printf(" ==>  PC: 0x%x (@:%d)\n",value,__LINE__);
-	arc_jtag_read_memory(jtag_info, value, &buffer);
-	printf("   read:  0x%x @: 0x%x\n\n", buffer, value);
-
 	return retval;
 }
 
@@ -272,9 +260,7 @@ int arc_regs_write_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 {
 	int retval = ERROR_OK;
 	int i;
-	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/*
@@ -310,11 +296,6 @@ int arc_regs_write_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
 	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
 
-	arc_jtag_read_core_reg(jtag_info, PCL_REG, &value);
-	printf("\n ==>  PCL: 0x%x (@:%d)\n",value,__LINE__);
-	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
-	printf(" ==>  PC: 0x%x (@:%d)\n\n",value,__LINE__);
-
 	return retval;
 }
 
@@ -327,21 +308,19 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 {
 	int retval = ERROR_OK;
 	int i;
+
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
-	printf(" \n\n  back-and-forward between GDB and OpenOCD\n\n\n");
+	printf("\n  GDB <=regs=> OpenOCD.\n\n");
 	LOG_DEBUG(">> Entering <<");
 
-	/* get pointers to arch-specific information */
+	/* get pointers to arch-specific information storage */
 	*reg_list_size = ARC32_NUM_GDB_REGS;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
 	/* build the ARC core reg list */
 	for (i = 0; i < ARC32_NUM_GDB_REGS; i++)
 		(*reg_list)[i] = &arc32->core_cache->reg_list[i];
-
-	arc32_print_debug_state(target);
 
 	return retval;
 }
