@@ -118,9 +118,11 @@ int arc32_config_step(struct target *target, int enable_step);
 
 int arc32_cache_invalidate(struct target *target);
 
+int arc32_wait_until_core_is_halted(struct target *target);
 
 
-int arc32_print_debug_state(struct target *target);
+
+int arc32_print_core_state(struct target *target);
 
 
 
