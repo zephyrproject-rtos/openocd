@@ -149,9 +149,14 @@ ESIRISC_SRC = \
 
 ARC32_SRC = \
 	%D%/arc32.c \
+	%D%/arc_core.c \
+	%D%/arc_dbg.c \
 	%D%/arc_jtag.c \
+	%D%/arc_mem.c \
 	%D%/arc_mntr.c \
+	%D%/arc_ocd.c \
 	%D%/arc_regs.c \
+	%D%/arc_trgt.c \
 	%D%/arc700.c
 
 %C%_libtarget_la_SOURCES += \
