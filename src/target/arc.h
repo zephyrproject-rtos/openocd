@@ -24,9 +24,14 @@
 
 #include "arc32.h"
 #include "arc700.h"
+#include "arc_core.h"
+#include "arc_dbg.h"
 #include "arc_jtag.h"
+#include "arc_mem.h"
 #include "arc_mntr.h"
+#include "arc_ocd.h"
 #include "arc_regs.h"
+#include "arc_trgt.h"
 
 
 
