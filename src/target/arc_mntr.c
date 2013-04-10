@@ -288,7 +288,7 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.handler = handle_set_pc_command,
 		.mode = COMMAND_EXEC,
 		.usage = "has one argument: <value>",
-		.help = "modify the core program counter (PC) register",
+		.help = "modify the ARC core program counter (PC) register",
 	},
 	{
 		.name = "read-core-reg",
@@ -336,8 +336,8 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.name = "test-gdb",
 		.handler = handle_test_gdb_command,
 		.mode = COMMAND_EXEC,
-		.help = "display/fix current core gdb tests",
 		.usage = "",
+		.help = "runs current core gdb tests",
 	},
 	COMMAND_REGISTRATION_DONE
 };
