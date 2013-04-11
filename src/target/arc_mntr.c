@@ -196,6 +196,64 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 	return retval;
 }
 
+COMMAND_HANDLER(handle_read_mem_word_command)
+{
+	int retval = ERROR_OK;
+	uint32_t mem_addr, value;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	struct target_list *head;
+	head = target->head;
+
+	if (head == (struct target_list *)NULL) {
+
+		if (CMD_ARGC >= 1) {
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
+			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, mem_addr);
+			arc_jtag_read_memory(&arc32->jtag_info, mem_addr, &value);
+			LOG_USER("mem addr: 0x%x contains: 0x%x", mem_addr, value);
+		} else
+			LOG_USER(" > missing memory address to read.");
+	} else
+		LOG_USER(" > head list is not NULL !");
+
+	return retval;
+}
+
+COMMAND_HANDLER(handle_write_mem_word_command)
+{
+	int retval = ERROR_OK;
+	uint32_t mem_addr, value;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	struct target_list *head;
+	head = target->head;
+
+	if (head == (struct target_list *)NULL) {
+
+		if (CMD_ARGC >= 2) {
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
+			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, mem_addr);
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
+			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, value);
+			arc_jtag_write_memory(&arc32->jtag_info, mem_addr, &value);
+			LOG_DEBUG("mem addr: 0x%x contains: 0x%x", mem_addr, value);
+		} else
+			LOG_USER(" > missing memory address or value to write.");
+	} else
+		LOG_USER(" > head list is not NULL !");
+
+	return retval;
+}
+
 COMMAND_HANDLER(handle_print_core_registers_command)
 {
 	int retval = ERROR_OK;
@@ -317,6 +375,20 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has two argument: <reg-nbr> <value to write>",
 		.help = "write value to a particular aux registers",
+	},
+	{
+		.name = "read-mem-word",
+		.handler = handle_read_mem_word_command,
+		.mode = COMMAND_EXEC,
+		.usage = "has one argument: <mem-addr>",
+		.help = "list the content (1 word) of a particular memory location",
+	},
+	{
+		.name = "write-mem-word",
+		.handler = handle_write_mem_word_command,
+		.mode = COMMAND_EXEC,
+		.usage = "has two argument: <mem-addr> <value to write>",
+		.help = "write value (1 word) to a particular memory location",
 	},
 	{
 		.name = "print-core-registers",
