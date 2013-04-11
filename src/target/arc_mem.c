@@ -287,7 +287,7 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 			LOG_WARNING("No working area available, falling back to non-bulk write");
 			return arc_mem_write(target, address, 4, count, buffer);
 		} else {
-			LOG_WARNING(" !! ARC32_FASTDATA_HANDLER_SIZE too small !!");
+			LOG_DEBUG("ARC32 fastdata handler uses 64Kb buffer.");
 			retval = ERROR_OK;
 		}
 
