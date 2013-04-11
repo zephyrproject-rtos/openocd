@@ -60,7 +60,8 @@ struct arc32_common {
 	int (*write_core_reg)(struct target *target, int num);
 };
 
-#define ARC32_FASTDATA_HANDLER_SIZE	0x8000
+//#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 = 1 page */
+#define ARC32_FASTDATA_HANDLER_SIZE	0x10000  /* 64Kb */
 
 
 
