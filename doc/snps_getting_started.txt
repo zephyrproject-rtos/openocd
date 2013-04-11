@@ -16,10 +16,9 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> ./bootstrap
   $> make clean
-  $> ./configure --enable-maintainer-mode --enable-ft2232_libftdi \
-       --disable-werror \
-       --enable-verbose --enable-verbose-jtag-io \
-       --disable-doxygen-html
+  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html \
+       --enable-maintainer-mode --disable-werror \
+       --enable-verbose --enable-verbose-jtag-io
 
   $> make
   $> sudo make install
@@ -40,8 +39,14 @@ On the HOST (Linux PC which connects directly to the target):
 
   $> lsusb
 
-  $> openocd -f openocd.cfg -d0 [-d 3 -l <logfile>.log] \
-  		-c "init" -c "halt" -c "reset halt"
+  $> openocd -f <openocd.cfg> -c "init" -c "halt" -c "reset halt" \
+  		-d0 [-d 3 -l <logfile>.log]
+
+  		valid openocd.cfg files:
+  			./tcl/target/snps_ml509_arc700.cfg
+  			./tcl/target/snps_btlnose_arc-em.cfg
+  			./tcl/target/snps_haps51_arc700.cfg
+
 
   The next command is not strictly necessary to do, just a way to connect.
   $> telnet <host ip address>:4444
@@ -57,11 +62,8 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   $> arc-elf32-gdb ./<elf app_to_debug>
 
   Make the connection between arc-elf32-gdb and OpenOCD
-  (gdb) set remotetimeout 10
+  (gdb) set remotetimeout 50
   (gdb) target extended-remote <host ip address>:3333
-
-  Make sure the program counter is set to the load address
-  (gdb) monitor arc set-pc <load address>
 
   Load the image which has to be debugged (./<app_to_debug>.elf)
   (gdb) load
@@ -69,17 +71,20 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   Start the execution on target of the image to debug
   (gdb) continue
 
+  List the content of all core & aux registers
+  (gdb) info all-registers
 
+
+  ... Advanced debug commands ...............................................
 
   Stop executing the image on the target
   (gdb) monitor halt
 
-  List the content of all core & aux registers
-  (gdb) info all-registers
-
   Continue executing the program to debug
   (gdb) monitor resume
 
+  Make sure the program counter is set to the load address
+  (gdb) monitor arc set-pc <load address>
 
 
 
@@ -95,14 +100,23 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
 
 
 
-
   Command to get a list of all possible monitor commands which go to openocd.
   NOTE; it is not that all are supported yet.
   (gdb) monitor help
 
 
-  Using dedicated ARC commands
-  (gdb) monitor arc700 smp_gdb
+  Using dedicated ARC commands, when given no arguments, the command will log
+  usage parameters or type (gdb) monitor help arc <command>:
+
+  (gdb) monitor arc set-pc
+  (gdb) monitor arc read-core-reg
+  (gdb) monitor arc write-core-reg
+  (gdb) monitor arc read-aux-reg
+  (gdb) monitor arc write-aux-reg
+  (gdb) monitor arc read-mem-word
+  (gdb) monitor arc write-mem-word
+  (gdb) monitor arc print-core-registers
+  (gdb) monitor arc print-aux-registers
 
 
 
@@ -142,7 +156,6 @@ arc Help info ...
         list the content of all core registers
   arc set-pc <value>
         modify the PC register
-  arc test-gdb         display/fix current core gdb tests
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
