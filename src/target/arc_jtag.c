@@ -14,8 +14,6 @@
 
 #include "arc.h"
 
-
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
@@ -174,8 +172,6 @@ void arc_jtag_transaction_reset(struct arc_jtag *jtag_info)
 	arc_jtag_set_transaction(jtag_info, ARC_JTAG_CMD_NOP);
 }
 
-
-
 /* ----- Exported JTAG functions ------------------------------------------- */
 
 int arc_jtag_startup(struct arc_jtag *jtag_info)
@@ -201,7 +197,7 @@ int arc_jtag_startup(struct arc_jtag *jtag_info)
 	retval = arc_jtag_status(jtag_info, &status);
 	if (retval != ERROR_OK)
 		return retval;
-	printf(" JTAG status(@:%d): 0x%x\n",__LINE__,status);
+	LOG_USER(" JTAG status(@:%d): 0x%x",__LINE__,status);
 #endif
 
 	return retval;
@@ -211,10 +207,9 @@ int arc_jtag_shutdown(struct arc_jtag *jtag_info)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	LOG_WARNING(" !! @ software to do so :-) !!");
 
 	return retval;
 }
@@ -286,10 +281,9 @@ int arc_jtag_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	LOG_WARNING(" !! @ software to do so :-) !!");
 
 	return retval;
 }
@@ -518,35 +512,12 @@ int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value)
 	return retval;
 }
 
-
-
 /* ......................................................................... */
 
 int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-
-#define AUX_STATUS_REG			0x0
-#define AUX_SEMAPHORE_REG	 	0x1
-#define AUX_LP_START_REG		0x2
-#define AUX_LP_END_REG			0x3
-#define AUX_IDENTITY_REG		0x4
-#define AUX_DEBUG_REG			0x5
-#define AUX_PC_REG				0x6
-#define AUX_STATUS32_REG		0xA
-
-#define SET_CORE_SINGLE_STEP			(1)
-#define SET_CORE_FORCE_HALT				(1 << 1)
-#define SET_CORE_SINGLE_INSTR_STEP		(1 << 11)
-#define SET_CORE_RESET_APPLIED			(1 << 22)
-#define SET_CORE_SLEEP_MODE				(1 << 23)
-#define SET_CORE_USER_BREAKPOINT		(1 << 28)
-#define SET_CORE_BREAKPOINT_HALT		(1 << 29)
-#define SET_CORE_SELF_HALT				(1 << 30)
-#define SET_CORE_LOAD_PENDING			(1 << 31)
-
 
 	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 
@@ -644,7 +615,6 @@ int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 	sleep(10);
 		
 	arc_jtag_transaction_reset(jtag_info);
-
 
 	return retval;
 }
