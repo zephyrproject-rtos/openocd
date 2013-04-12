@@ -16,7 +16,8 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> ./bootstrap
   $> make clean
-  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html \
+  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html
+    for development activities, add to the above command:
        --enable-maintainer-mode --disable-werror \
        --enable-verbose --enable-verbose-jtag-io
 
@@ -39,7 +40,8 @@ On the HOST (Linux PC which connects directly to the target):
 
   $> lsusb
 
-  $> openocd -f <openocd.cfg> -c "init" -c "halt" -c "reset halt" \
+  $> openocd -f <openocd.cfg> -c "init" -c "halt" -c "reset halt"
+    for development activities, add to the above command:
   		-d0 [-d 3 -l <logfile>.log]
 
   		valid openocd.cfg files:
@@ -47,12 +49,10 @@ On the HOST (Linux PC which connects directly to the target):
   			./tcl/target/snps_btlnose_arc-em.cfg
   			./tcl/target/snps_haps51_arc700.cfg
 
-
   The next command is not strictly necessary to do, just a way to connect.
   $> telnet <host ip address>:4444
   Open On-Chip Debugger
   > ?
-
 
 On the HOST (Linux PC which not necessarily connects directly to the target):
 
