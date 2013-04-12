@@ -13,11 +13,9 @@
 
 #include "target.h"
 
-
 #define ARC32_NUM_CORE_REGS 64
 #define ARC32_NUM_AUX_REGS  37
 #define ARC32_NUM_GDB_REGS  87
-
 
 /* --------------------------------------------------------------------------
  * ARC core Auxiliary register set
@@ -100,12 +98,7 @@
 #define PCL_REG             63   /* = R63 */
 #define PC_REG				64
 
-
-
-
-
-
-
+/* OpenOCD ARC core & aux registers hook structure */
 struct arc32_core_reg {
 	uint32_t num;
 	struct target *target;
@@ -118,8 +111,6 @@ struct arc32_aux_reg {
 	struct arc32_common *arc32_common;
 };
 
-
-
 /* ----- Exported functions ------------------------------------------------ */
 
 struct reg_cache *arc_regs_build_reg_cache(struct target *target);
@@ -128,9 +119,6 @@ int arc_regs_read_core_reg(struct target *target, int num);
 int arc_regs_write_core_reg(struct target *target, int num);
 int arc_regs_read_registers(struct arc_jtag *jtag_info, uint32_t *regs);
 int arc_regs_write_registers(struct arc_jtag *jtag_info, uint32_t *regs);
-
-
-
 
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size);

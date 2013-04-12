@@ -14,8 +14,6 @@
 
 #include "arc.h"
 
-
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static int arc_dbg_set_breakpoint(struct target *target,
@@ -25,7 +23,6 @@ static int arc_dbg_set_breakpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	if (breakpoint->set) {
@@ -114,7 +111,6 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
 	int retval;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	if (!breakpoint->set) {
@@ -191,7 +187,6 @@ static void arc_dbg_enable_breakpoints(struct target *target)
 {
 	struct breakpoint *breakpoint = target->breakpoints;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* set any pending breakpoints */
@@ -208,7 +203,6 @@ static int arc_dbg_set_watchpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->data_break_list;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	int wp_num = 0;
@@ -242,6 +236,7 @@ static int arc_dbg_set_watchpoint(struct target *target,
 		LOG_ERROR("Watchpoints address should be word aligned");
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 	}
+
 #ifdef NEEDS_PORTING
 	switch (watchpoint->rw) {
 		case WPT_READ:
@@ -257,6 +252,7 @@ static int arc_dbg_set_watchpoint(struct target *target,
 			LOG_ERROR("BUG: watchpoint->rw neither read, write nor access");
 	}
 #endif
+
 	watchpoint->set = wp_num + 1;
 	comparator_list[wp_num].used = 1;
 	comparator_list[wp_num].bp_value = watchpoint->address;
@@ -265,6 +261,7 @@ static int arc_dbg_set_watchpoint(struct target *target,
 	target_write_u32(target, comparator_list[wp_num].reg_address + 0x10, 0x00000000);
 	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, enable);
 	target_write_u32(target, comparator_list[wp_num].reg_address + 0x20, 0);
+
 	LOG_DEBUG("wp_num %i bp_value 0x%" PRIx32 "", wp_num, comparator_list[wp_num].bp_value);
 
 	return ERROR_OK;
@@ -277,7 +274,6 @@ static int arc_dbg_unset_watchpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->data_break_list;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	if (!watchpoint->set) {
@@ -290,6 +286,7 @@ static int arc_dbg_unset_watchpoint(struct target *target,
 		LOG_DEBUG("Invalid FP Comparator number in watchpoint");
 		return ERROR_OK;
 	}
+
 	comparator_list[wp_num].used = 0;
 	comparator_list[wp_num].bp_value = 0;
 	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, 0);
@@ -302,7 +299,6 @@ static void arc_dbg_enable_watchpoints(struct target *target)
 {
 	struct watchpoint *watchpoint = target->watchpoints;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* set any pending watchpoints */
@@ -315,10 +311,6 @@ static void arc_dbg_enable_watchpoints(struct target *target)
 
 static int arc_dbg_single_step_core(struct target *target)
 {
-//	struct arc32_common *arc32 = target_to_arc32(target);
-//	struct arc_jtag *jtag_info = &arc32->jtag_info;
-
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	arc32_debug_entry(target);
@@ -334,9 +326,6 @@ static int arc_dbg_single_step_core(struct target *target)
 
 	return ERROR_OK;
 }
-
-
-
 
 /* ----- Exported functions ------------------------------------------------ */
 
@@ -387,7 +376,6 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	struct breakpoint *breakpoint = NULL;
 	uint32_t resume_pc = 0;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 	LOG_DEBUG("     current:%d, address:%d, handle_breakpoints:%d,"
 		" debug_execution:%d\n", current, address, handle_breakpoints,
@@ -459,8 +447,6 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	arc32_exit_debug(target);
 	target->debug_reason = DBG_REASON_NOTHALTED;
 
-	arc32_print_core_state(target);
-
 	/* ready to get us going again */
 	arc32_start_core(target);
 
@@ -490,7 +476,6 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
@@ -530,8 +515,6 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	/* exit debug mode */
 	arc32_exit_debug(target);
 
-	arc32_print_core_state(target);
-
 	/* do a single step */
 	arc32_config_step(target, 1);
 
@@ -557,7 +540,6 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 int arc_dbg_add_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -586,10 +568,9 @@ int arc_dbg_add_context_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -599,10 +580,9 @@ int arc_dbg_add_hybrid_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -612,7 +592,6 @@ int arc_dbg_remove_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
@@ -637,7 +616,6 @@ int arc_dbg_add_watchpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -660,7 +638,6 @@ int arc_dbg_remove_watchpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */

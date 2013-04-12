@@ -11,7 +11,6 @@
 #ifndef ARC_JTAG_H
 #define ARC_JTAG_H
 
-
 /* JTAG TAP instructions = IEEE 1149.1 */
 #define ARC_TAP_INST_IDCODE	0x01
 
@@ -88,9 +87,6 @@ int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 
 int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value);
 int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value);
-
-
-
 
 int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits);
 
