@@ -33,6 +33,12 @@
 #include "arc_regs.h"
 #include "arc_trgt.h"
 
+#define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 
+struct arc_common {
+	int common_magic;
+	bool is_4wire;
+	struct arc32_common arc32;
+};
 
 #endif /* ARC_H */

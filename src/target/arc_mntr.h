@@ -11,7 +11,6 @@
 #ifndef ARC_MNTR_H
 #define ARC_MNTR_H
 
-
 extern const struct command_registration arc_monitor_command_handlers[];
 
 #endif /* ARC_MNTR_H */
