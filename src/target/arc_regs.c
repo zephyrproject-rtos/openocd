@@ -14,11 +14,6 @@
 
 #include "arc.h"
 
-
-
-
-
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static char *arc_gdb_reg_names_list[] = {
@@ -111,13 +106,6 @@ static const struct reg_arch_type arc32_reg_type = {
 	.get = arc_regs_get_core_reg,
 	.set = arc_regs_set_core_reg,
 };
-
-
-
-
-
-
-
 
 /* ----- Exported functions ------------------------------------------------ */
 
@@ -299,10 +287,6 @@ int arc_regs_write_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 	return retval;
 }
 
-
-
-
-
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size)
 {
@@ -311,7 +295,8 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	printf("\n  GDB <=regs=> OpenOCD.\n\n");
+	LOG_INFO(" arc-elf32-gdb <= register-cache => openocd");
+
 	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information storage */
@@ -324,8 +309,6 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 
 	return retval;
 }
-
-
 
 int arc_regs_print_core_registers(struct arc_jtag *jtag_info)
 {

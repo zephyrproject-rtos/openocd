@@ -14,30 +14,26 @@
 
 #include "arc.h"
 
-
 static int PRINT = 1;
-
 
 /* ----- Supporting functions ---------------------------------------------- */
 
 static int arc_ocd_init_arch_info(struct target *target,
-	struct arc700_common *arc700, struct jtag_tap *tap)
+	struct arc_common *arc, struct jtag_tap *tap)
 {
 	int retval = ERROR_OK;
-	struct arc32_common *arc32 = &arc700->arc32;
+	struct arc32_common *arc32 = &arc->arc32;
 
 	LOG_DEBUG("  >>> Calling into <<<");
 
-	arc700->common_magic = ARC700_COMMON_MAGIC;
+	arc->common_magic = ARC_COMMON_MAGIC;
 
-	/* initialize arc700 specific info */
+	/* initialize arc specific info */
 	retval = arc32_init_arch_info(target, arc32, tap);
-	arc32->arch_info = arc700;
+	arc32->arch_info = arc;
 
 	return retval;
 }
-
-
 
 /* ----- Exported functions ------------------------------------------------ */
 
@@ -56,7 +52,7 @@ int arc_ocd_poll(struct target *target)
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
-		printf(" >> target is still running !!\n");
+		LOG_USER(" >> target is still running !!");
 		target->state = TARGET_RUNNING;
 	} else {
 		if ((target->state == TARGET_RUNNING) ||
@@ -73,7 +69,7 @@ int arc_ocd_poll(struct target *target)
 		} else if (target->state == TARGET_DEBUG_RUNNING) {
 
 			target->state = TARGET_HALTED;
-			printf("ARC core is in debug running.\n");
+			LOG_USER("ARC core is in debug running mode");
 
 			retval = arc32_debug_entry(target);
 			if (retval != ERROR_OK)
@@ -157,9 +153,20 @@ int arc_ocd_target_create(struct target *target, Jim_Interp *interp)
 
 	LOG_DEBUG(">> Entering <<");
 
-	struct arc700_common *arc700 = calloc(1, sizeof(struct arc700_common));
+	struct arc_common *arc = calloc(1, sizeof(struct arc_common));
 
-	retval = arc_ocd_init_arch_info(target, arc700, target->tap);
+	retval = arc_ocd_init_arch_info(target, arc, target->tap);
+
+	return retval;
+}
+
+int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
+{
+	int retval = ERROR_OK;
+
+	LOG_DEBUG(">> Entering <<");
+
+	arc_regs_build_reg_cache(target);
 
 	return retval;
 }
@@ -178,29 +185,29 @@ int arc_ocd_examine(struct target *target)
 
 		/* read JTAG info */
 		arc_jtag_idcode(&arc32->jtag_info, &value);
-		printf("JTAG ID: 0x%x\n", value);
+		LOG_USER("JTAG ID: 0x%x", value);
 		arc_jtag_status(&arc32->jtag_info, &status);
-		printf("JTAG status: 0x%x\n", status);
+		LOG_USER("JTAG status: 0x%x", status);
 
 		/* bring processor into HALT */
-		printf("bring ARC core into HALT state.\n");
+		LOG_USER("bring ARC core into HALT state");
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value |= SET_CORE_FORCE_HALT;
 		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		sleep(1); /* just give us once some time to come to rest */
+		sleep(1); /* just give us once some time to come to rest ;-) */
 
 		arc_jtag_status(&arc32->jtag_info, &status);
-		printf("JTAG status: 0x%x\n", status);
+		LOG_USER("JTAG status: 0x%x", status);
 
 		/* read ARC core info */
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
-		printf("CPU ID: 0x%x\n", value);
+		LOG_USER("CPU ID: 0x%x", value);
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-		printf("current PC: 0x%x\n", value);
+		LOG_USER("current PC: 0x%x", value);
 
 		arc_jtag_status(&arc32->jtag_info, &status);
 		if (status & ARC_JTAG_STAT_RU) {
-			printf("target is still running !!\n");
+			LOG_USER("target is still running !!");
 			target->state = TARGET_RUNNING;
 		} else {
 			LOG_DEBUG("target is halted.");
@@ -209,17 +216,6 @@ int arc_ocd_examine(struct target *target)
 
 		target_set_examined(target);
 	}
-
-	return retval;
-}
-
-int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
-{
-	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
-
-	arc_regs_build_reg_cache(target);
 
 	return retval;
 }

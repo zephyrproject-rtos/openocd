@@ -11,11 +11,9 @@
 #ifndef ARC_CORE_H
 #define ARC_CORE_H
 
-
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_core_soft_reset_halt_imp(struct target *target);
-
 int arc_core_soft_reset_halt(struct target *target);
 
 #endif /* ARC_CORE_H */
