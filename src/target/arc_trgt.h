@@ -11,7 +11,6 @@
 #ifndef ARC_TRGT_H
 #define ARC_TRGT_H
 
-
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_trgt_request_data(struct target *target, uint32_t size,

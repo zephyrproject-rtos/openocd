@@ -14,38 +14,15 @@
 
 #include "arc.h"
 
-
-
-
-
-
 static int PRINT = 1;
 
-
-
 /* ----- Supporting functions ---------------------------------------------- */
-
-/*
- * ARCompatISA core register set.
- */
-
 
 static const char *arc_isa_strings[] = {
 	"ARC32", "ARC16"
 };
 
-
-/* ......................................................................... */
-
-
-/* ......................................................................... */
-
-
-
-
-
 /* ----- Exported functions ------------------------------------------------ */
-
 
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	struct jtag_tap *tap)
@@ -72,16 +49,12 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	return retval;
 }
 
-
-
-
 int arc32_save_context(struct target *target)
 {
 	int retval = ERROR_OK;
 	int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	retval = arc_regs_read_registers(&arc32->jtag_info, arc32->core_regs);
@@ -102,7 +75,6 @@ int arc32_restore_context(struct target *target)
 	int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	for (i = 0; i < ARC32_NUM_GDB_REGS; i++) {
@@ -122,7 +94,6 @@ int arc32_enter_debug(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -135,11 +106,11 @@ int arc32_enter_debug(struct target *target)
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	sleep(1);
 
-//#ifdef DEBUG
-	printf("core stopped (halted) DEGUB-REG: 0x%x\n",value);
+#ifdef DEBUG
+	LOG_USER("core stopped (halted) DEGUB-REG: 0x%x",value);
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	printf("core STATUS32: 0x%x\n",value);
-//#endif
+	LOG_USER("core STATUS32: 0x%x",value);
+#endif
 
 	return retval;
 }
@@ -149,7 +120,6 @@ int arc32_debug_entry(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t dpc;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -171,7 +141,6 @@ int arc32_exit_debug(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -183,8 +152,9 @@ int arc32_exit_debug(struct target *target)
 	value |= SET_CORE_RESET_APPLIED; /* set the RA bit */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 
+#ifdef DEBUG
 	arc32_print_core_state(target);
-
+#endif
 	return retval;
 }
 
@@ -201,12 +171,12 @@ int arc32_enable_interrupts(struct target *target, int enable)
 		/* enable interrupts */
 		value = SET_CORE_ENABLE_INTERRUPTS;
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
-		printf("interrupts enabled [stat:%d]\n",retval);
+		LOG_DEBUG("interrupts enabled [stat:%d]", retval);
 	} else {
 		/* disable interrupts */
 		value = SET_CORE_DISABLE_INTERRUPTS;
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
-		printf("interrupts disabled [stat:%d]\n",retval);
+		LOG_DEBUG("interrupts disabled [stat:%d]", retval);
 	}
 
 	return retval;
@@ -217,7 +187,6 @@ int arc32_start_core(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -229,8 +198,9 @@ int arc32_start_core(struct target *target)
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	LOG_USER(" ARC Core Started Again (eating instructions)");
 
+#ifdef DEBUG
 	arc32_print_core_state(target);
-
+#endif
 	return retval;
 }
 
@@ -239,31 +209,40 @@ int arc32_config_step(struct target *target, int enable_step)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (enable_step) {
 		/* enable core debug step mode */
-		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-		value &= ~SET_CORE_AE_BIT;        /* clear the AE bit */
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-		printf("                             [status32:0x%x] [stat:%d]\n", value, retval);
+		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
+			&value);
+		value &= ~SET_CORE_AE_BIT; /* clear the AE bit */
+		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
+			&value);
+		LOG_DEBUG("                             [status32:0x%x] [stat:%d]",
+			value, retval);
 
 		//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value = SET_CORE_SINGLE_INSTR_STEP; /* set the IS bit */
 		value |= SET_CORE_SINGLE_STEP;       /* set the SS bit */
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		printf("core debug step mode enabled [debug-reg:0x%x] [stat:%d]\n", value, retval);
+		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
+			&value);
+		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%x] [stat:%d]",
+			value, retval);
 	} else {
 		/* disable core debug step mode */
-		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
+			&value);
 		value &= ~SET_CORE_SINGLE_INSTR_STEP; /* clear the IS bit */
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		printf("core debug step mode disabled [stat:%d]\n",retval);
+		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
+			&value);
+		LOG_DEBUG("core debug step mode disabled [stat:%d]", retval);
 	}
 
+#ifdef DEBUG
+	arc32_print_core_state(target);
+#endif
 	return retval;
 }
 
@@ -272,14 +251,13 @@ int arc32_cache_invalidate(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	value = IC_IVIC_FLUSH;        /* just flush all instructions */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IC_IVIC_REG, &value);
-	//value = DC_IVDC_FLUSH;        /* just flush all data */
+	//value = DC_IVDC_FLUSH;        /* flush all data !! be carefull !! */
 	//retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
 
 	return retval;
@@ -290,25 +268,29 @@ int arc32_wait_until_core_is_halted(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value = 1; /* get us into checking for HALT bit */
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+//#ifdef DEBUG
 	arc32_print_core_state(target);
+//#endif
 
-	/* check if bit N starting from 0 is set; temp & (1 << N) */
+	/*
+	 * check if bit N starting from 0 is set; temp & (1 << N)
+	 *   here, lets check if we are HALTED
+	 */
 	while ((value & 1) == 1) {
 		printf(".");
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	}
 
+#ifdef DEBUG
 	arc32_print_core_state(target);
+#endif
 
 	return retval;
 }
-
-
 
 int arc32_print_core_state(struct target *target)
 {
@@ -316,30 +298,25 @@ int arc32_print_core_state(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 	uint32_t value;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	LOG_USER("     AUX DEBUG REG:    0x%x", value);
+	LOG_INFO("     AUX DEBUG REG:    0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_USER("     AUX STATUS32 REG: 0x%x", value);
+	LOG_INFO("     AUX STATUS32 REG: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS_REG, &value);
-	LOG_USER("     AUX STATUS REG:   0x%x", value);
+	LOG_INFO("     AUX STATUS REG:   0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-	LOG_USER("     AUX PC REG:       0x%x", value);
+	LOG_INFO("     AUX PC REG:       0x%x", value);
 
 	return retval;
 }
-
-
-
 
 int arc32_arch_state(struct target *target)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-//	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	if (PRINT) {
@@ -359,19 +336,13 @@ int arc32_get_current_pc(struct target *target)
 	uint32_t dpc;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-//	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	/* read current PC */
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &dpc);
-
-//	printf(" $PC: 0x%x\n",dpc);
 
 	/* save current PC */
 	buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, dpc);
 
 	return retval;
 }
-
-
-

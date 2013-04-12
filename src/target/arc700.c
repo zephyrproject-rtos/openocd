@@ -14,7 +14,6 @@
 
 #include "arc.h"
 
-
 /* ...........................................................................
  * -- ARC-ELF32-GDB target command handler functions -------------------------
  *  function callstack interface between OpenOCD and GDB, see target_type.h

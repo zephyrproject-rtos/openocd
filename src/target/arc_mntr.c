@@ -14,7 +14,6 @@
 
 #include "arc.h"
 
-
 /* --------------------------------------------------------------------------
  *
  *   ARC targets expose command interface.
@@ -36,7 +35,7 @@ COMMAND_HANDLER(handle_set_pc_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -70,7 +69,7 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -104,7 +103,7 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -140,7 +139,7 @@ COMMAND_HANDLER(handle_read_aux_reg_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -174,7 +173,7 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -267,7 +266,7 @@ COMMAND_HANDLER(handle_print_core_registers_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -293,7 +292,7 @@ COMMAND_HANDLER(handle_print_aux_registers_command)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, " NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -306,34 +305,22 @@ COMMAND_HANDLER(handle_print_aux_registers_command)
 	return retval;
 }
 
-
-
-
-COMMAND_HANDLER(handle_test_gdb_command) /* originates from smp_gdb !! */
+COMMAND_HANDLER(handle_test_gdb_command)
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ adapt software to get it working :-) !!\n");
-
 	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
 
 	struct target_list *head;
 	head = target->head;
 
-	if (head != (struct target_list *)NULL) {
-		if (CMD_ARGC == 1) {
-			int coreid = 0;
-			COMMAND_PARSE_NUMBER(int, CMD_ARGV[0], coreid);
-			if (ERROR_OK != retval)
-				return retval;
-			target->gdb_service->core[1] = coreid;
-		}
-		command_print(CMD_CTX, "gdb coreid  %d -> %d",
-			target->gdb_service->core[0], target->gdb_service->core[1]);
-	}
+	if (head == (struct target_list *)NULL) {
+		arc_ocd_start_test(&arc32->jtag_info, 1, 2); /* just kickoff test */
+	} else
+		LOG_USER(" > head list is not NULL !");
 
 	return retval;
 }
@@ -415,7 +402,7 @@ static const struct command_registration arc_core_command_handlers[] = {
 };
 
 const struct command_registration arc_monitor_command_handlers[] = {
-//	{
+//	{ /* chain command groups */
 //		.chain = arc_registers_command_handlers,
 //	},
 	{

@@ -14,11 +14,6 @@
 
 #include "arc.h"
 
-
-/* ----- Supporting functions ---------------------------------------------- */
-
-
-
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_trgt_request_data(struct target *target, uint32_t size,
@@ -26,10 +21,9 @@ int arc_trgt_request_data(struct target *target, uint32_t size,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
