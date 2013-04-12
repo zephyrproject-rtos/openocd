@@ -14,8 +14,6 @@
 
 #include "arc.h"
 
-
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
@@ -24,7 +22,6 @@ static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 	int retval = ERROR_OK;
 	int i;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	assert(size <= 4);
@@ -36,7 +33,8 @@ static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 #ifdef DEBUG
 			uint32_t buffer;
 			retval = arc_jtag_read_memory(jtag_info, addr + (i * 4), &buffer);
-			printf(" > value (size:%d): 0x%x @: 0x%x\n", size, buffer, addr + (i * 4));
+			LOG_USER(" > value (size:%d): 0x%x @: 0x%x",
+				size, buffer, addr + (i * 4));
 #endif
 		}
 	} else
@@ -51,7 +49,6 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 	int retval = ERROR_OK;
 	int i;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
 	assert(size <= 4);
@@ -65,7 +62,7 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 #ifdef DEBUG
 			uint32_t buffer;
 			retval = arc_jtag_read_memory(jtag_info, addr + (i * size), &buffer);
-			printf(" >         0x%x @: 0x%x\n", buffer, addr + (i * 4));
+			LOG_USER(" >         0x%x @: 0x%x", buffer, addr + (i * 4));
 #endif
 		}
 	} else {
@@ -76,23 +73,21 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 		uint32_t buffer;
 
 		retval = arc_jtag_read_memory(jtag_info, addr, &buffer);
-		printf(" > read:  0x%x @: 0x%x\n", buffer, addr);
-		printf("   need to write(16): 0x%x\n", *(uint16_t *)buf);
-		//printf("   need to write(32): 0x%x\n", *(uint32_t *)buf);
+		LOG_DEBUG(" > read:  0x%x @: 0x%x", buffer, addr);
+		LOG_DEBUG("   need to write(16): 0x%x", *(uint16_t *)buf);
 
 		memcpy(&buffer, buf, sizeof(uint16_t));
-		printf(" >> have to write: 0x%x\n",buffer);
+		LOG_DEBUG(" >> have to write: 0x%x",buffer);
 		retval = arc_jtag_write_memory(jtag_info, addr, &buffer);
 
+#ifdef DEBUG
 		arc_jtag_read_memory(jtag_info, addr, &buffer);
-		printf(" > read:  0x%x @: 0x%x\n", buffer, addr);
+		LOG_DEBUG(" > read:  0x%x @: 0x%x", buffer, addr);
+#endif
 	}
 
 	return retval;
 }
-
-
-
 
 /* ----- Exported functions ------------------------------------------------ */
 
@@ -101,15 +96,9 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
-//	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-#ifdef DEBUG
-	printf("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
-		", count: 0x%8.8" PRIx32 "\n", address, size, count);
-#endif
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
 		", count: 0x%8.8" PRIx32 "", address, size, count);
 
@@ -140,17 +129,12 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	} else
 		tunnel = buffer;
 
-	/* if noDMA off, use DMAACC mode for memory read */
-
-//	if (jtag_info->impcode & JTAG_IMP_NODMA)
-		retval = arc_mem_read_block(&arc32->jtag_info, address, size,
+	retval = arc_mem_read_block(&arc32->jtag_info, address, size,
 			count, tunnel);
-//	else
-//		retval = arc32_dmaacc_read_mem(jtag_info, address, size,
-//			count, tunnel);
 
 	/* arc32_..._read_mem with size 4/2 returns uint32_t/uint16_t in host */
-	/* endianness, but byte array should represent target endianness       */
+	/* endianness, but byte array should represent target endianness      */
+
 	if (ERROR_OK == retval) {
 		switch (size) {
 		case 4:
@@ -185,13 +169,12 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf("start writing @ address: 0x%8.8" PRIx32 " : %d times %d bytes\n",
+	LOG_DEBUG("start writing @ address: 0x%8.8" PRIx32 " : %d times %d bytes",
 			address, count, size);
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "",
-			address, size, count);
+	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8"
+		PRIx32 "", address, size, count);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -233,16 +216,8 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 		buffer = tunnel;
 	}
 
-	/*
-	 * if noDMA off, use DMAACC mode for memory write,
-	 * else, do direct memory transfer
-	 */
-	//if (jtag_info->dma_transfer & JTAG_IMP_NODMA)
-		retval = arc_mem_write_block(jtag_info, address, size, count,
+	retval = arc_mem_write_block(jtag_info, address, size, count,
 			(void *)buffer);
-	//else
-		//retval = arc32_dmaacc_write_mem(jtag_info, address, size, count,
-		//(void *)buffer);
 
 	if (tunnel != NULL)
 		free(tunnel);
@@ -259,7 +234,7 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 
 	LOG_DEBUG(">> Entering <<");
 
-	printf("write: 0x%8.8x words @: 0x%8.8x\n", count, address);
+	LOG_DEBUG("write: 0x%8.8x words @: 0x%8.8x", count, address);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
 
 	if (target->state != TARGET_HALTED) {
@@ -316,8 +291,9 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[5]);
 	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[6]);
 #endif
-	//retval = arc700_write_memory(target, address, 4, count, (uint8_t *)tunnel);
-	retval = arc_jtag_write_block(jtag_info, address, 4, count, (uint32_t *)tunnel);
+
+	retval = arc_jtag_write_block(jtag_info, address, 4, count,
+		(uint32_t *)tunnel);
 
 	if (tunnel != NULL)
 		free(tunnel);
@@ -336,10 +312,9 @@ int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -349,10 +324,9 @@ int arc_mem_blank_check(struct target *target, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" !! @ software to do so :-) !!\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -367,10 +341,9 @@ int arc_mem_run_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -383,10 +356,9 @@ int arc_mem_start_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -399,10 +371,9 @@ int arc_mem_wait_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -414,10 +385,9 @@ int arc_mem_virt2phys(struct target *target, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -427,10 +397,9 @@ int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -440,10 +409,9 @@ int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
 {
 	int retval = ERROR_OK;
 
-	printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	printf(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -454,10 +422,10 @@ int arc_mem_mmu(struct target *target, int *enabled)
 
 	/* (gdb) load command runs through here */
 
-	//printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 	LOG_DEBUG(">> Entering <<");
 
-	LOG_DEBUG(" > NOT SUPPORTED IN THIS RELEASE.\n");
+	LOG_DEBUG(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_DEBUG("    arc_mem_mmu() = entry point for performance upgrade");
 
 	return retval;
 }
