@@ -61,7 +61,7 @@ int arc_ocd_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			LOG_DEBUG("ARC core is halted or in reset.\n");
 
-			retval = arc32_debug_entry(target);
+			retval = arc_dbg_debug_entry(target);
 			if (retval != ERROR_OK)
 				return retval;
 
@@ -71,7 +71,7 @@ int arc_ocd_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			LOG_USER("ARC core is in debug running mode");
 
-			retval = arc32_debug_entry(target);
+			retval = arc_dbg_debug_entry(target);
 			if (retval != ERROR_OK)
 				return retval;
 
@@ -200,6 +200,8 @@ int arc_ocd_examine(struct target *target)
 		LOG_USER("JTAG status: 0x%x", status);
 
 		/* read ARC core info */
+		arc_core_type_info(target);
+
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
 		LOG_USER("CPU ID: 0x%x", value);
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
