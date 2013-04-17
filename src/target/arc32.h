@@ -14,7 +14,17 @@
 #include "arc_jtag.h"
 #include "arc_regs.h"
 
+
 #define ARC32_COMMON_MAGIC	0xB32EB324  /* just a unique number */
+
+/* supported processor types */
+enum arc_processor_type {
+	ARCEM_NUM	= 1,
+	ARC700_NUM
+};
+
+#define ARCEM_STR	"arc-em"
+#define ARC700_STR	"arc700"
 
 /* ARC core ARCompatISA register set */
 enum arc32_isa_mode {
@@ -38,7 +48,8 @@ struct arc32_common {
 	uint32_t core_regs[ARC32_NUM_GDB_REGS];
 	struct reg_cache *core_cache;
 
-	enum arc32_isa_mode isa_mode;
+	enum arc_processor_type processor_type;
+	enum arc32_isa_mode     isa_mode;
 
 	/* working area for fastdata access */
 	struct working_area *fast_data_area;
@@ -82,10 +93,6 @@ struct reg_cache *arc32_build_reg_cache(struct target *target);
 
 int arc32_save_context(struct target *target);
 int arc32_restore_context(struct target *target);
-
-int arc32_enter_debug(struct target *target);
-int arc32_debug_entry(struct target *target);
-int arc32_exit_debug(struct target *target);
 
 int arc32_enable_interrupts(struct target *target, int enable);
 
