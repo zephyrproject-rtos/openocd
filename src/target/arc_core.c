@@ -37,3 +37,25 @@ int arc_core_soft_reset_halt(struct target *target)
 
 	return retval;
 }
+
+int arc_core_type_info(struct target *target)
+{
+	int retval = ERROR_OK;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	if (strncmp(target_name(target), ARCEM_STR, 6) == 0) {
+		arc32->processor_type = ARCEM_NUM;
+		LOG_USER("Processor type: %s", ARCEM_STR);
+
+	} else if (strncmp(target_name(target), ARC700_STR, 6) == 0) {
+		arc32->processor_type = ARC700_NUM;
+		LOG_USER("Processor type: %s", ARC700_STR);
+
+	} else
+	LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
+
+	return retval;
+}
