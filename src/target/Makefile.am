@@ -148,6 +148,7 @@ ESIRISC_SRC = \
 	%D%/esirisc_trace.c
 
 ARC32_SRC = \
+	%D%/arc.c \
 	%D%/arc32.c \
 	%D%/arc_core.c \
 	%D%/arc_dbg.c \
@@ -156,8 +157,7 @@ ARC32_SRC = \
 	%D%/arc_mntr.c \
 	%D%/arc_ocd.c \
 	%D%/arc_regs.c \
-	%D%/arc_trgt.c \
-	%D%/arc700.c
+	%D%/arc_trgt.c
 
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
