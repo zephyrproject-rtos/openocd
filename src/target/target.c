@@ -99,7 +99,7 @@ extern struct target_type dsp563xx_target;
 extern struct target_type dsp5680xx_target;
 extern struct target_type testee_target;
 extern struct target_type avr32_ap7k_target;
-extern struct target_type arc700_target;
+extern struct target_type arc32_target;
 extern struct target_type hla_target;
 extern struct target_type nds32_v2_target;
 extern struct target_type nds32_v3_target;
@@ -135,7 +135,7 @@ static struct target_type *target_types[] = {
 	&dsp5680xx_target,
 	&testee_target,
 	&avr32_ap7k_target,
-	&arc700_target,
+	&arc32_target,
 	&hla_target,
 	&nds32_v2_target,
 	&nds32_v3_target,
