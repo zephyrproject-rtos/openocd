@@ -15,6 +15,10 @@
 
 //printf(" >> Entering: %s(%s @ln:%d)\n",__func__,__FILE__,__LINE__);
 
+int arc_dbg_enter_debug(struct target *target);
+int arc_dbg_debug_entry(struct target *target);
+int arc_dbg_exit_debug(struct target *target);
+
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_dbg_halt(struct target *target);

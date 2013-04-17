@@ -313,7 +313,7 @@ static int arc_dbg_single_step_core(struct target *target)
 {
 	LOG_DEBUG(">> Entering <<");
 
-	arc32_debug_entry(target);
+	arc_dbg_debug_entry(target);
 
 	/* disable interrupts while stepping */
 	arc32_enable_interrupts(target, 0);
@@ -322,9 +322,80 @@ static int arc_dbg_single_step_core(struct target *target)
 	arc32_config_step(target, 1);
 
 	/* exit debug mode */
-	arc32_exit_debug(target);
+	arc_dbg_enter_debug(target);
 
 	return ERROR_OK;
+}
+
+/* ----- Exported supporting functions ------s------------------------------- */
+
+int arc_dbg_enter_debug(struct target *target)
+{
+	int retval = ERROR_OK;
+	uint32_t value;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	target->state = TARGET_DEBUG_RUNNING;
+
+	//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
+	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	sleep(1);
+
+#ifdef DEBUG
+	LOG_USER("core stopped (halted) DEGUB-REG: 0x%x",value);
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	LOG_USER("core STATUS32: 0x%x",value);
+#endif
+
+	return retval;
+}
+
+int arc_dbg_debug_entry(struct target *target)
+{
+	int retval = ERROR_OK;
+	uint32_t dpc;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* save current PC */
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &dpc);
+	if (retval != ERROR_OK)
+		return retval;
+
+	arc32->jtag_info.dpc = dpc;
+
+	arc32_save_context(target);
+
+	return ERROR_OK;
+}
+
+int arc_dbg_exit_debug(struct target *target)
+{
+	int retval = ERROR_OK;
+	uint32_t value;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	target->state = TARGET_RUNNING;
+
+	/* raise the Reset Applied bit flag */
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	value |= SET_CORE_RESET_APPLIED; /* set the RA bit */
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+
+#ifdef DEBUG
+	arc32_print_core_state(target);
+#endif
+	return retval;
 }
 
 /* ----- Exported functions ------------------------------------------------ */
@@ -361,7 +432,7 @@ int arc_dbg_halt(struct target *target)
 	}
 
 	/* break (stop) processor */
-	arc32_enter_debug(target);
+	arc_dbg_enter_debug(target);
 
 	target->debug_reason = DBG_REASON_DBGRQ;
 
@@ -444,7 +515,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	arc32_enable_interrupts(target, !debug_execution);
 
 	/* exit debug mode */
-	arc32_exit_debug(target);
+	arc_dbg_enter_debug(target);
 	target->debug_reason = DBG_REASON_NOTHALTED;
 
 	/* ready to get us going again */
@@ -513,7 +584,7 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	arc32_enable_interrupts(target, 0);
 
 	/* exit debug mode */
-	arc32_exit_debug(target);
+	arc_dbg_enter_debug(target);
 
 	/* do a single step */
 	arc32_config_step(target, 1);
@@ -529,7 +600,7 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 
 	LOG_DEBUG("target stepped ");
 
-	arc32_debug_entry(target);
+	arc_dbg_debug_entry(target);
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
 	return retval;
@@ -546,8 +617,8 @@ int arc_dbg_add_breakpoint(struct target *target,
 
 	if (breakpoint->type == BKPT_HARD) {
 		if (arc32->num_inst_bpoints_avail < 1) {
-			printf(" >> no hardware breakpoint available yet.\n");
-			LOG_INFO("no hardware breakpoint available yet.");
+			//LOG_INFO("no hardware breakpoint available");
+			LOG_INFO(" > Hardware breakpoints are not supported in this release.");
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 
@@ -557,7 +628,7 @@ int arc_dbg_add_breakpoint(struct target *target,
 	if (target->state == TARGET_HALTED) {
 		return arc_dbg_set_breakpoint(target, breakpoint);
 	} else {
-		arc32_enter_debug(target);
+		arc_dbg_enter_debug(target);
 		LOG_USER(" > core was not halted, please try again.");
 		return ERROR_OK;
 	}
@@ -621,8 +692,8 @@ int arc_dbg_add_watchpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (arc32->num_data_bpoints_avail < 1) {
-		printf("no hardware watchpoints available\n");
-		LOG_INFO("no hardware watchpoints available");
+		//LOG_INFO("no hardware watchpoints available");
+		LOG_INFO(" > Hardware watchpoints are not supported in this release.");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
