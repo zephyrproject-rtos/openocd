@@ -23,7 +23,6 @@
 #include "target_type.h"
 
 #include "arc32.h"
-#include "arc700.h"
 #include "arc_core.h"
 #include "arc_dbg.h"
 #include "arc_jtag.h"
@@ -32,6 +31,7 @@
 #include "arc_ocd.h"
 #include "arc_regs.h"
 #include "arc_trgt.h"
+
 
 #define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 
