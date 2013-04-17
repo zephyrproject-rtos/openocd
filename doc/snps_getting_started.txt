@@ -50,7 +50,7 @@ On the HOST (Linux PC which connects directly to the target):
   			./tcl/target/snps_haps51_arc700.cfg
 
   The next command is not strictly necessary to do, just a way to connect.
-  $> telnet <host ip address>:4444
+  $> telnet localhost 4444
   Open On-Chip Debugger
   > ?
 
