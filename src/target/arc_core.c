@@ -50,6 +50,10 @@ int arc_core_type_info(struct target *target)
 		arc32->processor_type = ARCEM_NUM;
 		LOG_USER("Processor type: %s", ARCEM_STR);
 
+	} else if (strncmp(target_name(target), ARC600_STR, 6) == 0) {
+		arc32->processor_type = ARC600_NUM;
+		LOG_USER("Processor type: %s", ARC600_STR);
+
 	} else if (strncmp(target_name(target), ARC700_STR, 6) == 0) {
 		arc32->processor_type = ARC700_NUM;
 		LOG_USER("Processor type: %s", ARC700_STR);
