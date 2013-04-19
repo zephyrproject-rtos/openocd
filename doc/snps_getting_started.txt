@@ -1,7 +1,118 @@
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
- Plain text Getting Started manual as it has to end up in pdf Bookshelf.
+  ARC Bookshelf: Plain text OpenOCD Getting Started manual.
 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ Content:
+
+	1. Digilent probe installation instructions:
+	2. How to build OpenOCD:
+	3. A typical debug session using arc-elf32-gdb with openocd.
+	4. Advanced debug commands
+	5. ARC OpenOCD configuration options:
+	6. ARC-GDB development commands:
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  1. Digilent probe installation instructions:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Download and install 'Adept' from Digilent as it has to go with the used
+  Digilent HS1 JTAG probe:
+
+  http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2
+
+  $>  tar xzfv digilent.adept.runtime_2.10.2-i686.tar.gz 
+  $>  sudo ./install.sh
+
+  $>  tar xvzf digilent.adept.utilities_2.1.1-i686.tar.gz 
+  $>  sudo ./install.sh 
+
+  $>  tar xvzf digilent.adept.sdk_2.1.1.tar.gz 
+  $>  sudo ./install.sh 
+
+  $>  dadutil enum
+  $>  djtgcfg init -d JtagHs1
+
+  ......................................................................
+
+>$ dadutil enum
+Found 1 device(s)
+
+Device: JtagHs1
+    Product Name:   Digilent JTAG-HS1
+    User Name:      JtagHs1
+    Serial Number:  210205812649
+
+>$ dadutil -d JtagHs1 showinfo
+Product Name:           Digilent JTAG-HS1
+User Name:              JtagHs1
+Serial Number:          210205812649
+Product ID:             30700150
+Firmware Version:       0105
+Device Transport Type:  00020001 (USB)
+Device Capabilities:    00000011
+    DJTG - JTAG scan chain access
+    DSPI - Serial Peripheral Interface
+
+>$ djtgcfg init -d JtagHs1
+Initializing scan chain...
+Found Device ID: 100034b1
+
+Found 1 device(s):
+    Device 0: UNKNOWN
+
+  ......................................................................
+
+>$ djtgcfg
+ERROR: no command specified
+Usage: djtgcfg [--help] [--version] command [options]
+
+  Commands:
+    enum                    enumerate (discover and list) Digilent devices
+    init                    initialize JTAG scan chain and list target devices
+    prog                    program target device in JTAG scan chain
+    erase                   erase target device in JTAG scan chain
+    loop                    loop IDCODE of target device in JTAG scan chain
+
+  Options:
+    -c, --count             number of iterations for IDCODE loop
+    -d                      device user name or alias
+    -f, --file              programming/verification file
+    -i, --index             scan chain index of target JTAG device
+    -?, --help              print usage, supported arguments, and options
+    -v, --version           print program version
+    --verbose               display more detailed error messages
+
+  ......................................................................
+
+>$ dadutil
+ERROR: no command specified
+Usage: dadutil [--help] [--version] command [options]
+
+  Commands:
+    enum                    enumerate devices (discover and list)
+    setsn                   set a device's serial number
+    setusr                  set a device's user name
+    showinfo                display information about a specific
+    tbladd                  add an entry to the device table
+    tblrem                  remove an entry from the device table
+
+  Options:
+    --alias                 alias used in device table
+    --conn                  connection string used in device table
+    -d                      device user name or alias
+    --dtp                   device type used in device table
+    --sn                    device serial number (12-digit hex)
+    -t                      enumerate (list) device table entries
+    --usr                   device user name
+    -?, --help              print usage, supported arguments, and options
+    -v, --version           print program version
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  2. How to build OpenOCD:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
@@ -28,9 +139,9 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  A typical debug session using arc-elf32-gdb with openocd.
-  See scenarios below (given commands):
-..............................................................................
+  3. A typical debug session using arc-elf32-gdb with openocd.
+     See scenarios below (given commands):
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 On the HOST (Linux PC which connects directly to the target):
 
@@ -45,8 +156,9 @@ On the HOST (Linux PC which connects directly to the target):
   		-d0 [-d 3 -l <logfile>.log]
 
   		valid openocd.cfg files:
+  			./tcl/target/snps_starter_kit_arc-em.cfg
+  			./tcl/target/snps_ml509_arc600.cfg
   			./tcl/target/snps_ml509_arc700.cfg
-  			./tcl/target/snps_btlnose_arc-em.cfg
   			./tcl/target/snps_haps51_arc700.cfg
 
   The next command is not strictly necessary to do, just a way to connect.
@@ -75,7 +187,14 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   (gdb) info all-registers
 
 
-  ... Advanced debug commands ...............................................
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  4. Advanced debug commands
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ NOTE: With the GDB "monitor" command, you have "direct" access to the core
+       without any interferance from GDB anymore! With other words, GDB
+       has no notion of changes in core state when using the so called
+       monitor commands (but it is very powerfull).
 
   Stop executing the image on the target
   (gdb) monitor halt
@@ -86,7 +205,56 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   Make sure the program counter is set to the load address
   (gdb) monitor arc set-pc <load address>
 
+  Command to get a list of all possible monitor commands which go to openocd.
+  NOTE; it is not that all are supported yet.
+  (gdb) monitor help
 
+  Using dedicated ARC commands, when given no arguments, the command will log
+  usage parameters or type (gdb) monitor help arc <command>:
+
+  (gdb) monitor arc set-pc
+  (gdb) monitor arc set-core-into-halted
+
+  (gdb) monitor arc read-core-reg
+  (gdb) monitor arc write-core-reg
+
+  (gdb) monitor arc read-aux-reg
+  (gdb) monitor arc write-aux-reg
+
+  (gdb) monitor arc read-mem-word
+  (gdb) monitor arc write-mem-word
+
+  (gdb) monitor arc print-core-status
+  (gdb) monitor arc print-core-registers
+  (gdb) monitor arc print-aux-registers
+
+  arc Help info ...
+      ARC monitor command group (command valid any time)
+  arc print-aux-registers has no arguments
+        list the content of all auxilary registers
+  arc print-core-registers has no arguments
+        list the content of all core registers
+  arc print-core-status has no arguments
+        list the content of core aux debug & status32 register
+  arc read-aux-reg has one argument: <reg-nbr>
+        list the content of a particular aux registers
+  arc read-core-reg has one argument: <reg-nbr>
+        list the content of a particular core registers
+  arc read-mem-word has one argument: <mem-addr>
+        list the content (1 word) of a particular memory location
+  arc set-core-into-halted has no arguments
+        set the ARC core into HALTED state
+  arc set-pc has one argument: <value>
+        modify the ARC core program counter (PC) register
+  arc write-aux-reg has two argument: <reg-nbr> <value to write>
+        write value to a particular aux registers
+  arc write-core-reg has two argument: <reg-nbr> <value to write>
+        write value to a particular core registers
+  arc write-mem-word has two argument: <mem-addr> <value to write>
+        write value (1 word) to a particular memory location
+
+
+  ......................................................................
 
   Display register content
   (gdb) info registers
@@ -98,39 +266,11 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   Change register content
   (gdb) set {long} $<register name> = <value>
 
-
-
-  Command to get a list of all possible monitor commands which go to openocd.
-  NOTE; it is not that all are supported yet.
-  (gdb) monitor help
-
-
-  Using dedicated ARC commands, when given no arguments, the command will log
-  usage parameters or type (gdb) monitor help arc <command>:
-
-  (gdb) monitor arc set-pc
-  (gdb) monitor arc read-core-reg
-  (gdb) monitor arc write-core-reg
-  (gdb) monitor arc read-aux-reg
-  (gdb) monitor arc write-aux-reg
-  (gdb) monitor arc read-mem-word
-  (gdb) monitor arc write-mem-word
-  (gdb) monitor arc print-core-registers
-  (gdb) monitor arc print-aux-registers
-
-
-
-  ......................................................................
-
   read from memory
     (gdb) x /4w <physical memory address>
 
   write to memory
     (gdb) set {long} <physical memory address> = <value>
-
-
-
-  +++ PREVIOUS +++++++++++++++++++++++++++++++
 
   (gdb) info target
   (gdb) run
@@ -143,164 +283,9 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
   (gdb) break *0x8fd01000
 
 
-
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- arc-elf32-gdb monitor decicated ARC commands for openocd arc target:
-..............................................................................
-
-arc Help info ...
-      ARC monitor command group (command valid any time)
-  arc print-aux-registers no arguments
-        list the content of all auxilary registers
-  arc print-core-registers no arguments
-        list the content of all core registers
-  arc set-pc <value>
-        modify the PC register
-
-
+  5. ARC OpenOCD configuration options:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-GDB development commands:
-..............................................................................
-
-  (gdb) set arc-debug on
-  (gdb) set debug infrun 1
-  (gdb) set debug arch 1
-  (gdb) set debug event 1
-  (gdb) set debug frame 1
-  (gdb) set debug remote 1
-  (gdb) set debug target 1
-  
-  (gdb) set sysroot /home/mjonker/BE/arc_initramfs_BE
-  (gdb) file /home/mjonker/BE/arc_initramfs_BE/test
-
-  (gdb) target extended-remote 192.168.0.2:10000
-  (gdb) ...
-
-  (gdb) set {long long}0x80000000 = 0
-  (gdb) x /4w 0x80000000
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-... commands:
-..............................................................................
-
-  $>  arc-elf32-readelf u-boot.elf
-  $>  arc-elf32-readelf -S u-boot.elf
-  $>  arc-elf32-readelf u-boot.elf
-  $>  arc-elf32-readelf -x --hex-dump=.text u-boot.elf | more
-  $>  arc-elf32-readelf -x --hex-dump=1 u-boot.elf | more
-  $>  arc-elf32-readelf -x 1 u-boot.elf | more
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-... commands:
-..............................................................................
-
-Download and install 'Adept' from Digilent as it has to go with the used
-  Digilent HS1 JTAG probe:
-
-  http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2
-
-  $>  tar xzfv digilent.adept.runtime_2.10.2-i686.tar.gz 
-  $>  sudo ./install.sh
-
-  $>  tar xvzf digilent.adept.utilities_2.1.1-i686.tar.gz 
-  $>  sudo ./install.sh 
-
-  $>  tar xvzf digilent.adept.sdk_2.1.1.tar.gz 
-  $>  sudo ./install.sh 
-
-  $>  dadutil enum
-  $>  djtgcfg init -d JtagHs1
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-... commands:
-..............................................................................
-
->$ dadutil enum
-Found 1 device(s)
-
-Device: JtagHs1
-    Product Name:   Digilent JTAG-HS1
-    User Name:      JtagHs1
-    Serial Number:  210205812649
-
->$ dadutil -d JtagHs1 showinfo
-Product Name:           Digilent JTAG-HS1
-User Name:              JtagHs1
-Serial Number:          210205812649
-Product ID:             30700150
-Firmware Version:       0105
-Device Transport Type:  00020001 (USB)
-Device Capabilities:    00000011
-    DJTG - JTAG scan chain access
-    DSPI - Serial Peripheral Interface
-
->$ djtgcfg init -d JtagHs1
-Initializing scan chain...
-Found Device ID: 100034b1
-
-Found 1 device(s):
-    Device 0: UNKNOWN
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-... commands:
-..............................................................................
-
->$ djtgcfg
-ERROR: no command specified
-Usage: djtgcfg [--help] [--version] command [options]
-
-  Commands:
-    enum                    enumerate (discover and list) Digilent devices
-    init                    initialize JTAG scan chain and list target devices
-    prog                    program target device in JTAG scan chain
-    erase                   erase target device in JTAG scan chain
-    loop                    loop IDCODE of target device in JTAG scan chain
-
-  Options:
-    -c, --count             number of iterations for IDCODE loop
-    -d                      device user name or alias
-    -f, --file              programming/verification file
-    -i, --index             scan chain index of target JTAG device
-    -?, --help              print usage, supported arguments, and options
-    -v, --version           print program version
-    --verbose               display more detailed error messages
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC-... commands:
-..............................................................................
-
->$ dadutil
-ERROR: no command specified
-Usage: dadutil [--help] [--version] command [options]
-
-  Commands:
-    enum                    enumerate devices (discover and list)
-    setsn                   set a device's serial number
-    setusr                  set a device's user name
-    showinfo                display information about a specific
-    tbladd                  add an entry to the device table
-    tblrem                  remove an entry from the device table
-
-  Options:
-    --alias                 alias used in device table
-    --conn                  connection string used in device table
-    -d                      device user name or alias
-    --dtp                   device type used in device table
-    --sn                    device serial number (12-digit hex)
-    -t                      enumerate (list) device table entries
-    --usr                   device user name
-    -?, --help              print usage, supported arguments, and options
-    -v, --version           print program version
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  ARC OpenOCD:
-..............................................................................
 
 >$ ./configure --help
 
@@ -494,425 +479,34 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- arc-elf32-gdb monitor commands for openocd arc target:
-..............................................................................
+  6. ARC-GDB development commands:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-(gdb) monitor help
-adapter_khz [khz]
-      With an argument, change to the specified maximum jtag speed.  For
-      JTAG, 0 KHz signifies adaptive  clocking. With or without argument,
-      display current setting. (command valid any time)
-adapter_name
-      Returns the name of the currently selected adapter (driver) (command
-      valid any time)
-adapter_nsrst_assert_width [milliseconds]
-      delay after asserting SRST in ms (command valid any time)
-adapter_nsrst_delay [milliseconds]
-      delay after deasserting SRST in ms (command valid any time)
-add_help_text command_name helptext_string
-      Add new command help text; Command can be multiple tokens. (command
-      valid any time)
-add_script_search_dir <directory>
-      dir to search for config files and scripts (command valid any time)
-add_usage_text command_name usage_string
-      Add new command usage text; command can be multiple tokens. (command
-      valid any time)
-arc32       arc32 command group (command valid any time)
-  arc32 cp0 regnum select [value]
-        display/modify cp0 register
-arc700 Help info ...
-      ARC700 command group (command valid any time)
-  arc700 maskisr ['auto'|'on'|'off']
-        mask arc700 interrupts
-  arc700 reset_config ['srst'|'sysresetreq'|'vectreset']
-        configure software reset handling (command valid any time)
-  arc700 smp_gdb         display/fix current core played to gdb
-  arc700 vector_catch ['all'|'none'|('bus_err'|'chk_err'|...)*]
-        configure hardware vectors to trigger debug entry
-arc700.cpu       target command group (command valid any time)
-  arc700.cpu arc32         arc32 command group (command valid any time)
-    arc700.cpu arc32 cp0 regnum select [value]
-          display/modify cp0 register
-  arc700.cpu arc700 Help info ...
-        ARC700 command group (command valid any time)
-    arc700.cpu arc700 maskisr ['auto'|'on'|'off']
-          mask arc700 interrupts
-    arc700.cpu arc700 reset_config ['srst'|'sysresetreq'|'vectreset']
-          configure software reset handling (command valid any time)
-    arc700.cpu arc700 smp_gdb           display/fix current core played to gdb
-    arc700.cpu arc700 vector_catch ['all'|'none'|('bus_err'|'chk_err'|...)*]
-          configure hardware vectors to trigger debug entry
-  arc700.cpu arp_examine
-        used internally for reset processing
-  arc700.cpu arp_halt
-        used internally for reset processing
-  arc700.cpu arp_halt_gdb
-        used internally for reset processing to halt GDB
-  arc700.cpu arp_poll
-        used internally for reset processing
-  arc700.cpu arp_reset
-        used internally for reset processing
-  arc700.cpu arp_waitstate
-        used internally for reset processing
-  arc700.cpu array2mem arrayname bitwidth address count
-        Writes Tcl array of 8/16/32 bit numbers to target memory
-  arc700.cpu cget target_attribute
-        returns the specified target attribute (command valid any time)
-  arc700.cpu configure [target_attribute ...]
-        configure a new target for use (configuration command)
-  arc700.cpu curstate
-        displays the current state of this target
-  arc700.cpu eventlist
-        displays a table of events defined for this target
-  arc700.cpu invoke-event event_name
-        invoke handler for specified event
-  arc700.cpu mdb address [count]
-        Display target memory as 8-bit bytes
-  arc700.cpu mdh address [count]
-        Display target memory as 16-bit half-words
-  arc700.cpu mdw address [count]
-        Display target memory as 32-bit words
-  arc700.cpu mem2array arrayname bitwidth address count
-        Loads Tcl array of 8/16/32 bit numbers from target memory
-  arc700.cpu mwb address data [count]
-        Write byte(s) to target memory
-  arc700.cpu mwh address data [count]
-        Write 16-bit half-word(s) to target memory
-  arc700.cpu mww address data [count]
-        Write 32-bit word(s) to target memory
-array2mem arrayname bitwidth address count
-      convert a TCL array to memory locations and write the 8/16/32 bit
-      values
-bp <address> [<asid>]<length> ['hw'|'hw_ctx']
-      list or set hardware or software breakpoint
-command
-      core command group (introspection) (command valid any time)
-  command mode [command_name ...]
-        Returns the command modes allowed by a  command:'any', 'config', or
-        'exec'.  If no command isspecified, returns the current command
-        mode.  Returns 'unknown' if an unknown command is given. Command
-        can be multiple tokens. (command valid any time)
-  command type command_name [...]
-        Returns the type of built-in command:'native', 'simple', 'group',
-        or 'unknown'. Command can be multiple tokens. (command valid any
-        time)
-debug_level number
-      Sets the verbosity level of debugging output. 0 shows errors only; 1
-      adds warnings; 2 (default) adds other info; 3 adds debugging.
-      (command valid any time)
-drscan tap_name [num_bits value]* ['-endstate' state_name]
-      Execute Data Register (DR) scan for one TAP.  Other TAPs must be in
-      BYPASS mode.
-dump_image filename address size
-echo [-n] string
-      Logs a message at "user" priority. Output message to stdout. Option
-      "-n" suppresses trailing newline (command valid any time)
-exit       exit telnet session
-fast_load       loads active fast load image to current target - mainly for profiling
-      purposes
-fast_load_image filename address ['bin'|'ihex'|'elf'|'s19'] [min_address [max_length]]
-      Load image into server memory for later use by fast_load; primarily
-      for profiling (command valid any time)
-find <file>
-      print full path to file according to OpenOCD search rules (command
-      valid any time)
-flash
-      NOR flash command group (command valid any time)
-  flash bank bank_id driver_name base_address size_bytes chip_width_bytes
-            bus_width_bytes target [driver_options ...]
-        Define a new bank with the given name, using the specified NOR
-        flash driver. (configuration command)
-  flash banks
-        Display table with information about flash banks. (command valid
-        any time)
-  flash init
-        Initialize flash devices. (configuration command)
-  flash list
-        Returns a list of details about the flash banks. (command valid any
-        time)
-flush_count
-      Returns the number of times the JTAG queue has been flushed.
-ft2232_device_desc description_string
-      set the USB device description of the FTDI FT2232 device
-      (configuration command)
-ft2232_latency value
-      set the FT2232 latency timer to a new value (configuration command)
-ft2232_layout layout_name
-      set the layout of the FT2232 GPIO signals used to control
-      output-enables and reset signals (configuration command)
-ft2232_serial serial_string
-      set the serial number of the FTDI FT2232 device (configuration
-      command)
-ft2232_vid_pid (vid pid)* 
-      the vendor ID and product ID of the FTDI FT2232 device (configuration
-      command)
-gdb_breakpoint_override ('hard'|'soft'|'disable')
-      Display or specify type of breakpoint to be used by gdb 'break'
-      commands. (command valid any time)
-gdb_flash_program ('enable'|'disable')
-      enable or disable flash program (configuration command)
-gdb_memory_map ('enable'|'disable')
-      enable or disable memory map (configuration command)
-gdb_port [port_num]
-      Normally gdb listens to a TCP/IP port. Each subsequent GDB server
-      listens for the next port number after the base port number
-      specified. No arguments reports GDB port. "pipe" means listen to
-      stdin output to stdout, an integer is base port number, "disable"
-      disables port. Any other string is are interpreted as named pipe to
-      listen to. Output pipe is the same name as input pipe, but with 'o'
-      appended. (command valid any time)
-gdb_report_data_abort ('enable'|'disable')
-      enable or disable reporting data aborts (configuration command)
-gdb_sync       next stepi will return immediately allowing GDB to fetch register
-      state without affecting target state (command valid any time)
-halt [milliseconds]
-      request target to halt, then wait up to the specifiednumber of
-      milliseconds (default 5) for it to complete
-help [command_name]
-      Show full command help; command can be multiple tokens. (command
-      valid any time)
-init       Initializes configured targets and servers.  Changes command mode
-      from CONFIG to EXEC.  Unless 'noinit' is called, this command is
-      called automatically at the end of startup. (command valid any time)
-interface driver_name
-      Select a debug adapter interface (driver) (configuration command)
-interface_list
-      List all built-in debug adapter interfaces (drivers) (command valid
-      any time)
-interface_transports transport ... 
-      Declare transports the interface supports. (configuration command)
-irscan [tap_name instruction]* ['-endstate' state_name]
-      Execute Instruction Register (DR) scan.  The specified opcodes are
-      put into each TAP's IR, and other TAPs are put in BYPASS.
-jtag       perform jtag tap actions (command valid any time)
-  jtag arp_init
-        Validates JTAG scan chain against the list of declared TAPs using
-        just the four standard JTAG signals. (command valid any time)
-  jtag arp_init-reset
-        Uses TRST and SRST to try resetting everything on the JTAG scan
-        chain, then performs 'jtag arp_init'. (command valid any time)
-  jtag cget tap_name '-event' event_name
-        Return any Tcl handler for the specified TAP event.
-  jtag configure tap_name '-event' event_name handler
-        Provide a Tcl handler for the specified TAP event.
-  jtag drscan tap_name [num_bits value]* ['-endstate' state_name]
-        Execute Data Register (DR) scan for one TAP.  Other TAPs must be in
-        BYPASS mode.
-  jtag flush_count
-        Returns the number of times the JTAG queue has been flushed.
-  jtag init         initialize jtag scan chain (command valid any time)
-  jtag names
-        Returns list of all JTAG tap names. (command valid any time)
-  jtag newtap basename tap_type '-irlen' count ['-enable'|'-disable'] ['-expected_id'
-            number] ['-ignore-version'] ['-ircapture' number] ['-mask'
-            number] 
-        Create a new TAP instance named basename.tap_type, and appends it
-        to the scan chain. (configuration command)
-  jtag pathmove start_state state1 [state2 [state3 ...]]
-        Move JTAG state machine from current state (start_state) to state1,
-        then state2, state3, etc.
-  jtag tapdisable tap_name
-        Try to disable the specified TAP using the 'tap-disable' TAP event.
-  jtag tapenable tap_name
-        Try to enable the specified TAP using the 'tap-enable' TAP event.
-  jtag tapisenabled tap_name
-        Returns a Tcl boolean (0/1) indicating whether the TAP is enabled
-        (1) or not (0).
-jtag_flush_queue_sleep [sleep in ms]
-      For debug purposes(simulate long delays of interface) to test
-      performance or change in behavior. Default 0ms. (command valid any
-      time)
-jtag_ntrst_assert_width [milliseconds]
-      delay after asserting trst in ms (command valid any time)
-jtag_ntrst_delay [milliseconds]
-      delay after deasserting trst in ms (command valid any time)
-jtag_rclk [fallback_speed_khz]
-      With an argument, change to to use adaptive clocking if possible;
-      else to use the fallback speed.  With or without argument, display
-      current setting. (command valid any time)
-jtag_reset trst_active srst_active
-      Set reset line values.  Value '1' is active, value '0' is inactive.
-load_image filename address ['bin'|'ihex'|'elf'|'s19'] [min_address] [max_length]
-log_output file_name
-      redirect logging to a file (default: stderr) (command valid any time)
-mdb ['phys'] address [count]
-      display memory bytes
-mdh ['phys'] address [count]
-      display memory half-words
-mdw ['phys'] address [count]
-      display memory words
-measure_clk
-      Runs a test to measure the JTAG clk. Useful with RCLK / RTCK.
-      (command valid any time)
-mem2array arrayname bitwidth address count
-      read 8/16/32 bit memory and return as a TCL array for script
-      processing
-mflash       mflash command group (command valid any time)
-  mflash bank soc_type base_addr pin_id target
-        configure a mflash device bank (configuration command)
-  mflash init         initialize mflash devices (configuration command)
-ms       Returns ever increasing milliseconds. Used to calculuate differences
-      in time. (command valid any time)
-mwb ['phys'] address value [count]
-      write memory byte
-mwh ['phys'] address value [count]
-      write memory half-word
-mww ['phys'] address value [count]
-      write memory word
-nand       NAND flash command group (command valid any time)
-  nand device bank_id driver target [driver_options ...]
-        defines a new NAND bank (configuration command)
-  nand drivers         lists available NAND drivers (command valid any time)
-  nand init         initialize NAND devices (configuration command)
-noinit       Prevent 'init' from being called at startup. (configuration command)
-pathmove start_state state1 [state2 [state3 ...]]
-      Move JTAG state machine from current state (start_state) to state1,
-      then state2, state3, etc.
-pld       programmable logic device commands (command valid any time)
-  pld device driver_name [driver_args ... ]
-        configure a PLD device (configuration command)
-  pld init         initialize PLD devices (configuration command)
-poll ['on'|'off']
-      poll target state; or reconfigure background polling
-power_restore
-      Overridable procedure run when power restore is detected. Runs 'reset
-      init' by default. (command valid any time)
-profile seconds filename
-      profiling samples the CPU PC
-ps  
-      list all tasks 
-rbp address
-      remove breakpoint
-reg [(register_name|register_number) [value]]
-      display or set a register; with no arguments, displays all registers
-      and their values
-reset [run|halt|init]
-      Reset all targets into the specified mode.Default reset mode is run,
-      if not given.
-reset_config [none|trst_only|srst_only|trst_and_srst]
-          [srst_pulls_trst|trst_pulls_srst|combined|separate]
-          [srst_gates_jtag|srst_nogate] [trst_push_pull|trst_open_drain]
-          [srst_push_pull|srst_open_drain]
-      configure adapter reset behavior (command valid any time)
-reset_nag ['enable'|'disable']
-      Nag after each reset about options that could have been enabled to
-      improve performance.  (command valid any time)
-resume [address]
-      resume target execution from current PC or address
-runtest num_cycles
-      Move to Run-Test/Idle, and issue TCK for num_cycles.
-rwp address
-      remove watchpoint
-scan_chain       print current scan chain configuration (command valid any time)
-script <file>
-      filename of OpenOCD script (tcl) to run (command valid any time)
-shutdown       shut the server down (command valid any time)
-sleep milliseconds ['busy']
-      Sleep for specified number of milliseconds.  "busy" will busy wait
-      instead (avoid this). (command valid any time)
-soft_reset_halt       halt the target and do a soft reset
-srst_deasserted
-      Overridable procedure run when srst deassert is detected. Runs 'reset
-      init' by default. (command valid any time)
-step [address]
-      step one instruction from current PC or address
-svf svf [-tap device.tap] <file> [quiet] [nil] [progress]
-      Runs a SVF file.
-target
-      configure target (configuration command)
-  target count
-        Returns the number of targets as an integer (DEPRECATED) (command
-        valid any time)
-  target create name type '-chain-position' name [options ...]
-        Creates and selects a new target (command valid any time)
-  target current
-        Returns the currently selected target (command valid any time)
-  target init
-        initialize targets (configuration command)
-  target names
-        Returns the names of all targets as a list of strings (command
-        valid any time)
-  target number number
-        Returns the name of the numbered target (DEPRECATED) (command valid
-        any time)
-  target smp targetname1 targetname2 ...
-        gather several target in a smp list (command valid any time)
-  target types
-        Returns the available target types as a list of strings (command
-        valid any time)
-target_request       target request command group (command valid any time)
-  target_request debugmsgs ['enable'|'charmsg'|'disable']
-        display and/or modify reception of debug messages from target
-targets [target]
-      change current default target (one parameter) or prints table of all
-      targets (no parameters) (command valid any time)
-tcl_port [port_num]
-      Specify port on which to listen for incoming Tcl syntax.  Read help
-      on 'gdb_port'. (configuration command)
-telnet_port [port_num]
-      Specify port on which to listen for incoming telnet connections. 
-      Read help on 'gdb_port'. (command valid any time)
-test_image filename [offset [type]]
-tms_sequence ['short'|'long']
-      Display or change what style TMS sequences to use for JTAG state
-      transitions:  short (default) or long.  Only for working around JTAG
-      bugs. (command valid any time)
-trace       trace command group
-  trace history ['clear'|size]
-        display trace history, clear history or set size
-  trace point ['clear'|address]
-        display trace points, clear list of trace points, or add new
-        tracepoint at address
-transport       Transport command group (command valid any time)
-  transport init         Initialize this session's transport (command valid any time)
-  transport list         list all built-in transports (command valid any time)
-  transport select [transport_name]
-        Select this session's transport (command valid any time)
-usage [command_name]
-      Show basic command usage; command can be multiple tokens. (command
-      valid any time)
-verify_image filename [offset [type]]
-verify_ircapture ['enable'|'disable']
-      Display or assign flag controlling whether to verify values captured
-      during Capture-IR. (command valid any time)
-verify_jtag ['enable'|'disable']
-      Display or assign flag controlling whether to verify values captured
-      during IR and DR scans. (command valid any time)
-version
-      show program version (command valid any time)
-virt2phys virtual_address
-      translate a virtual address into a physical address (command valid
-      any time)
-wait_halt [milliseconds]
-      wait up to the specified number of milliseconds (default 5) for a
-      previously requested halt
-wait_srst_deassert ms
-      Wait for an SRST deassert. Useful for cases where you need something
-      to happen within ms of an srst deassert. Timeout in ms  (command
-      valid any time)
-wp [address length [('r'|'w'|'a') value [mask]]]
-      list (no params) or create watchpoints
-xsvf (tapname|'plain') filename ['virt2'] ['quiet']
-      Runs a XSVF file.  If 'virt2' is given, xruntest counts are
-      interpreted as TCK cycles rather than as microseconds.  Without the
-      'quiet' option, all comments, retries, and mismatches will be
-      reported.
-(gdb) 
+  (gdb) set arc-debug on
+  (gdb) set debug infrun 1
+  (gdb) set debug arch 1
+  (gdb) set debug event 1
+  (gdb) set debug frame 1
+  (gdb) set debug remote 1
+  (gdb) set debug target 1
+  
+  (gdb) set sysroot /home/mjonker/BE/arc_initramfs_BE
+  (gdb) file /home/mjonker/BE/arc_initramfs_BE/test
+
+  (gdb) target extended-remote 192.168.0.2:10000
+  (gdb) ...
+
+  (gdb) set {long long}0x80000000 = 0
+  (gdb) x /4w 0x80000000
+
+  ......................................................................
+
+  $>  arc-elf32-readelf u-boot.elf
+  $>  arc-elf32-readelf -S u-boot.elf
+  $>  arc-elf32-readelf u-boot.elf
+  $>  arc-elf32-readelf -x --hex-dump=.text u-boot.elf | more
+  $>  arc-elf32-readelf -x --hex-dump=1 u-boot.elf | more
+  $>  arc-elf32-readelf -x 1 u-boot.elf | more
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-
