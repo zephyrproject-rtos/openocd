@@ -505,7 +505,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 			LOG_DEBUG("unset breakpoint at 0x%8.8" PRIx32 "",
 				breakpoint->address);
 			arc_dbg_unset_breakpoint(target, breakpoint);
-		printf(" %% ping pong pang %% %s @ %d\n",__FILE__,__LINE__);
+		printf(" %% ping pong %% %s @ %d\n",__FILE__,__LINE__);
 			arc_dbg_single_step_core(target);
 			arc_dbg_set_breakpoint(target, breakpoint);
 		}
