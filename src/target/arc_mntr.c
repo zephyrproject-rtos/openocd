@@ -55,6 +55,35 @@ COMMAND_HANDLER(handle_set_pc_command)
 	return retval;
 }
 
+COMMAND_HANDLER(handle_set_core_into_halted_command)
+{
+	int retval = ERROR_OK;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	struct target_list *head;
+	head = target->head;
+
+	if (target->state != TARGET_HALTED) {
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
+			CMD_NAME);
+		return ERROR_OK;
+	}
+
+	if (head == (struct target_list *)NULL) {
+		uint32_t value;
+		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
+		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	} else
+		LOG_USER(" > head list is not NULL !");
+
+	return retval;
+}
+
 COMMAND_HANDLER(handle_read_core_reg_command)
 {
 	int retval = ERROR_OK;
@@ -305,6 +334,36 @@ COMMAND_HANDLER(handle_print_aux_registers_command)
 	return retval;
 }
 
+COMMAND_HANDLER(handle_print_core_status_command)
+{
+	int retval = ERROR_OK;
+
+	LOG_DEBUG(">> Entering <<");
+
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	struct target_list *head;
+	head = target->head;
+
+	if (target->state != TARGET_HALTED) {
+		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
+			CMD_NAME);
+		return ERROR_OK;
+	}
+
+	if (head == (struct target_list *)NULL) {
+		uint32_t value;
+		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		LOG_USER(" AUX REG    [DEBUG]: 0x%x", value);
+		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+		LOG_USER("         [STATUS32]: 0x%x", value);
+	} else
+		LOG_USER(" > head list is not NULL !");
+
+	return retval;
+}
+
 COMMAND_HANDLER(handle_test_gdb_command)
 {
 	int retval = ERROR_OK;
@@ -334,6 +393,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has one argument: <value>",
 		.help = "modify the ARC core program counter (PC) register",
+	},
+	{
+		.name = "set-core-into-halted",
+		.handler = handle_set_core_into_halted_command,
+		.mode = COMMAND_EXEC,
+		.usage = "has no arguments",
+		.help = "set the ARC core into HALTED state",
 	},
 	{
 		.name = "read-core-reg",
@@ -390,6 +456,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has no arguments",
 		.help = "list the content of all auxilary registers",
+	},
+	{
+		.name = "print-core-status",
+		.handler = handle_print_core_status_command,
+		.mode = COMMAND_EXEC,
+		.usage = "has no arguments",
+		.help = "list the content of core aux debug & status32 register",
 	},
 	{
 		.name = "test-gdb",
