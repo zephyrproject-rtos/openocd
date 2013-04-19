@@ -151,12 +151,16 @@ int arc32_config_step(struct target *target, int enable_step)
 		value &= ~SET_CORE_AE_BIT; /* clear the AE bit */
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
 			&value);
-		LOG_DEBUG("                             [status32:0x%x] [stat:%d]",
-			value, retval);
+		LOG_DEBUG(" [status32:0x%x] [stat:%d]", value, retval);
 
 		//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value = SET_CORE_SINGLE_INSTR_STEP; /* set the IS bit */
-		value |= SET_CORE_SINGLE_STEP;       /* set the SS bit */
+
+		if (arc32->processor_type == ARC600_NUM) {
+			value |= SET_CORE_SINGLE_STEP;  /* set the SS bit */
+			LOG_DEBUG("ARC600 extra single step bit to set.");
+		}
+
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
 			&value);
 		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%x] [stat:%d]",
@@ -232,13 +236,13 @@ int arc32_print_core_state(struct target *target)
 	LOG_DEBUG(">> Entering <<");
 
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	LOG_INFO("     AUX DEBUG REG:    0x%x", value);
+	LOG_USER("  AUX REG  [DEBUG]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_INFO("     AUX STATUS32 REG: 0x%x", value);
+	LOG_USER("        [STATUS32]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS_REG, &value);
-	LOG_INFO("     AUX STATUS REG:   0x%x", value);
+	LOG_USER("          [STATUS]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-	LOG_INFO("     AUX PC REG:       0x%x", value);
+	LOG_USER("              [PC]: 0x%x", value);
 
 	return retval;
 }

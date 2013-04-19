@@ -17,13 +17,15 @@
 
 #define ARC32_COMMON_MAGIC	0xB32EB324  /* just a unique number */
 
-/* supported processor types */
+/* supported ARC processor types */
 enum arc_processor_type {
 	ARCEM_NUM	= 1,
+	ARC600_NUM,
 	ARC700_NUM
 };
 
 #define ARCEM_STR	"arc-em"
+#define ARC600_STR	"arc600"
 #define ARC700_STR	"arc700"
 
 /* ARC core ARCompatISA register set */
