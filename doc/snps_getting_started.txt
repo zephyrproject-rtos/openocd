@@ -6,16 +6,19 @@
 
  Content:
 
-	1. Digilent probe installation instructions:
-	2. How to build OpenOCD:
-	3. A typical debug session using arc-elf32-gdb with openocd.
+	1. Digilent probe installation instructions
+	2. How to build OpenOCD
+	3. A typical debug session using arc-elf32-gdb with openocd
 	4. Advanced debug commands
-	5. ARC OpenOCD configuration options:
-	6. ARC-GDB development commands:
+	5. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
+	6. ARC OpenOCD configuration options
+	7. ARC-GDB development commands
+
+	NOTE: both HS1 as HS2 Digilent probes are supported.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  1. Digilent probe installation instructions:
+  1. Digilent probe installation instructions
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Download and install 'Adept' from Digilent as it has to go with the used
@@ -112,7 +115,7 @@ Usage: dadutil [--help] [--version] command [options]
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  2. How to build OpenOCD:
+  2. How to build OpenOCD
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
@@ -139,8 +142,8 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  3. A typical debug session using arc-elf32-gdb with openocd.
-     See scenarios below (given commands):
+  3. A typical debug session using arc-elf32-gdb with openocd
+     See scenarios below (given commands)
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 On the HOST (Linux PC which connects directly to the target):
@@ -284,7 +287,48 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  5. ARC OpenOCD configuration options:
+  5. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Below is an example given of how to program a Xilinx ML509 FPGA developers
+board. NOTE: make sure the Digilent HS2 dongle is connected to the right
+JTAG connector on the board (programming the FPGA and not the memory).
+So, it should be connected to PC4 JTAG and not to J51 BDM.
+Further more, Device 4: XC5VLX110T is the FPGA to program, device 4 in the
+JTAG scan chain.
+
+>$ djtgcfg enum
+Found 1 device(s)
+
+Device: JtagHs2
+    Product Name:   Digilent JTAG-HS2
+    User Name:      JtagHs2
+    Serial Number:  210249810909
+
+>$ djtgcfg -d JtagHs2 init
+Initializing scan chain...
+Found Device ID: a2ad6093
+Found Device ID: 0a001093
+Found Device ID: 59608093
+Found Device ID: f5059093
+Found Device ID: f5059093
+
+Found 5 device(s):
+    Device 0: XCF32P
+    Device 1: XCF32P
+    Device 2: XC95144XL
+    Device 3: XCCACE
+    Device 4: XC5VLX110T
+
+>$ djtgcfg -d JtagHs2 prog -i 4 -f <fpga bit file to progam>.bit
+Programming device. Do not touch your board. This may take a few minutes...
+Programming succeeded.
+
+>$
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  6. ARC OpenOCD configuration options
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 >$ ./configure --help
@@ -479,7 +523,7 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  6. ARC-GDB development commands:
+  7. ARC-GDB development commands
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   (gdb) set arc-debug on
