@@ -192,24 +192,35 @@ int arc_regs_write_core_reg(struct target *target, int num)
 	return retval;
 }
 
-int arc_regs_read_registers(struct arc_jtag *jtag_info, uint32_t *regs)
+int arc_regs_read_registers(struct target *target, uint32_t *regs)
 {
 	int retval = ERROR_OK;
 	int i;
 
 	LOG_DEBUG(">> Entering <<");
 
+	struct arc32_common *arc32 = target_to_arc32(target);
+
 	/*
-	 * read core registers R0-R60
+	 * read core registers R0-R31 + R32-R60 for high-end core
 	 * gdb requests:
 	 *       regmap[0]  = (&(pt_buf.scratch.r0)
 	 *       ...
 	 *       regmap[60] = (&(pt_buf.scratch.r60)
 	 */
-	for (i = 0; i < ARC32_NUM_CORE_REGS - 3 /*LP_COUNT last in line */; i++)
-		arc_jtag_read_core_reg(jtag_info, i, regs + i);
+	for (i = 0; i < ARC32_NUM_CORE_REGS; i++)
+		arc_jtag_read_core_reg(&arc32->jtag_info, i, regs + i);
 
-	arc_jtag_read_core_reg(jtag_info, PCL_REG, regs + PCL_REG);
+	/* do not read extension+ registers for low-end cores */
+	if (arc32->processor_type != ARCEM_NUM) {
+		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++)
+			arc_jtag_read_core_reg(&arc32->jtag_info, i, regs + i);
+
+		arc_jtag_read_core_reg(&arc32->jtag_info, LP_COUNT_REG, regs + LP_COUNT_REG);
+		arc_jtag_read_core_reg(&arc32->jtag_info, LIDI_REG,     regs + LIDI_REG);
+	}
+
+	arc_jtag_read_core_reg(&arc32->jtag_info, PCL_REG, regs + PCL_REG);
 
 	/*
 	 * we have here a hole of 2 regs, they are 0 on the other end (GDB)
@@ -217,72 +228,83 @@ int arc_regs_read_registers(struct arc_jtag *jtag_info, uint32_t *regs)
 	 */
 
 	/* read auxilary registers */
-	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG,            regs + 64);
-	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG,      regs + 65);
-	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG,        regs + 66);
-	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG,      regs + 67);
-	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
-	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ERET_REG,          regs + 73);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ERBTA_REG,         regs + 74);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ERSTATUS_REG,      regs + 75);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ECR_REG,           regs + 76);
-	arc_jtag_read_aux_reg(jtag_info, AUX_EFA_REG,           regs + 77);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ICAUSE1_REG,       regs + 78);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ICAUSE2_REG,       regs + 79);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IENABLE_REG,       regs + 80);
-	arc_jtag_read_aux_reg(jtag_info, AUX_ITRIGGER_REG,      regs + 81);
-	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_REG,           regs + 82);
-	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_L1_REG,        regs + 83);
-	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_L2_REG,        regs + 84);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
-	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG,            regs + 64);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_LP_START_REG,      regs + 65);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_LP_END_REG,        regs + 66);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,      regs + 67);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERET_REG,          regs + 73);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERBTA_REG,         regs + 74);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERSTATUS_REG,      regs + 75);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ECR_REG,           regs + 76);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_EFA_REG,           regs + 77);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ICAUSE1_REG,       regs + 78);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ICAUSE2_REG,       regs + 79);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG,       regs + 80);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ITRIGGER_REG,      regs + 81);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_REG,           regs + 82);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_L1_REG,        regs + 83);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_L2_REG,        regs + 84);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
 
 	return retval;
 }
 
-int arc_regs_write_registers(struct arc_jtag *jtag_info, uint32_t *regs)
+int arc_regs_write_registers(struct target *target, uint32_t *regs)
 {
 	int retval = ERROR_OK;
 	int i;
 
 	LOG_DEBUG(">> Entering <<");
 
-	/*
-	 * write core registers R0-R60 (see above read_registers() !)
-	 */
-	for (i = 0; i < ARC32_NUM_CORE_REGS - 3; i++)
-		arc_jtag_write_core_reg(jtag_info, i, regs + i);
+	struct arc32_common *arc32 = target_to_arc32(target);
 
-	arc_jtag_write_core_reg(jtag_info, PCL_REG, regs + PCL_REG);
+	/*
+	 * write core registers R0-Rx (see above read_registers() !)
+	 */
+	for (i = 0; i < ARC32_NUM_CORE_REGS; i++)
+		arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
+
+	/* do not write extension+ registers for low-end cores */
+	if (arc32->processor_type != ARCEM_NUM) {
+		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++)
+			arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
+
+		arc_jtag_write_core_reg(&arc32->jtag_info, LP_COUNT_REG, regs + LP_COUNT_REG);
+		arc_jtag_write_core_reg(&arc32->jtag_info, LIDI_REG,     regs + LIDI_REG);
+	}
+
+	arc_jtag_write_core_reg(&arc32->jtag_info, PCL_REG, regs + PCL_REG);
 
 	/* write auxilary registers */
-	arc_jtag_write_core_reg(jtag_info, AUX_PC_REG,            regs + 64);
-	arc_jtag_write_core_reg(jtag_info, AUX_LP_START_REG,      regs + 65);
-	arc_jtag_write_core_reg(jtag_info, AUX_LP_END_REG,        regs + 66);
-	arc_jtag_write_core_reg(jtag_info, AUX_STATUS32_REG,      regs + 67);
-	arc_jtag_write_core_reg(jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
-	arc_jtag_write_core_reg(jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
-	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
-	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
-	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
-	arc_jtag_write_core_reg(jtag_info, AUX_ERET_REG,          regs + 73);
-	arc_jtag_write_core_reg(jtag_info, AUX_ERBTA_REG,         regs + 74);
-	arc_jtag_write_core_reg(jtag_info, AUX_ERSTATUS_REG,      regs + 75);
-	arc_jtag_write_core_reg(jtag_info, AUX_ECR_REG,           regs + 76);
-	arc_jtag_write_core_reg(jtag_info, AUX_EFA_REG,           regs + 77);
-	arc_jtag_write_core_reg(jtag_info, AUX_ICAUSE1_REG,       regs + 78);
-	arc_jtag_write_core_reg(jtag_info, AUX_ICAUSE2_REG,       regs + 79);
-	arc_jtag_write_core_reg(jtag_info, AUX_IENABLE_REG,       regs + 80);
-	arc_jtag_write_core_reg(jtag_info, AUX_ITRIGGER_REG,      regs + 81);
-	arc_jtag_write_core_reg(jtag_info, AUX_BTA_REG,           regs + 82);
-	arc_jtag_write_core_reg(jtag_info, AUX_BTA_L1_REG,        regs + 83);
-	arc_jtag_write_core_reg(jtag_info, AUX_BTA_L2_REG,        regs + 84);
-	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
-	arc_jtag_write_core_reg(jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_PC_REG,            regs + 64);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_LP_START_REG,      regs + 65);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_LP_END_REG,        regs + 66);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_STATUS32_REG,      regs + 67);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ERET_REG,          regs + 73);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ERBTA_REG,         regs + 74);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ERSTATUS_REG,      regs + 75);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ECR_REG,           regs + 76);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_EFA_REG,           regs + 77);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ICAUSE1_REG,       regs + 78);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ICAUSE2_REG,       regs + 79);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IENABLE_REG,       regs + 80);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_ITRIGGER_REG,      regs + 81);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_BTA_REG,           regs + 82);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_BTA_L1_REG,        regs + 83);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_BTA_L2_REG,        regs + 84);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
+	arc_jtag_write_core_reg(&arc32->jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
 
 	return retval;
 }
@@ -310,7 +332,7 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	return retval;
 }
 
-int arc_regs_print_core_registers(struct arc_jtag *jtag_info)
+int arc_regs_print_core_registers(struct target *target)
 {
 	int retval = ERROR_OK;
 	int reg_nbr;
@@ -318,17 +340,29 @@ int arc_regs_print_core_registers(struct arc_jtag *jtag_info)
 
 	LOG_DEBUG(">> Entering <<");
 
+	struct arc32_common *arc32 = target_to_arc32(target);
+
 	LOG_USER("\n ARC core register display.\n");
 
 	for(reg_nbr = 0; reg_nbr < ARC32_NUM_CORE_REGS; reg_nbr++) {
-		arc_jtag_read_core_reg(jtag_info, reg_nbr, &value);
+		arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
 		LOG_USER_N(" R%02d: 0x%08X", reg_nbr, value);
 
 		if(reg_nbr ==  3 || reg_nbr ==  7 || reg_nbr == 11 || reg_nbr == 15 ||
-		   reg_nbr == 19 || reg_nbr == 23 || reg_nbr == 27 || reg_nbr == 31 ||
-		   reg_nbr == 35 || reg_nbr == 39 || reg_nbr == 43 || reg_nbr == 47 ||
-		   reg_nbr == 51 || reg_nbr == 55 || reg_nbr == 59 || reg_nbr == 63 )
+		   reg_nbr == 19 || reg_nbr == 23 || reg_nbr == 27 || reg_nbr == 31 )
 			LOG_USER(" ");
+	}
+
+	/* do not read extension+ registers for low-end cores */
+	if (arc32->processor_type != ARCEM_NUM) {
+		for(reg_nbr = ARC32_NUM_CORE_REGS; reg_nbr <= PCL_REG; reg_nbr++) {
+			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
+			LOG_USER_N(" R%02d: 0x%08X", reg_nbr, value);
+
+			if(reg_nbr == 35 || reg_nbr == 39 || reg_nbr == 43 || reg_nbr == 47 ||
+			   reg_nbr == 51 || reg_nbr == 55 || reg_nbr == 59 || reg_nbr == 63 )
+				LOG_USER(" ");
+		}
 	}
 
 	LOG_USER(" ");
