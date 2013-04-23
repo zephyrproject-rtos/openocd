@@ -289,7 +289,6 @@ COMMAND_HANDLER(handle_print_core_registers_command)
 	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
 
 	struct target_list *head;
 	head = target->head;
@@ -301,7 +300,7 @@ COMMAND_HANDLER(handle_print_core_registers_command)
 	}
 
 	if (head == (struct target_list *)NULL) {
-		arc_regs_print_core_registers(&arc32->jtag_info);
+		arc_regs_print_core_registers(target);
 	} else
 		LOG_USER(" > head list is not NULL !");
 
