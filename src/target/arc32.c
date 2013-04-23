@@ -57,7 +57,7 @@ int arc32_save_context(struct target *target)
 
 	LOG_DEBUG(">> Entering <<");
 
-	retval = arc_regs_read_registers(&arc32->jtag_info, arc32->core_regs);
+	retval = arc_regs_read_registers(target, arc32->core_regs);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -82,7 +82,7 @@ int arc32_restore_context(struct target *target)
 			arc32->write_core_reg(target, i);
 	}
 
-	retval = arc_regs_write_registers(&arc32->jtag_info, arc32->core_regs);
+	retval = arc_regs_write_registers(target, arc32->core_regs);
 	if (retval != ERROR_OK)
 		return retval;
 
