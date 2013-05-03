@@ -32,6 +32,10 @@
 #include "arc_regs.h"
 #include "arc_trgt.h"
 
+#if defined _WIN32 || defined __CYGWIN__
+#include <windows.h>
+#define sleep(x) Sleep(x)
+#endif
 
 #define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 
