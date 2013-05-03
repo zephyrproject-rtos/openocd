@@ -97,6 +97,10 @@ static int arc_dbg_set_breakpoint(struct target *target,
 				return ERROR_OK;
 			}
 		}
+
+		/* core instruction cache is now invalid */
+		arc32_cache_invalidate(target);
+
 		breakpoint->set = 64; /* Any nice value but 0 */
 	}
 
