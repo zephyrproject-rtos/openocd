@@ -7,12 +7,13 @@
  Content:
 
 	1. Digilent probe installation instructions
-	2. How to build OpenOCD
-	3. A typical debug session using arc-elf32-gdb with openocd
-	4. Advanced debug commands
-	5. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
-	6. ARC OpenOCD configuration options
-	7. ARC-GDB development commands
+	2. How to build OpenOCD on Linux
+	3. How to build OpenOCD for Windows (cross compile)
+	4. A typical debug session using arc-elf32-gdb with openocd
+	5. Advanced debug commands
+	6. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
+	7. ARC OpenOCD configuration options
+	8. ARC-GDB development commands
 
 	NOTE: both HS1 as HS2 Digilent probes are supported.
 
@@ -26,17 +27,19 @@ Download and install 'Adept' from Digilent as it has to go with the used
 
   http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2
 
-  $>  tar xzfv digilent.adept.runtime_2.10.2-i686.tar.gz 
-  $>  sudo ./install.sh
+  $> tar xzfv digilent.adept.runtime_2.10.2-i686.tar.gz 
+  $> sudo ./install.sh
+  $> cd ftdi.drivers_1.0.4-i686
+  $> sudo ./install.sh
 
-  $>  tar xvzf digilent.adept.utilities_2.1.1-i686.tar.gz 
-  $>  sudo ./install.sh 
+  $> tar xvzf digilent.adept.utilities_2.1.1-i686.tar.gz 
+  $> sudo ./install.sh 
 
-  $>  tar xvzf digilent.adept.sdk_2.1.1.tar.gz 
-  $>  sudo ./install.sh 
+  $> tar xvzf digilent.adept.sdk_2.1.1.tar.gz 
+  $> sudo ./install.sh 
 
-  $>  dadutil enum
-  $>  djtgcfg init -d JtagHs1
+  $> dadutil enum
+  $> djtgcfg init -d JtagHs1
 
   ......................................................................
 
@@ -115,7 +118,7 @@ Usage: dadutil [--help] [--version] command [options]
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  2. How to build OpenOCD
+  2. How to build OpenOCD on Linux
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
@@ -142,7 +145,50 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  3. A typical debug session using arc-elf32-gdb with openocd
+  3. How to build OpenOCD for Windows (cross compile)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+First, perform instructions as in section 2 "How to build OpenOCD on Linux"
+When all OK, next steps are required to do a cross compilation for a Windows
+host executable of OpenOCD.
+
+Build OpenOCD for Windows on a Linux host:
+
+  First, download the FTDI chip drivers from:
+
+    http://www.ftdichip.com/Drivers/D2XX.htm
+
+  Next, make sure, MXE is installed on the Linux host
+  
+    http://mxe.cc/#tutorial
+  
+  Download OpenOCD for ARC from GitHub
+  
+    https://github.com/foss-for-synopsys-dwc-arc-processors/openocd
+
+  Now, execute build instructions, please visit:
+    http://dangerousprototypes.com/docs/Compile_OpenOCD_for_Windows
+
+  Ready to perform the build:
+
+    $> ./configure --disable-doxygen-html --host=i686-pc-mingw32 \
+      --build=x86_64-unknown-linux-gnu --prefix=/<home path>/openocd/install \
+      --with-ftd2xx-win32-zipdir=/<home path>/openocd/CDM20828 \
+      --enable-ft2232_ftd2xx --disable-werror --with-ftd2xx-lib=static
+
+    $> make
+    $> make install
+
+
+When performing (would like to do) a Cygwin build on a Windows host,
+
+  For instructions, please visit:
+
+    http://www.tincantools.com/wiki/Compiling_OpenOCD_Win7
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  4. A typical debug session using arc-elf32-gdb with openocd
      See scenarios below (given commands)
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -191,7 +237,7 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  4. Advanced debug commands
+  5. Advanced debug commands
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
  NOTE: With the GDB "monitor" command, you have "direct" access to the core
@@ -287,7 +333,7 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  5. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
+  6. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Below is an example given of how to program a Xilinx ML509 FPGA developers
@@ -328,7 +374,7 @@ Programming succeeded.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  6. ARC OpenOCD configuration options
+  7. ARC OpenOCD configuration options
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 >$ ./configure --help
@@ -523,7 +569,7 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  7. ARC-GDB development commands
+  8. ARC-GDB development commands
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   (gdb) set arc-debug on
