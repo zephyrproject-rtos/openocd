@@ -9,7 +9,7 @@
 @paragraphindent 0
 @c %**end of header
 
-@include version.texi
+@c @include version.texi
 
 @copying
 
