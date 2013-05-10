@@ -13,7 +13,6 @@
 
 /* ----- Exported functions ------------------------------------------------ */
 
-int arc_core_soft_reset_halt_imp(struct target *target);
 int arc_core_soft_reset_halt(struct target *target);
 
 int arc_core_type_info(struct target *target);
