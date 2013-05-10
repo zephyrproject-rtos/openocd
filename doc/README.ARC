@@ -15,7 +15,10 @@
 	7. ARC OpenOCD configuration options
 	8. ARC-GDB development commands
 
-	NOTE: both HS1 as HS2 Digilent probes are supported.
+ NOTES:
+
+	1. Both Digilent HS1 as HS2 probes are supported.
+	2. There is NO Flash support in ARC OpenOCD implemented.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -134,14 +137,21 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
   $> ./bootstrap
   $> make clean
   $> ./configure --enable-ft2232_libftdi --disable-doxygen-html
-    for development activities, add to the above command:
+    for development activities, add to the above command line:
        --enable-maintainer-mode --disable-werror \
        --enable-verbose --enable-verbose-jtag-io
+    NOTE: when documentation is required, please remove the option:
+       --disable-doxygen-html
 
   $> make
   $> sudo make install
 
   $> which openocd
+
+  How to generate documentation:
+  
+  $> make docs
+  $> make doxygen
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -152,7 +162,7 @@ First, perform instructions as in section 2 "How to build OpenOCD on Linux"
 When all OK, next steps are required to do a cross compilation for a Windows
 host executable of OpenOCD.
 
-Build OpenOCD for Windows on a Linux host:
+Build OpenOCD for Windows on a Linux host by usage of MinGW:
 
   First, download the FTDI chip drivers from:
 
@@ -180,7 +190,7 @@ Build OpenOCD for Windows on a Linux host:
     $> make install
 
 
-When performing (would like to do) a Cygwin build on a Windows host,
+Alternative, do a Cygwin build on a Windows host,
 
   For instructions, please visit:
 
@@ -201,7 +211,7 @@ On the HOST (Linux PC which connects directly to the target):
   $> lsusb
 
   $> openocd -f <openocd.cfg> -c "init" -c "halt" -c "reset halt"
-    for development activities, add to the above command:
+    for development activities, add to the above command line:
   		-d0 [-d 3 -l <logfile>.log]
 
   		valid openocd.cfg files:
