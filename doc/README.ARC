@@ -134,7 +134,6 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> git clone https://github.com/foss-for-synopsys-dwc-arc-processors/openocd
 
-  $> ./bootstrap
   $> make clean
   $> ./configure --enable-ft2232_libftdi --disable-doxygen-html
     for development activities, add to the above command line:
