@@ -346,26 +346,26 @@ int arc_regs_print_core_registers(struct target *target)
 
 	for(reg_nbr = 0; reg_nbr < ARC32_NUM_CORE_REGS; reg_nbr++) {
 		arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
-		LOG_USER_N(" R%02d: 0x%08X", reg_nbr, value);
+		LOG_USER_N(" R%02d: 0x%08X ", reg_nbr, value);
 
 		if(reg_nbr ==  3 || reg_nbr ==  7 || reg_nbr == 11 || reg_nbr == 15 ||
 		   reg_nbr == 19 || reg_nbr == 23 || reg_nbr == 27 || reg_nbr == 31 )
-			LOG_USER(" ");
+			LOG_USER(" "); /* give newline */
 	}
 
 	/* do not read extension+ registers for low-end cores */
 	if (arc32->processor_type != ARCEM_NUM) {
 		for(reg_nbr = ARC32_NUM_CORE_REGS; reg_nbr <= PCL_REG; reg_nbr++) {
 			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
-			LOG_USER_N(" R%02d: 0x%08X", reg_nbr, value);
+			LOG_USER_N(" R%02d: 0x%08X ", reg_nbr, value);
 
 			if(reg_nbr == 35 || reg_nbr == 39 || reg_nbr == 43 || reg_nbr == 47 ||
 			   reg_nbr == 51 || reg_nbr == 55 || reg_nbr == 59 || reg_nbr == 63 )
-				LOG_USER(" ");
+				LOG_USER(" "); /* give newline */
 		}
 	}
 
-	LOG_USER(" ");
+	LOG_USER(" "); /* give newline */
 
 	return retval;
 }
@@ -380,79 +380,79 @@ int arc_regs_print_aux_registers(struct arc_jtag *jtag_info)
 	LOG_USER("\n ARC auxiliary register display.\n");
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
-	LOG_USER(" STATUS:           0x%08X\t(@:0x%03X)", value, AUX_STATUS_REG);
+	LOG_USER(" STATUS:          0x%08X\t(@:0x%03X)", value, AUX_STATUS_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_SEMAPHORE_REG, &value);
-	LOG_USER(" SEMAPHORE:        0x%08X\t(@:0x%03X)", value, AUX_SEMAPHORE_REG);
+	LOG_USER(" SEMAPHORE:       0x%08X\t(@:0x%03X)", value, AUX_SEMAPHORE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, &value);
-	LOG_USER(" LP START:         0x%08X\t(@:0x%03X)", value, AUX_LP_START_REG);
+	LOG_USER(" LP START:        0x%08X\t(@:0x%03X)", value, AUX_LP_START_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG, &value);
-	LOG_USER(" LP END:           0x%08X\t(@:0x%03X)", value, AUX_LP_END_REG);
+	LOG_USER(" LP END:          0x%08X\t(@:0x%03X)", value, AUX_LP_END_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IDENTITY_REG, &value);
-	LOG_USER(" IDENTITY:         0x%08X\t(@:0x%03X)", value, AUX_IDENTITY_REG);
+	LOG_USER(" IDENTITY:        0x%08X\t(@:0x%03X)", value, AUX_IDENTITY_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
-	LOG_USER(" DEBUG:            0x%08X\t(@:0x%03X)", value, AUX_DEBUG_REG);
+	LOG_USER(" DEBUG:           0x%08X\t(@:0x%03X)", value, AUX_DEBUG_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
-	LOG_USER(" PC:               0x%08X\t(@:0x%03X)", value, AUX_PC_REG);
+	LOG_USER(" PC:              0x%08X\t(@:0x%03X)", value, AUX_PC_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, &value);
-	LOG_USER(" STATUS32:         0x%08X\t(@:0x%03X)", value, AUX_STATUS32_REG);
+	LOG_USER(" STATUS32:        0x%08X\t(@:0x%03X)", value, AUX_STATUS32_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_L1_REG, &value);
-	LOG_USER(" STATUS32 L1:      0x%08X\t(@:0x%03X)", value, AUX_STATUS32_L1_REG);
+	LOG_USER(" STATUS32 L1:     0x%08X\t(@:0x%03X)", value, AUX_STATUS32_L1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_L2_REG, &value);
-	LOG_USER(" STATUS32 L2:      0x%08X\t(@:0x%03X)", value, AUX_STATUS32_L2_REG);
+	LOG_USER(" STATUS32 L2:     0x%08X\t(@:0x%03X)", value, AUX_STATUS32_L2_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_COUNT0_REG, &value);
-	LOG_USER(" COUNT0:           0x%08X\t(@:0x%03X)", value, AUX_COUNT0_REG);
+	LOG_USER(" COUNT0:          0x%08X\t(@:0x%03X)", value, AUX_COUNT0_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_CONTROL0_REG, &value);
-	LOG_USER(" CONTROL0:         0x%08X\t(@:0x%03X)", value, AUX_CONTROL0_REG);
+	LOG_USER(" CONTROL0:        0x%08X\t(@:0x%03X)", value, AUX_CONTROL0_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LIMIT0_REG, &value);
-	LOG_USER(" LIMIT0:           0x%08X\t(@:0x%03X)", value, AUX_LIMIT0_REG);
+	LOG_USER(" LIMIT0:          0x%08X\t(@:0x%03X)", value, AUX_LIMIT0_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_INT_VECTOR_BASE_REG, &value);
-	LOG_USER(" INT VECTOR BASE:  0x%08X\t(@:0x%03X)", value, AUX_INT_VECTOR_BASE_REG);
+	LOG_USER(" INT VECTOR BASE: 0x%08X\t(@:0x%03X)", value, AUX_INT_VECTOR_BASE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_MACMODE_REG, &value);
-	LOG_USER(" MACMODE:          0x%08X\t(@:0x%03X)", value, AUX_MACMODE_REG);
+	LOG_USER(" MACMODE:         0x%08X\t(@:0x%03X)", value, AUX_MACMODE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_LV12_REG, &value);
-	LOG_USER(" IRQ LV12:         0x%08X\t(@:0x%03X)", value, AUX_IRQ_LV12_REG);
+	LOG_USER(" IRQ LV12:        0x%08X\t(@:0x%03X)", value, AUX_IRQ_LV12_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_COUNT1_REG, &value);
-	LOG_USER(" COUNT1:           0x%08X\t(@:0x%03X)", value, AUX_COUNT1_REG);
+	LOG_USER(" COUNT1:          0x%08X\t(@:0x%03X)", value, AUX_COUNT1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_CONTROL1_REG, &value);
-	LOG_USER(" CONTROL1:         0x%08X\t(@:0x%03X)", value, AUX_CONTROL1_REG);
+	LOG_USER(" CONTROL1:        0x%08X\t(@:0x%03X)", value, AUX_CONTROL1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LIMIT1_REG, &value);
-	LOG_USER(" LIMIT1:           0x%08X\t(@:0x%03X)", value, AUX_LIMIT1_REG);
+	LOG_USER(" LIMIT1:          0x%08X\t(@:0x%03X)", value, AUX_LIMIT1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_LEV_REG, &value);
-	LOG_USER(" IRQ LEV:          0x%08X\t(@:0x%03X)", value, AUX_IRQ_LEV_REG);
+	LOG_USER(" IRQ LEV:         0x%08X\t(@:0x%03X)", value, AUX_IRQ_LEV_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_HINT_REG, &value);
-	LOG_USER(" IRQ HINT:         0x%08X\t(@:0x%03X)", value, AUX_IRQ_HINT_REG);
+	LOG_USER(" IRQ HINT:        0x%08X\t(@:0x%03X)", value, AUX_IRQ_HINT_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ERET_REG, &value);
-	LOG_USER(" ERET:             0x%08X\t(@:0x%03X)", value, AUX_ERET_REG);
+	LOG_USER(" ERET:            0x%08X\t(@:0x%03X)", value, AUX_ERET_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ERBTA_REG, &value);
-	LOG_USER(" ERBTA:            0x%08X\t(@:0x%03X)", value, AUX_ERBTA_REG);
+	LOG_USER(" ERBTA:           0x%08X\t(@:0x%03X)", value, AUX_ERBTA_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ERSTATUS_REG, &value);
-	LOG_USER(" ERSTATUS:         0x%08X\t(@:0x%03X)", value, AUX_ERSTATUS_REG);
+	LOG_USER(" ERSTATUS:        0x%08X\t(@:0x%03X)", value, AUX_ERSTATUS_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ECR_REG, &value);
-	LOG_USER(" ECR:              0x%08X\t(@:0x%03X)", value, AUX_ECR_REG);
+	LOG_USER(" ECR:             0x%08X\t(@:0x%03X)", value, AUX_ECR_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_EFA_REG, &value);
-	LOG_USER(" EFA:              0x%08X\t(@:0x%03X)", value, AUX_EFA_REG);
+	LOG_USER(" EFA:             0x%08X\t(@:0x%03X)", value, AUX_EFA_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ICAUSE1_REG, &value);
-	LOG_USER(" ICAUSE1:          0x%08X\t(@:0x%03X)", value, AUX_ICAUSE1_REG);
+	LOG_USER(" ICAUSE1:         0x%08X\t(@:0x%03X)", value, AUX_ICAUSE1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ICAUSE2_REG, &value);
-	LOG_USER(" ICAUSE2:          0x%08X\t(@:0x%03X)", value, AUX_ICAUSE2_REG);
+	LOG_USER(" ICAUSE2:         0x%08X\t(@:0x%03X)", value, AUX_ICAUSE2_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IENABLE_REG, &value);
-	LOG_USER(" IENABLE:          0x%08X\t(@:0x%03X)", value, AUX_IENABLE_REG);
+	LOG_USER(" IENABLE:         0x%08X\t(@:0x%03X)", value, AUX_IENABLE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_ITRIGGER_REG, &value);
-	LOG_USER(" ITRIGGER:         0x%08X\t(@:0x%03X)", value, AUX_ITRIGGER_REG);
+	LOG_USER(" ITRIGGER:        0x%08X\t(@:0x%03X)", value, AUX_ITRIGGER_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_XPU_REG, &value);
-	LOG_USER(" XPU:              0x%08X\t(@:0x%03X)", value, AUX_XPU_REG);
+	LOG_USER(" XPU:             0x%08X\t(@:0x%03X)", value, AUX_XPU_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_REG, &value);
-	LOG_USER(" BTA:              0x%08X\t(@:0x%03X)", value, AUX_BTA_REG);
+	LOG_USER(" BTA:             0x%08X\t(@:0x%03X)", value, AUX_BTA_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_L1_REG, &value);
-	LOG_USER(" BTA L1:           0x%08X\t(@:0x%03X)", value, AUX_BTA_L1_REG);
+	LOG_USER(" BTA L1:          0x%08X\t(@:0x%03X)", value, AUX_BTA_L1_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_BTA_L2_REG, &value);
-	LOG_USER(" BTA L2:           0x%08X\t(@:0x%03X)", value, AUX_BTA_L2_REG);
+	LOG_USER(" BTA L2:          0x%08X\t(@:0x%03X)", value, AUX_BTA_L2_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PULSE_CAN_REG, &value);
-	LOG_USER(" IRQ PULSE CAN:    0x%08X\t(@:0x%03X)", value, AUX_IRQ_PULSE_CAN_REG);
+	LOG_USER(" IRQ PULSE CAN:   0x%08X\t(@:0x%03X)", value, AUX_IRQ_PULSE_CAN_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IRQ_PENDING_REG, &value);
-	LOG_USER(" IRQ PENDING:      0x%08X\t(@:0x%03X)", value, AUX_IRQ_PENDING_REG);
+	LOG_USER(" IRQ PENDING:     0x%08X\t(@:0x%03X)", value, AUX_IRQ_PENDING_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_XFLAGS_REG, &value);
-	LOG_USER(" XFLAGS:           0x%08X\t(@:0x%03X)", value, AUX_XFLAGS_REG);
+	LOG_USER(" XFLAGS:          0x%08X\t(@:0x%03X)", value, AUX_XFLAGS_REG);
 	LOG_USER(" ");
 
 	return retval;
