@@ -16,17 +16,6 @@
 
 /* ----- Exported functions ------------------------------------------------ */
 
-int arc_core_soft_reset_halt_imp(struct target *target)
-{
-	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
-
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
-}
-
 int arc_core_soft_reset_halt(struct target *target)
 {
 	int retval = ERROR_OK;
