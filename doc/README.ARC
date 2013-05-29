@@ -14,6 +14,7 @@
 	6. How to program a bit-file into FPGA by usage of a Digilent HS2 probe
 	7. ARC OpenOCD configuration options
 	8. ARC-GDB development commands
+	9. Find your way in the source code
 
  NOTES:
 
@@ -135,6 +136,7 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
   $> git clone https://github.com/foss-for-synopsys-dwc-arc-processors/openocd
 
   $> make clean
+  $> ./bootstrap
   $> ./configure --enable-ft2232_libftdi --disable-doxygen-html
     for development activities, add to the above command line:
        --enable-maintainer-mode --disable-werror \
@@ -606,6 +608,32 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
   $>  arc-elf32-readelf -x --hex-dump=.text u-boot.elf | more
   $>  arc-elf32-readelf -x --hex-dump=1 u-boot.elf | more
   $>  arc-elf32-readelf -x 1 u-boot.elf | more
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  9. Find your way in the source code
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Automake makefile entry starts from: src/target/Makefile.am
+
+In src/target is the ARC specific code base:
+
+	Top and bottom interfaces into OpenOCD:
+
+	arc.c				main hook into OpenOCD framework (target function body)
+	arc.h				main include (gets everywhere included)
+	arc_jtag.c + .h		ARC jtag interface into OpenOCD
+
+	Supporting functions/modules as used by above interface into OpenOCD
+
+	arc32.c + .h		generic ARC architecture functions
+	arc_core.c + .h		ARC core internal specifics
+	arc_dbg.c + .h		ARC debugger functions
+	arc_mem.c + .h		ARC memory functions
+	arc_mntr.c + .h		GDB monitor functions
+	arc_ocd.c + .h		ARC OCD initialization
+	arc_regs.c + .h		ARC register access
+	arc_trgt.c + .h		target/board system functions
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
