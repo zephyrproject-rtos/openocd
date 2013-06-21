@@ -13,6 +13,7 @@
 #endif
 
 #include "arc.h"
+#define DEBUG
 
 /* ----- Supporting functions ---------------------------------------------- */
 
@@ -24,27 +25,23 @@ static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 
 	LOG_DEBUG(">> Entering <<");
 
-	assert(size <= 4);
+	assert(!(addr & 3));
+	assert(size == 4);
 
-	if (size <= 4) { /* means 4 * 2 bytes */
-		for(i = 0; i < count; i++) {
-			retval = arc_jtag_read_memory(jtag_info, addr + (i * 4),
-				buf + (i * 4));
+	for (i = 0; i < count; i++) {
+		retval = arc_jtag_read_memory(jtag_info, addr + (i * 4),
+			buf + (i * 4));
 #ifdef DEBUG
-			uint32_t buffer;
-			retval = arc_jtag_read_memory(jtag_info, addr + (i * 4), &buffer);
-			LOG_USER(" > value (size:%d): 0x%x @: 0x%x",
-				size, buffer, addr + (i * 4));
+		LOG_USER(" > value (size:%d): 0x%x @: 0x%x",
+			 size, *((uint32_t *) buf + (i * 4)), addr + (i * 4));
 #endif
-		}
-	} else
-		retval = ERROR_FAIL;
+	}
 
 	return retval;
 }
 
 static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
-	int size, int count, void *buf)
+			       int size, int count, void *buf)
 {
 	int retval = ERROR_OK;
 	int i;
@@ -72,17 +69,17 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 		 */
 		uint32_t buffer;
 
-		retval = arc_jtag_read_memory(jtag_info, addr, &buffer);
-		LOG_DEBUG(" > read:  0x%x @: 0x%x", buffer, addr);
-		LOG_DEBUG("   need to write(16): 0x%x", *(uint16_t *)buf);
+		retval = arc_jtag_read_memory(jtag_info, addr & ~3, &buffer);
+		LOG_USER(" > read:  0x%x @: 0x%x", buffer, addr & ~3);
+		LOG_USER("   need to write(16): 0x%x", *(uint16_t *)buf);
 
-		memcpy(&buffer, buf, sizeof(uint16_t));
-		LOG_DEBUG(" >> have to write: 0x%x",buffer);
-		retval = arc_jtag_write_memory(jtag_info, addr, &buffer);
+		memcpy(((void *) &buffer) + (addr & 3), buf, size);
+		LOG_USER(" >> have to write: 0x%x",buffer);
+		retval = arc_jtag_write_memory(jtag_info, addr & ~3, &buffer);
 
 #ifdef DEBUG
 		arc_jtag_read_memory(jtag_info, addr, &buffer);
-		LOG_DEBUG(" > read:  0x%x @: 0x%x", buffer, addr);
+		LOG_USER(" > read:  0x%x @: 0x%x", buffer, addr);
 #endif
 	}
 
@@ -107,57 +104,39 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	/* sanitize arguments */
-
-	if (((size != 4) && (size != 2) && (size != 1)) || (count == 0) || !(buffer))
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	if (((size == 4) && (address & 0x3u)) || ((size == 2) && (address & 0x1u)))
-		return ERROR_TARGET_UNALIGNED_ACCESS;
-
 	/* since we don't know if buffer is aligned, we allocate new mem that
 	 * is always aligned.
 	 */
-	void *tunnel = NULL;
+	void *tunnel;
 
-	if (size > 1) {
-		tunnel = malloc(count * size * sizeof(uint8_t));
-		if (tunnel == NULL) {
-			LOG_ERROR("Out of memory");
-			return ERROR_FAIL;
-		}
-	} else
-		tunnel = buffer;
+	tunnel = malloc(count * size + 4);
+	if (!tunnel) {
+		LOG_ERROR("Out of memory");
+		return ERROR_FAIL;
+	}
 
-	retval = arc_mem_read_block(&arc32->jtag_info, address, size,
-			count, tunnel);
-
+	retval = arc_mem_read_block(&arc32->jtag_info, address & ~3, 4,
+			((size * count) + 3) >> 2, tunnel);
+	
 	/* arc32_..._read_mem with size 4/2 returns uint32_t/uint16_t in host */
 	/* endianness, but byte array should represent target endianness      */
 
 	if (ERROR_OK == retval) {
 		switch (size) {
 		case 4:
-			target_buffer_set_u32_array(target, buffer, count, tunnel);
-#ifdef DEBUG
-			int i;
-			for(i = 0; i < count; i++) {
-				/* print byte position content of complete word */
-				printf("    **> 0x%02x",buffer[3 + (4 * i)]);
-				printf("%02x",buffer[2 + (4 * i)]);
-				printf("%02x",buffer[1 + (4 * i)]);
-				printf("%02x\n",buffer[0 + (4 * i)]);
-			}
-#endif
+			target_buffer_set_u32_array(target, buffer, count,
+						    tunnel + (address & 3));
 			break;
 		case 2:
-			target_buffer_set_u16_array(target, buffer, count, tunnel);
+			target_buffer_set_u16_array(target, buffer, count,
+						    tunnel + (address & 3));
 			break;
+		case 1:
+			memcpy(buffer, tunnel + (address & 3), count);
 		}
 	}
 
-	if ((size > 1) && (tunnel != NULL))
-		free(tunnel);
+	free(tunnel);
 
 	return retval;
 }
