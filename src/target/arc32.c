@@ -215,7 +215,8 @@ int arc32_wait_until_core_is_halted(struct target *target)
 	 * check if bit N starting from 0 is set; temp & (1 << N)
 	 *   here, lets check if we are HALTED
 	 */
-	while ((value & 1) == 1) {
+	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	while (!(value & 1)) {
 		printf(".");
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	}
