@@ -184,16 +184,26 @@ int arc32_config_step(struct target *target, int enable_step)
 int arc32_cache_invalidate(struct target *target)
 {
 	int retval = ERROR_OK;
-	uint32_t value;
+	uint32_t value, backup;
 
 	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	value = IC_IVIC_FLUSH;        /* just flush all instructions */
+	value = IC_IVIC_INVALIDATE;	/* invalidate I$ */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IC_IVIC_REG, &value);
-	//value = DC_IVDC_FLUSH;        /* flush all data !! be carefull !! */
-	//retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+
+	backup = value;
+	value = value & ~DC_CTRL_IM;
+
+	/* set DC_CTRL invalidate mode to invalidate-only (no flushing!!) */
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+	value = DC_IVDC_INVALIDATE;	/* invalidate D$ */
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
+
+	/* restore DC_CTRL invalidate mode */
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &backup);
 
 	return retval;
 }
