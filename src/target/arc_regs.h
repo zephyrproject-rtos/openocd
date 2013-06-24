@@ -70,7 +70,7 @@
 #define AUX_STATUS32_L2_REG		0xC
 
 #define AUX_IC_IVIC_REG			0X10
-#define IC_IVIC_FLUSH					0XFFFFFFFF
+#define IC_IVIC_INVALIDATE		0XFFFFFFFF
 
 #define AUX_COUNT0_REG			0x21
 #define AUX_CONTROL0_REG		0x22
@@ -80,7 +80,9 @@
 #define AUX_IRQ_LV12_REG		0x43
 
 #define AUX_DC_IVDC_REG			0X47
-#define DC_IVDC_FLUSH					(1)
+#define DC_IVDC_INVALIDATE		(1)
+#define AUX_DC_CTRL_REG			0X48
+#define DC_CTRL_IM			(1 << 6)
 
 #define AUX_COUNT1_REG			0x100
 #define AUX_CONTROL1_REG		0x101
