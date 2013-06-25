@@ -348,7 +348,7 @@ int arc_dbg_enter_debug(struct target *target)
 	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
 	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	sleep(1);
+	alive_sleep(1);
 
 #ifdef DEBUG
 	LOG_USER("core stopped (halted) DEGUB-REG: 0x%x",value);
@@ -594,7 +594,7 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	arc32_config_step(target, 1);
 
 	/* make sure we done our step */
-	sleep(1);
+	alive_sleep(1);
 
 	/* registers are now invalid */
 	register_cache_invalidate(arc32->core_cache);
