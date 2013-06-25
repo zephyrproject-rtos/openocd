@@ -44,8 +44,6 @@ int arc_ocd_poll(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* gdb calls continuously through this arc_poll() function  */
-	LOG_DEBUG(">> Entering <<");
-
 	retval = arc_jtag_status(&arc32->jtag_info, &status);
 	if (retval != ERROR_OK)
 		return retval;
@@ -95,8 +93,6 @@ int arc_ocd_assert_reset(struct target *target)
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	enum reset_types jtag_reset_config = jtag_get_reset_config();
@@ -135,8 +131,6 @@ int arc_ocd_deassert_reset(struct target *target)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	/* deassert reset lines */
@@ -151,8 +145,6 @@ int arc_ocd_target_create(struct target *target, Jim_Interp *interp)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc_common *arc = calloc(1, sizeof(struct arc_common));
 
 	retval = arc_ocd_init_arch_info(target, arc, target->tap);
@@ -164,8 +156,6 @@ int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	arc_regs_build_reg_cache(target);
 
 	return retval;
@@ -176,8 +166,6 @@ int arc_ocd_examine(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value, status;
 	struct arc32_common *arc32 = target_to_arc32(target);
-
-	LOG_DEBUG(">> Entering <<");
 
 	retval = arc_jtag_startup(&arc32->jtag_info);
 
