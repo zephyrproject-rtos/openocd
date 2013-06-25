@@ -13,7 +13,6 @@
 #endif
 
 #include "arc.h"
-#define DEBUG
 
 /* ----- Supporting functions ---------------------------------------------- */
 
@@ -29,10 +28,6 @@ static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 	for (i = 0; i < count; i++) {
 		retval = arc_jtag_read_memory(jtag_info, addr + (i * 4),
 			buf + (i * 4));
-#ifdef DEBUG
-		LOG_USER(" > value (size:%d): 0x%x @: 0x%x",
-			 size, *((uint32_t *) buf + (i * 4)), addr + (i * 4));
-#endif
 	}
 
 	return retval;
@@ -189,9 +184,6 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
 
-	LOG_DEBUG("write: 0x%8.8x words @: 0x%8.8x", count, address);
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
-
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -235,17 +227,6 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 	}
 
 	target_buffer_get_u32_array(target, buffer, count, tunnel);
-
-#ifdef DEBUG
-	/* transfer big data block into target !! needs performance upgrade !! */
-	printf(" > going to store: 0x%08x\n", (uint32_t *)tunnel[0]);
-	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[1]);
-	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[2]);
-	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[3]);
-	printf(" >       ----->  : 0x%08x\n", (uint32_t *)tunnel[4]);
-	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[5]);
-	printf(" >               : 0x%08x\n", (uint32_t *)tunnel[6]);
-#endif
 
 	retval = arc_jtag_write_block(jtag_info, address, 4, count,
 		(uint32_t *)tunnel);
