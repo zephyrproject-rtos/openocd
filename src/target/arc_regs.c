@@ -68,8 +68,6 @@ static int arc_regs_get_core_reg(struct reg *reg)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("  >>> Calling into <<<");
-
 	struct arc32_core_reg *arc32_reg = reg->arch_info;
 	struct target *target = arc32_reg->target;
 	struct arc32_common *arc32_target = target_to_arc32(target);
@@ -85,8 +83,6 @@ static int arc_regs_get_core_reg(struct reg *reg)
 static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG("  >>> Calling into <<<");
 
 	struct arc32_core_reg *arc32_reg = reg->arch_info;
 	struct target *target = arc32_reg->target;
@@ -113,8 +109,6 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 {
 	int num_regs = ARC32_NUM_GDB_REGS;
 	int i;
-
-	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -153,8 +147,6 @@ int arc_regs_read_core_reg(struct target *target, int num)
 	int retval = ERROR_OK;
 	uint32_t reg_value;
 
-	LOG_DEBUG("  >>> Calling into <<<");
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -175,8 +167,6 @@ int arc_regs_write_core_reg(struct target *target, int num)
 	int retval = ERROR_OK;
 	uint32_t reg_value;
 
-	LOG_DEBUG("  >>> Calling into <<<");
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -196,8 +186,6 @@ int arc_regs_read_registers(struct target *target, uint32_t *regs)
 {
 	int retval = ERROR_OK;
 	int i;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -260,8 +248,6 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 	int retval = ERROR_OK;
 	int i;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/*
@@ -317,10 +303,6 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_INFO(" arc-elf32-gdb <= register-cache => openocd");
-
-	LOG_DEBUG(">> Entering <<");
-
 	/* get pointers to arch-specific information storage */
 	*reg_list_size = ARC32_NUM_GDB_REGS;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
@@ -337,8 +319,6 @@ int arc_regs_print_core_registers(struct target *target)
 	int retval = ERROR_OK;
 	int reg_nbr;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -374,8 +354,6 @@ int arc_regs_print_aux_registers(struct arc_jtag *jtag_info)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_USER("\n ARC auxiliary register display.\n");
 
