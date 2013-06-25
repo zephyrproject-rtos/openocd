@@ -29,8 +29,6 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	arc32->common_magic = ARC32_COMMON_MAGIC;
 	target->arch_info = arc32;
 
@@ -55,8 +53,6 @@ int arc32_save_context(struct target *target)
 	int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG(">> Entering <<");
-
 	retval = arc_regs_read_registers(target, arc32->core_regs);
 	if (retval != ERROR_OK)
 		return retval;
@@ -75,8 +71,6 @@ int arc32_restore_context(struct target *target)
 	int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG(">> Entering <<");
-
 	for (i = 0; i < ARC32_NUM_GDB_REGS; i++) {
 		if (!arc32->core_cache->reg_list[i].valid)
 			arc32->write_core_reg(target, i);
@@ -93,8 +87,6 @@ int arc32_enable_interrupts(struct target *target, int enable)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -118,8 +110,6 @@ int arc32_start_core(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	target->state = TARGET_RUNNING;
@@ -127,7 +117,7 @@ int arc32_start_core(struct target *target)
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	value &= ~SET_CORE_HALT_BIT;        /* clear the HALT bit */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_USER(" ARC Core Started Again (eating instructions)");
+	LOG_DEBUG(" ARC Core Started Again (eating instructions)");
 
 #ifdef DEBUG
 	arc32_print_core_state(target);
@@ -139,8 +129,6 @@ int arc32_config_step(struct target *target, int enable_step)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -186,8 +174,6 @@ int arc32_cache_invalidate(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t value, backup;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	value = IC_IVIC_INVALIDATE;	/* invalidate I$ */
@@ -212,8 +198,6 @@ int arc32_wait_until_core_is_halted(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t value = 1; /* get us into checking for HALT bit */
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -244,16 +228,14 @@ int arc32_print_core_state(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 	uint32_t value;
 
-	LOG_DEBUG(">> Entering <<");
-
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	LOG_USER("  AUX REG  [DEBUG]: 0x%x", value);
+	LOG_DEBUG("  AUX REG  [DEBUG]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_USER("        [STATUS32]: 0x%x", value);
+	LOG_DEBUG("        [STATUS32]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS_REG, &value);
-	LOG_USER("          [STATUS]: 0x%x", value);
+	LOG_DEBUG("          [STATUS]: 0x%x", value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-	LOG_USER("              [PC]: 0x%x", value);
+	LOG_DEBUG("              [PC]: 0x%x", value);
 
 	return retval;
 }
@@ -262,8 +244,6 @@ int arc32_arch_state(struct target *target)
 {
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
-
-	LOG_DEBUG(">> Entering <<");
 
 	if (PRINT) {
 		LOG_USER("target state: %s in: %s mode, PC at: 0x%8.8" PRIx32 "",
@@ -281,8 +261,6 @@ int arc32_get_current_pc(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t dpc;
 	struct arc32_common *arc32 = target_to_arc32(target);
-
-	LOG_DEBUG(">> Entering <<");
 
 	/* read current PC */
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &dpc);

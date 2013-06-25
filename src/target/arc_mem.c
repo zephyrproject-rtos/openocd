@@ -23,8 +23,6 @@ static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
 	int retval = ERROR_OK;
 	int i;
 
-	LOG_DEBUG(">> Entering <<");
-
 	assert(!(addr & 3));
 	assert(size == 4);
 
@@ -81,11 +79,6 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG(">> Entering <<");
-
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 \
-		", count: 0x%8.8" PRIx32 "", address, size, count);
-
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -134,8 +127,6 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("start writing @ address: 0x%8.8" PRIx32 " : %d times %d bytes",
 			address, count, size);
@@ -197,8 +188,6 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc_jtag *jtag_info = &arc32->jtag_info;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("write: 0x%8.8x words @: 0x%8.8x", count, address);
 	LOG_DEBUG("address: 0x%8.8" PRIx32 ", count: 0x%8.8" PRIx32 "", address, count);
@@ -278,8 +267,6 @@ int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -289,8 +276,6 @@ int arc_mem_blank_check(struct target *target, uint32_t address,
 	uint32_t count, uint32_t *blank)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
@@ -307,8 +292,6 @@ int arc_mem_run_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -321,8 +304,6 @@ int arc_mem_start_algorithm(struct target *target,
 	void *arch_info)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
@@ -337,8 +318,6 @@ int arc_mem_wait_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -351,8 +330,6 @@ int arc_mem_virt2phys(struct target *target, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -362,8 +339,6 @@ int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
@@ -375,8 +350,6 @@ int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -387,8 +360,6 @@ int arc_mem_mmu(struct target *target, int *enabled)
 	int retval = ERROR_OK;
 
 	/* (gdb) load command runs through here */
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG(" > NOT SUPPORTED IN THIS RELEASE.");
 	LOG_DEBUG("    arc_mem_mmu() = entry point for performance upgrade");
