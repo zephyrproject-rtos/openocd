@@ -26,8 +26,6 @@ COMMAND_HANDLER(handle_set_pc_command)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -59,8 +57,6 @@ COMMAND_HANDLER(handle_set_core_into_halted_command)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -88,8 +84,6 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 {
 	int retval = ERROR_OK;
 	uint32_t reg_nbr, value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -122,8 +116,6 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 {
 	int retval = ERROR_OK;
 	uint32_t reg_nbr, value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -159,8 +151,6 @@ COMMAND_HANDLER(handle_read_aux_reg_command)
 	int retval = ERROR_OK;
 	uint32_t reg_nbr, value;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -192,8 +182,6 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 {
 	int retval = ERROR_OK;
 	uint32_t reg_nbr, value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -229,8 +217,6 @@ COMMAND_HANDLER(handle_read_mem_word_command)
 	int retval = ERROR_OK;
 	uint32_t mem_addr, value;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -256,8 +242,6 @@ COMMAND_HANDLER(handle_write_mem_word_command)
 {
 	int retval = ERROR_OK;
 	uint32_t mem_addr, value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -286,8 +270,6 @@ COMMAND_HANDLER(handle_print_core_registers_command)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct target *target = get_current_target(CMD_CTX);
 
 	struct target_list *head;
@@ -310,8 +292,6 @@ COMMAND_HANDLER(handle_print_core_registers_command)
 COMMAND_HANDLER(handle_print_aux_registers_command)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -336,8 +316,6 @@ COMMAND_HANDLER(handle_print_aux_registers_command)
 COMMAND_HANDLER(handle_print_core_status_command)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -366,8 +344,6 @@ COMMAND_HANDLER(handle_print_core_status_command)
 COMMAND_HANDLER(handle_test_gdb_command)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);

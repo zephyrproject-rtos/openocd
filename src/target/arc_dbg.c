@@ -23,8 +23,6 @@ static int arc_dbg_set_breakpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
 
-	LOG_DEBUG(">> Entering <<");
-
 	if (breakpoint->set) {
 		LOG_WARNING("breakpoint already set");
 		return ERROR_OK;
@@ -115,8 +113,6 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
 	int retval;
 
-	LOG_DEBUG(">> Entering <<");
-
 	if (!breakpoint->set) {
 		LOG_WARNING("breakpoint not set");
 		return ERROR_OK;
@@ -191,8 +187,6 @@ static void arc_dbg_enable_breakpoints(struct target *target)
 {
 	struct breakpoint *breakpoint = target->breakpoints;
 
-	LOG_DEBUG(">> Entering <<");
-
 	/* set any pending breakpoints */
 	while (breakpoint) {
 		if (breakpoint->set == 0)
@@ -206,8 +200,6 @@ static int arc_dbg_set_watchpoint(struct target *target,
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->data_break_list;
-
-	LOG_DEBUG(">> Entering <<");
 
 	int wp_num = 0;
 	/*
@@ -278,8 +270,6 @@ static int arc_dbg_unset_watchpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->data_break_list;
 
-	LOG_DEBUG(">> Entering <<");
-
 	if (!watchpoint->set) {
 		LOG_WARNING("watchpoint not set");
 		return ERROR_OK;
@@ -303,8 +293,6 @@ static void arc_dbg_enable_watchpoints(struct target *target)
 {
 	struct watchpoint *watchpoint = target->watchpoints;
 
-	LOG_DEBUG(">> Entering <<");
-
 	/* set any pending watchpoints */
 	while (watchpoint) {
 		if (watchpoint->set == 0)
@@ -315,8 +303,6 @@ static void arc_dbg_enable_watchpoints(struct target *target)
 
 static int arc_dbg_single_step_core(struct target *target)
 {
-	LOG_DEBUG(">> Entering <<");
-
 	arc_dbg_debug_entry(target);
 
 	/* disable interrupts while stepping */
@@ -337,8 +323,6 @@ int arc_dbg_enter_debug(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -364,8 +348,6 @@ int arc_dbg_debug_entry(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t dpc;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* save current PC */
@@ -384,8 +366,6 @@ int arc_dbg_exit_debug(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t value;
-
-	LOG_DEBUG(">> Entering <<");
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -407,8 +387,6 @@ int arc_dbg_exit_debug(struct target *target)
 int arc_dbg_halt(struct target *target)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
@@ -451,7 +429,6 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	struct breakpoint *breakpoint = NULL;
 	uint32_t resume_pc = 0;
 
-	LOG_DEBUG(">> Entering <<");
 	LOG_DEBUG("     current:%d, address:%d, handle_breakpoints:%d,"
 		" debug_execution:%d\n", current, address, handle_breakpoints,
 		debug_execution);
@@ -551,8 +528,6 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
@@ -615,8 +590,6 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 int arc_dbg_add_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (breakpoint->type == BKPT_HARD) {
@@ -643,8 +616,6 @@ int arc_dbg_add_context_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -655,8 +626,6 @@ int arc_dbg_add_hybrid_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
@@ -666,8 +635,6 @@ int arc_dbg_remove_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -691,8 +658,6 @@ int arc_dbg_add_watchpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG(">> Entering <<");
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (arc32->num_data_bpoints_avail < 1) {
@@ -712,8 +677,6 @@ int arc_dbg_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
 	int retval = ERROR_OK;
-
-	LOG_DEBUG(">> Entering <<");
 
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
