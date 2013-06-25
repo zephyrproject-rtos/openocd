@@ -72,7 +72,7 @@ int arc32_restore_context(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	for (i = 0; i < ARC32_NUM_GDB_REGS; i++) {
-		if (!arc32->core_cache->reg_list[i].valid)
+		if (arc32->core_cache->reg_list[i].dirty)
 			arc32->write_core_reg(target, i);
 	}
 
