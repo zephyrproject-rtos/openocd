@@ -46,21 +46,12 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 	int retval = ERROR_OK;
 	int i;
 
-	LOG_DEBUG(">> Entering <<");
-
 	assert(size <= 4);
 
 	if (size == 4) {
 		for(i = 0; i < count; i++) {
-			LOG_DEBUG(" >> write: 0x%x @ 0x%x", *(uint32_t *)(buf + (i * size)),
-				addr + (i * size));
 			retval = arc_jtag_write_memory(jtag_info, (addr + (i * size)),
 				(buf + (i * size)));
-#ifdef DEBUG
-			uint32_t buffer;
-			retval = arc_jtag_read_memory(jtag_info, addr + (i * size), &buffer);
-			LOG_USER(" >         0x%x @: 0x%x", buffer, addr + (i * 4));
-#endif
 		}
 	} else {
 		/*
@@ -70,17 +61,9 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 		uint32_t buffer;
 
 		retval = arc_jtag_read_memory(jtag_info, addr & ~3, &buffer);
-		LOG_USER(" > read:  0x%x @: 0x%x", buffer, addr & ~3);
-		LOG_USER("   need to write(16): 0x%x", *(uint16_t *)buf);
 
 		memcpy(((void *) &buffer) + (addr & 3), buf, size);
-		LOG_USER(" >> have to write: 0x%x",buffer);
 		retval = arc_jtag_write_memory(jtag_info, addr & ~3, &buffer);
-
-#ifdef DEBUG
-		arc_jtag_read_memory(jtag_info, addr, &buffer);
-		LOG_USER(" > read:  0x%x @: 0x%x", buffer, addr);
-#endif
 	}
 
 	return retval;
