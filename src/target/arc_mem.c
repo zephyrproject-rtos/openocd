@@ -60,10 +60,14 @@ static int arc_mem_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 		 */
 		uint32_t buffer;
 
-		retval = arc_jtag_read_memory(jtag_info, addr & ~3, &buffer);
-
-		memcpy(((void *) &buffer) + (addr & 3), buf, size);
-		retval = arc_jtag_write_memory(jtag_info, addr & ~3, &buffer);
+		for(i = 0; i < count; i++) {
+			retval = arc_jtag_read_memory(jtag_info,
+					(addr + i * size) & ~3, &buffer);
+			memcpy(((void *) &buffer) + ((addr + i * size) & 3),
+				buf + i * size, size);
+			retval = arc_jtag_write_memory(jtag_info,
+				(addr + i * size) & ~3, &buffer);
+		}
 	}
 
 	return retval;
