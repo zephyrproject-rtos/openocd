@@ -302,10 +302,6 @@ int arc_jtag_write_block(struct arc_jtag *jtag_info, uint32_t addr,
 	/* remaining data, address increment is taken care of by hw */
 	for(i = 1; i < count; i++) {
 		jtag_info->tap_end_state = TAP_IRPAUSE;
-		arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-		jtag_info->tap_end_state = TAP_DRPAUSE;
-		arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_MEMORY);
-		jtag_info->tap_end_state = TAP_IRPAUSE;
 		arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
 		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
 		arc_jtag_write_data(jtag_info, *(uint32_t *)(value + i));
