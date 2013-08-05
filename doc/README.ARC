@@ -129,7 +129,7 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> sudo apt-get install libftdi-dev libftdi1 libtool git-core asciidoc \
        build-essential flex bison \
-       libgmp3-dev libmpfr-dev autoconf \
+       libgmp3-dev libmpfr-dev autoconf automake \
        texinfo libncurses5-dev libexpat1 libexpat1-dev \
        tk tk8.4 tk8.4-dev
 
