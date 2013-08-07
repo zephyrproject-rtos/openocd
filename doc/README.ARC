@@ -32,18 +32,16 @@ Download and install 'Adept' from Digilent as it has to go with the used
   http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2
 
   $> tar xzfv digilent.adept.runtime_2.10.2-i686.tar.gz 
+  $> cd digilent.adept.runtime_2.10.2-i686
   $> sudo ./install.sh
   $> cd ftdi.drivers_1.0.4-i686
   $> sudo ./install.sh
+  $> cd ../..
 
   $> tar xvzf digilent.adept.utilities_2.1.1-i686.tar.gz 
+  $> cd digilent.adept.utilities_2.1.1-i686
   $> sudo ./install.sh 
-
-  $> tar xvzf digilent.adept.sdk_2.1.1.tar.gz 
-  $> sudo ./install.sh 
-
-  $> dadutil enum
-  $> djtgcfg init -d JtagHs1
+  $> cd ..
 
   ......................................................................
 
@@ -65,13 +63,6 @@ Device Transport Type:  00020001 (USB)
 Device Capabilities:    00000011
     DJTG - JTAG scan chain access
     DSPI - Serial Peripheral Interface
-
->$ djtgcfg init -d JtagHs1
-Initializing scan chain...
-Found Device ID: 100034b1
-
-Found 1 device(s):
-    Device 0: UNKNOWN
 
   ......................................................................
 
@@ -135,14 +126,16 @@ Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
 
   $> git clone https://github.com/foss-for-synopsys-dwc-arc-processors/openocd
 
-  $> make clean
+  $> cd openocd
   $> ./bootstrap
-  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html
-    for development activities, add to the above command line:
-       --enable-maintainer-mode --disable-werror \
-       --enable-verbose --enable-verbose-jtag-io
+  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html \
+        --enable-maintainer-mode
+    NOTE: for development activities, add to the above command line:
+       --disable-werror --enable-verbose --enable-verbose-jtag-io
     NOTE: when documentation is required, please remove the option:
        --disable-doxygen-html
+    NOTE: option --enable-maintainer-mode is required when building from GIT,
+        otherwise documentation will fail to build.
 
   $> make
   $> sudo make install
