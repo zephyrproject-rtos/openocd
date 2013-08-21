@@ -245,6 +245,16 @@ int arc_regs_read_registers(struct target *target, uint32_t *regs)
 
 int arc_regs_write_registers(struct target *target, uint32_t *regs)
 {
+	/* This function takes around 2 seconds to finish in wall clock time.
+	 * To avoid annoing OpenOCD warnings about uncalled keep_alive() we need
+	 * to insert calls to it. I'm wondering whether there is no problems
+	 * with JTAG implementation here, because really it would be much better
+	 * to write registers faster, instead of adding calls to keep_alive().
+	 * Writing one register takes around 40-50ms. May be they can be written
+	 * in a batch?
+	 *
+	 * I would like to see real resoultion of this problem instead of
+	 * inserted calls to keep_alive just to keep OpenOCD happy.  */
 	int retval = ERROR_OK;
 	int i;
 
@@ -253,13 +263,17 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 	/*
 	 * write core registers R0-Rx (see above read_registers() !)
 	 */
-	for (i = 0; i < ARC32_NUM_CORE_REGS; i++)
+	for (i = 0; i < ARC32_NUM_CORE_REGS; i++) {
+		keep_alive();
 		arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
+	}
 
 	/* do not write extension+ registers for low-end cores */
 	if (arc32->processor_type != ARCEM_NUM) {
-		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++)
+		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++) {
+			keep_alive();
 			arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
+		}
 
 		arc_jtag_write_core_reg(&arc32->jtag_info, LP_COUNT_REG, regs + LP_COUNT_REG);
 		arc_jtag_write_core_reg(&arc32->jtag_info, LIDI_REG,     regs + LIDI_REG);
@@ -276,6 +290,7 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
+	keep_alive(); /* Read note above */
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ERET_REG,          regs + 73);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ERBTA_REG,         regs + 74);
@@ -284,6 +299,7 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_EFA_REG,           regs + 77);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ICAUSE1_REG,       regs + 78);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ICAUSE2_REG,       regs + 79);
+	keep_alive(); /* Read note above */
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG,       regs + 80);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ITRIGGER_REG,      regs + 81);
 	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_BTA_REG,           regs + 82);
