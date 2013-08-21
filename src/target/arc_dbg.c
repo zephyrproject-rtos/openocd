@@ -343,6 +343,38 @@ int arc_dbg_enter_debug(struct target *target)
 	return retval;
 }
 
+int arc_dbg_examine_debug_reason(struct target *target)
+{
+	/* Only check for reason if don't know it already. */
+	/* BTW After singlestep at this point core is not marked as halted, so
+	 * reading from memory to get current instruction won't work anyways. */
+	if (DBG_REASON_DBGRQ == target->debug_reason ||
+	    DBG_REASON_SINGLESTEP == target->debug_reason) {
+		return ERROR_OK;
+	}
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	uint16_t insn; /* Current instruction, [PC] */
+	uint32_t pc; /* Value of PC register */
+	int retval = ERROR_OK;
+
+	pc = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
+	
+	retval = target_read_u16(target, pc, &insn);
+	if (ERROR_OK != retval) {
+		LOG_WARNING("Can't read current instruction, PC=0x%X", pc);
+		return retval;
+	}
+	
+	/* If current instruction is brk_s, then this is a software breakpoint. */
+	/* Will simple comparison work for big endian? */
+	if ( ARC16_SDBBP == insn ) {
+		target->debug_reason = DBG_REASON_BREAKPOINT;
+	}
+
+	return ERROR_OK;
+}
+
 int arc_dbg_debug_entry(struct target *target)
 {
 	int retval = ERROR_OK;
@@ -358,6 +390,10 @@ int arc_dbg_debug_entry(struct target *target)
 	arc32->jtag_info.dpc = dpc;
 
 	arc32_save_context(target);
+
+	retval = arc_dbg_examine_debug_reason(target);
+	if (ERROR_OK != retval)
+		return retval;
 
 	return ERROR_OK;
 }
