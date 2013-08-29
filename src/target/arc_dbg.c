@@ -615,6 +615,20 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 
 	LOG_DEBUG("target stepped ");
 
+	/* target_call_event_callbacks() will send a response to GDB that
+	 * execution has stopped (packet T05). If target state is not set to
+	 * HALTED beforehand, then this creates a race condition: target state
+	 * will not be changed to HALTED until next invocation of
+	 * arc_ocd_poll(), however GDB can issue next command _before_
+	 * arc_ocd_poll() will be invoked. If GDB request requires target to be
+	 * halted this request execution will fail. Also it seems that
+	 * gdb_server cannot handle this failure properly, causing some
+	 * unexpected results instead of error message. Strangely no other
+	 * target does this except for ARM11, which sets target state to HALTED
+	 * in debug_entry. Thus either every other target is suspect to the
+	 * error, or they do something else differently, but I couldn't
+	 * understand this. */
+	target->state = TARGET_HALTED; 
 	arc_dbg_debug_entry(target);
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
