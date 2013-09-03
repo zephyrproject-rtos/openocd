@@ -25,7 +25,7 @@ static char *arc_gdb_reg_names_list[] = {
 	"r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
 	"r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
 	"r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
-	"r56", "r57", "r58", "r59", "lp_count", "pcl",
+	"r56", "r57", "r58", "r59", "lp_count", "reserved", "limm", "pcl",
 	/* aux regs */
 	"pc",           "lp_start",     "lp_end",       "status32",
 	"status32_l1",  "status32_l2",  "aux_irq_lv12", "aux_irq_lev",
@@ -53,15 +53,14 @@ static struct arc32_core_reg
 	{48, NULL, NULL}, {49, NULL, NULL}, {50, NULL, NULL}, {51, NULL, NULL},
 	{52, NULL, NULL}, {53, NULL, NULL}, {54, NULL, NULL}, {55, NULL, NULL},
 	{56, NULL, NULL}, {57, NULL, NULL}, {58, NULL, NULL}, {59, NULL, NULL},
-	{60, NULL, NULL}, {61, NULL, NULL},
+	{60, NULL, NULL}, {61, NULL, NULL}, {62, NULL, NULL}, {63, NULL, NULL},
 	/* selection of ARC aux regs */
-	{62, NULL, NULL}, {63, NULL, NULL}, {64, NULL, NULL}, {65, NULL, NULL},
-	{66, NULL, NULL}, {67, NULL, NULL}, {68, NULL, NULL}, {69, NULL, NULL},
-	{70, NULL, NULL}, {71, NULL, NULL}, {72, NULL, NULL}, {73, NULL, NULL},
-	{74, NULL, NULL}, {75, NULL, NULL}, {76, NULL, NULL}, {77, NULL, NULL},
-	{78, NULL, NULL}, {79, NULL, NULL}, {80, NULL, NULL}, {81, NULL, NULL},
-	{82, NULL, NULL}, {83, NULL, NULL}, {84, NULL, NULL}, {85, NULL, NULL},
-	{86, NULL, NULL} //, {87, NULL, NULL}
+	{64, NULL, NULL}, {65, NULL, NULL}, {66, NULL, NULL}, {67, NULL, NULL},
+	{68, NULL, NULL}, {69, NULL, NULL}, {70, NULL, NULL}, {71, NULL, NULL},
+	{72, NULL, NULL}, {73, NULL, NULL}, {74, NULL, NULL}, {75, NULL, NULL},
+	{76, NULL, NULL}, {77, NULL, NULL}, {78, NULL, NULL}, {79, NULL, NULL},
+	{80, NULL, NULL}, {81, NULL, NULL}, {82, NULL, NULL}, {83, NULL, NULL},
+	{84, NULL, NULL}, {85, NULL, NULL}, {86, NULL, NULL}
 };
 
 /* arc_regs_(read|write)_registers use this array as a list of AUX registers to
