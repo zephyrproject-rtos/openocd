@@ -8,6 +8,8 @@
  *   Maintainer: frank.dols@synopsys.com
  */
 
+/* TODO: This file has a lot of repetative code. Should be refactored. */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -366,6 +368,86 @@ int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	return retval;
 }
 
+/**
+ * Real all core registers. This is much faster then calling
+ * arc_jtag_read_core_reg for each register. Core registers are sequential so
+ * there is no need to set register addresses for each - hardware increments
+ * them by one each time, so we need to set it only for the first one.
+ *
+ * @param jtag_info
+ * @param values	Array of register values, values must start from R0 and be sequential.
+ * @param count		Amount of registers.
+ */
+int arc_jtag_read_core_reg_bulk(struct arc_jtag *jtag_info, uint32_t *values,
+	unsigned int count )
+{
+	int retval = ERROR_OK;
+	unsigned int i;
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_CORE_REG);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
+	retval = arc_jtag_write_data(jtag_info, 0);
+
+	for (i = 0; i < count; i++ ) {
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
+		retval = arc_jtag_read_data(jtag_info, values + i);
+	}
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	return retval;
+}
+
+/**
+ * Write all core registers. This is much faster then calling
+ * arc_jtag_write_core_reg for each register. Core registers are sequential so
+ * there is no need to set register addresses for each - hardware increments
+ * them by one each time, so we need to set it only for the first one.
+ *
+ * @param jtag_info
+ * @param values	Array of register values, values must start from R0 and be sequential.
+ * @param count		Amount of registers.
+ */
+int arc_jtag_write_core_reg_bulk(struct arc_jtag *jtag_info, uint32_t *value,
+	unsigned int count)
+{
+	int retval = ERROR_OK;
+	unsigned int i;
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_CORE_REG);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_write_data(jtag_info, 0);
+
+	for (i = 0; i < count; i++) {
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
+		retval = arc_jtag_write_data(jtag_info, *(value + i) );
+	}
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	return retval;
+}
+
 int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value)
 {
@@ -414,6 +496,88 @@ int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
 	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
 	retval = arc_jtag_write_data(jtag_info, *value);
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	return retval;
+}
+
+/**
+ * Read all AUX registers. This is much faster then calling
+ * arc_jtag_read_aux_reg for each register, however unlike core registers AUX
+ * registers are not necessarily sequential and we have to set addresses
+ * explicitly.
+ *
+ * @param jtag_info
+ * @param addr		Array of AUX register addresses.
+ * @param values	Array of register values. 
+ * @param count		Amount of registers in arrays.
+ */
+int arc_jtag_read_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t *values, unsigned int count)
+{
+	int retval = ERROR_OK;
+	unsigned int i;
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG);
+
+	for (i = 0; i < count; i++ ) {
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+		jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
+		retval = arc_jtag_write_data(jtag_info, addr[i]);
+
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
+		retval = arc_jtag_read_data(jtag_info, values + i);
+	}
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	return retval;
+}
+
+/**
+ * Write all AUX registers. This is much faster then calling
+ * arc_jtag_write_aux_reg for each register, however unlike core registers AUX
+ * registers are not necessarily sequential and we have to set addresses
+ * explicitly.
+ *
+ * @param jtag_info
+ * @param addr		Array of AUX register addresses.
+ * @param values	Array of register values. 
+ * @param count		Amount of registers in arrays.
+ */
+int arc_jtag_write_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t *value, unsigned int count)
+{
+	int retval = ERROR_OK;
+	unsigned int i;
+
+	arc_jtag_transaction_reset(jtag_info);
+
+	jtag_info->tap_end_state = TAP_IRPAUSE;
+	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
+	jtag_info->tap_end_state = TAP_DRPAUSE;
+	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG);
+
+	for (i = 0; i < count; i++) { 
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+		jtag_info->tap_end_state = TAP_DRPAUSE;
+		retval = arc_jtag_write_data(jtag_info, addr[i]);
+
+		jtag_info->tap_end_state = TAP_IRPAUSE;
+		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
+		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
+		retval = arc_jtag_write_data(jtag_info, *(value + i)  );
+	}
 
 	arc_jtag_transaction_reset(jtag_info);
 
