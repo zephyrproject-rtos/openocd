@@ -64,6 +64,35 @@ static struct arc32_core_reg
 	{86, NULL, NULL} //, {87, NULL, NULL}
 };
 
+/* arc_regs_(read|write)_registers use this array as a list of AUX registers to
+ * perform action on. */
+static uint32_t aux_regs_addresses[] = { 
+	AUX_PC_REG,
+	AUX_LP_START_REG,
+	AUX_LP_END_REG,
+	AUX_STATUS32_REG,
+	AUX_STATUS32_L1_REG,
+	AUX_STATUS32_L2_REG,
+	AUX_IRQ_LV12_REG,
+	AUX_IRQ_LEV_REG,
+	AUX_IRQ_HINT_REG,
+	AUX_ERET_REG,
+	AUX_ERBTA_REG,
+	AUX_ERSTATUS_REG,
+	AUX_ECR_REG,
+	AUX_EFA_REG,
+	AUX_ICAUSE1_REG,
+	AUX_ICAUSE2_REG,
+	AUX_IENABLE_REG,
+	AUX_ITRIGGER_REG,
+	AUX_BTA_REG,
+	AUX_BTA_L1_REG,
+	AUX_BTA_L2_REG,
+	AUX_IRQ_PULSE_CAN_REG,
+	AUX_IRQ_PENDING_REG,
+};
+static unsigned int aux_regs_addresses_count = (sizeof(aux_regs_addresses) / sizeof(uint32_t));
+
 static int arc_regs_get_core_reg(struct reg *reg)
 {
 	int retval = ERROR_OK;
@@ -185,29 +214,29 @@ int arc_regs_write_core_reg(struct target *target, int num)
 int arc_regs_read_registers(struct target *target, uint32_t *regs)
 {
 	int retval = ERROR_OK;
-	int i;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	/* This will take a while, so calsl to keep_alive() are required. */
+	keep_alive();
+
 	/*
-	 * read core registers R0-R31 + R32-R60 for high-end core
+	 * read core registers:
+	 *	R0-R31 for low-end cores
+	 *	R0-R60 for high-end cores
 	 * gdb requests:
 	 *       regmap[0]  = (&(pt_buf.scratch.r0)
 	 *       ...
 	 *       regmap[60] = (&(pt_buf.scratch.r60)
 	 */
-	for (i = 0; i < ARC32_NUM_CORE_REGS; i++)
-		arc_jtag_read_core_reg(&arc32->jtag_info, i, regs + i);
-
-	/* do not read extension+ registers for low-end cores */
-	if (arc32->processor_type != ARCEM_NUM) {
-		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++)
-			arc_jtag_read_core_reg(&arc32->jtag_info, i, regs + i);
-
+	if (arc32->processor_type == ARCEM_NUM) {
+		arc_jtag_read_core_reg_bulk(&arc32->jtag_info, regs, ARC32_NUM_CORE_REGS);
+	} else {
+		/* Note that NUM_CORE_REGS is a number of registers but LAST_EXTENSION_REG
+		 * is a _register number_ so it have to be incremented. */
+		arc_jtag_read_core_reg_bulk(&arc32->jtag_info, regs, ARC32_LAST_EXTENSION_REG + 1);
 		arc_jtag_read_core_reg(&arc32->jtag_info, LP_COUNT_REG, regs + LP_COUNT_REG);
 		arc_jtag_read_core_reg(&arc32->jtag_info, LIDI_REG,     regs + LIDI_REG);
 	}
-
 	arc_jtag_read_core_reg(&arc32->jtag_info, PCL_REG, regs + PCL_REG);
 
 	/*
@@ -215,31 +244,11 @@ int arc_regs_read_registers(struct target *target, uint32_t *regs)
 	 *   aux-status & aux-semaphore are not transfered
 	 */
 
-	/* read auxilary registers */
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG,            regs + 64);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_LP_START_REG,      regs + 65);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_LP_END_REG,        regs + 66);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,      regs + 67);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERET_REG,          regs + 73);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERBTA_REG,         regs + 74);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ERSTATUS_REG,      regs + 75);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ECR_REG,           regs + 76);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_EFA_REG,           regs + 77);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ICAUSE1_REG,       regs + 78);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ICAUSE2_REG,       regs + 79);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG,       regs + 80);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_ITRIGGER_REG,      regs + 81);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_REG,           regs + 82);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_L1_REG,        regs + 83);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_BTA_L2_REG,        regs + 84);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
+	/* read auxiliary registers */
+	keep_alive();
+	arc_jtag_read_aux_reg_bulk(&arc32->jtag_info, aux_regs_addresses, regs + 64, aux_regs_addresses_count);
 
+	keep_alive();
 	return retval;
 }
 
@@ -256,58 +265,28 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 	 * I would like to see real resoultion of this problem instead of
 	 * inserted calls to keep_alive just to keep OpenOCD happy.  */
 	int retval = ERROR_OK;
-	int i;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* This will take a while, so calsl to keep_alive() are required. */
+	keep_alive();
 
 	/*
 	 * write core registers R0-Rx (see above read_registers() !)
 	 */
-	for (i = 0; i < ARC32_NUM_CORE_REGS; i++) {
-		keep_alive();
-		arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
-	}
-
-	/* do not write extension+ registers for low-end cores */
-	if (arc32->processor_type != ARCEM_NUM) {
-		for (i = ARC32_NUM_CORE_REGS; i <= ARC32_LAST_EXTENSION_REG; i++) {
-			keep_alive();
-			arc_jtag_write_core_reg(&arc32->jtag_info, i, regs + i);
-		}
-
+	if (arc32->processor_type == ARCEM_NUM) {
+		arc_jtag_write_core_reg_bulk(&arc32->jtag_info, regs, ARC32_NUM_CORE_REGS);
+	} else {
+		arc_jtag_write_core_reg_bulk(&arc32->jtag_info, regs, ARC32_LAST_EXTENSION_REG + 1);
 		arc_jtag_write_core_reg(&arc32->jtag_info, LP_COUNT_REG, regs + LP_COUNT_REG);
 		arc_jtag_write_core_reg(&arc32->jtag_info, LIDI_REG,     regs + LIDI_REG);
 	}
-
 	arc_jtag_write_core_reg(&arc32->jtag_info, PCL_REG, regs + PCL_REG);
 
-	/* write auxilary registers */
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_PC_REG,            regs + 64);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_LP_START_REG,      regs + 65);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_LP_END_REG,        regs + 66);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,      regs + 67);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_L1_REG,   regs + 68);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_L2_REG,   regs + 69);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_LV12_REG,      regs + 70);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_LEV_REG,       regs + 71);
-	keep_alive(); /* Read note above */
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_HINT_REG,      regs + 72);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ERET_REG,          regs + 73);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ERBTA_REG,         regs + 74);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ERSTATUS_REG,      regs + 75);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ECR_REG,           regs + 76);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_EFA_REG,           regs + 77);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ICAUSE1_REG,       regs + 78);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ICAUSE2_REG,       regs + 79);
-	keep_alive(); /* Read note above */
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG,       regs + 80);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_ITRIGGER_REG,      regs + 81);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_BTA_REG,           regs + 82);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_BTA_L1_REG,        regs + 83);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_BTA_L2_REG,        regs + 84);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_PULSE_CAN_REG, regs + 85);
-	arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IRQ_PENDING_REG,   regs + 86);
+	/* Write auxiliary registers */
+	keep_alive();
+	arc_jtag_write_aux_reg_bulk(&arc32->jtag_info, aux_regs_addresses, regs + 64, aux_regs_addresses_count);
 
+	keep_alive();
 	return retval;
 }
 
