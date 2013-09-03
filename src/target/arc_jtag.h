@@ -79,11 +79,19 @@ int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
 int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
+int arc_jtag_read_core_reg_bulk(struct arc_jtag *jtag_info,
+	uint32_t *values, unsigned int count);
+int arc_jtag_write_core_reg_bulk(struct arc_jtag *jtag_info, uint32_t *value,
+	unsigned int count);
 
 int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
 int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t *value);
+int arc_jtag_read_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t *value, unsigned int count);
+int arc_jtag_write_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t *value, unsigned int count);
 
 int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value);
 int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value);
