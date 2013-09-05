@@ -527,10 +527,15 @@ int arc_jtag_read_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG);
 
 	for (i = 0; i < count; i++ ) {
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
-		retval = arc_jtag_write_data(jtag_info, addr[i]);
+		/* Some of AUX registers are sequential, so it is possible to reduce
+		 * transaction duration by exploiting this. I've measure that
+		 * transaction takes around 200ms less with this patch. */
+		if ( i == 0 || (addr[i] != addr[i-1] + 1)) {
+			jtag_info->tap_end_state = TAP_IRPAUSE;
+			retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+			jtag_info->tap_end_state = TAP_IDLE;
+			retval = arc_jtag_write_data(jtag_info, addr[i]);
+		}
 
 		jtag_info->tap_end_state = TAP_IRPAUSE;
 		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
@@ -568,10 +573,15 @@ int arc_jtag_write_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
 	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG);
 
 	for (i = 0; i < count; i++) { 
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-		jtag_info->tap_end_state = TAP_DRPAUSE;
-		retval = arc_jtag_write_data(jtag_info, addr[i]);
+		/* Some of AUX registers are sequential, so it is possible to reduce
+		 * transaction duration by exploiting this. I've measure that
+		 * transaction takes around 200ms less with this patch. */
+		if ( i == 0 || (addr[i] != addr[i-1] + 1) ) {
+			jtag_info->tap_end_state = TAP_IRPAUSE;
+			retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
+			jtag_info->tap_end_state = TAP_DRPAUSE;
+			retval = arc_jtag_write_data(jtag_info, addr[i]);
+		}
 
 		jtag_info->tap_end_state = TAP_IRPAUSE;
 		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
