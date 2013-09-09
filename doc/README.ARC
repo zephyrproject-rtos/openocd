@@ -18,8 +18,9 @@
 
  NOTES:
 
-	1. Both Digilent HS1 as HS2 probes are supported.
-	2. There is NO Flash support in ARC OpenOCD implemented.
+	1. Only ARC EM Starter kit and Digilent HS1 probe are supported.
+	2. Digilent HS2 probe currently is not supported.
+	3. There is NO Flash support in ARC OpenOCD implemented.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
