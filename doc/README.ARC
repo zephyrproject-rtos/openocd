@@ -18,17 +18,17 @@
 
  NOTES:
 
-	1. Only ARC EM Starter kit and Digilent HS1 probe are supported.
+	1. Only ARC EM Starter Kit and Digilent HS1 probe are supported.
 	2. Digilent HS2 probe currently is not supported.
 	3. There is NO Flash support in ARC OpenOCD implemented.
 
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  1. Digilent probe installation instructions
+  1. Driver installation instructions
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Download and install 'Adept' from Digilent as it has to go with the used
-  Digilent HS1 JTAG probe:
+If you use Digilent HS1 cable, then download and install 'Adept' from Digilent
+as it has to go with the used Digilent HS1 JTAG probe.
 
   http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2
 
@@ -43,6 +43,9 @@ Download and install 'Adept' from Digilent as it has to go with the used
   $> cd digilent.adept.utilities_2.1.1-i686
   $> sudo ./install.sh 
   $> cd ..
+
+If you use EM Starter Kit, install FTDI drivers from
+http://www.ftdichip.com/Drivers/D2XX.htm.
 
   ......................................................................
 
@@ -117,7 +120,7 @@ Usage: dadutil [--help] [--version] command [options]
   2. How to build OpenOCD on Linux
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Download and install OpenOCD on Ubuntu 10.04 build host (32bits Intel)
+Download and install OpenOCD on Ubuntu 12.04 build host
 
   $> sudo apt-get install libftdi-dev libftdi1 libtool git-core asciidoc \
        build-essential flex bison \
@@ -199,11 +202,12 @@ Alternative, do a Cygwin build on a Windows host,
 
 On the HOST (Linux PC which connects directly to the target):
 
-  Connect Digigent HS1 JTAG-USB probe to the Host
-  $> dmesg
-    Check for FTDI USB logging at end of listing
+  Connect Digilent HS1 JTAG-USB probe or EM Starter Kit to the Host. EM Starter
+  Kit has built-in debug probe, it doesn't requires a separate Digilent HS1
+  probe. HS1 is required only for other debug targets like ML-509 board, etc.
 
   $> lsusb
+    Check that FTDI 2232H device is there
 
   $> openocd -f <openocd.cfg> -c "init" -c "halt" -c "reset halt"
     for development activities, add to the above command line:
@@ -220,10 +224,9 @@ On the HOST (Linux PC which connects directly to the target):
   Open On-Chip Debugger
   > ?
 
-On the HOST (Linux PC which not necessarily connects directly to the target):
+On the debug host (Linux PC with GDB, which is not necessarily the same PC as
+host connected to debug target):
 
-  $> bash
-  
   Start the ELF32 GDB debugger which has to connect to OpenOCD lateron
   $> arc-elf32-gdb ./<elf app_to_debug>
 
@@ -233,6 +236,9 @@ On the HOST (Linux PC which not necessarily connects directly to the target):
 
   Load the image which has to be debugged (./<app_to_debug>.elf)
   (gdb) load
+
+  Set breakpoint breakpoint at function exit
+  (gdb) break exit
 
   Start the execution on target of the image to debug
   (gdb) continue
@@ -577,7 +583,7 @@ Report bugs to <OpenOCD Mailing List <openocd-devel@lists.sourceforge.net>>.
   8. ARC-GDB development commands
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  (gdb) set arc-debug on
+  (gdb) set debug arc 1
   (gdb) set debug infrun 1
   (gdb) set debug arch 1
   (gdb) set debug event 1
