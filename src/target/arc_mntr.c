@@ -359,6 +359,14 @@ COMMAND_HANDLER(handle_test_gdb_command)
 	return retval;
 }
 
+COMMAND_HANDLER(arc_handle_has_dcache)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->has_dcache, "target has date-cache");
+}
+
 /* ----- Exported target commands ------------------------------------------ */
 
 static const struct command_registration arc_core_command_handlers[] = {
@@ -445,6 +453,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "",
 		.help = "runs current core gdb tests",
+	},
+	{
+		.name = "has-dcache",
+		.handler = arc_handle_has_dcache,
+		.mode = COMMAND_ANY,
+		.usage = "True or false",
+		.help = "Does target has D$? If yes it will be flushed before memory reads.",
 	},
 	COMMAND_REGISTRATION_DONE
 };

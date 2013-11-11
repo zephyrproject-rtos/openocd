@@ -44,6 +44,13 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->read_core_reg = arc_regs_read_core_reg;
 	arc32->write_core_reg = arc_regs_write_core_reg;
 
+	/* Flush D$ by default. It is safe to assume that D$ is present,
+	 * because if it isn't, there will be no error, just a slight
+	 * performance penalty from unnecessary JTAG operations. */
+	arc32->has_dcache = true;
+	arc32->dcache_flushed = false;
+	arc32->cache_invalidated = false;
+
 	return retval;
 }
 
@@ -112,6 +119,10 @@ int arc32_start_core(struct target *target)
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	/* Reset caches states. */
+	arc32->dcache_flushed = false;
+	arc32->cache_invalidated = false;
+
 	target->state = TARGET_RUNNING;
 
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
@@ -169,12 +180,20 @@ int arc32_config_step(struct target *target, int enable_step)
 	return retval;
 }
 
+/* This function is cheap to call and returns quickly if caches already has
+ * been invalidated since core had been halted. */
 int arc32_cache_invalidate(struct target *target)
 {
 	int retval = ERROR_OK;
 	uint32_t value, backup;
 
 	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* Don't waste time if already done. */
+	if (arc32->cache_invalidated)
+	    return ERROR_OK;
+
+	LOG_DEBUG("Invalidating I$ & D$.");
 
 	value = IC_IVIC_INVALIDATE;	/* invalidate I$ */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IC_IVIC_REG, &value);
@@ -190,6 +209,55 @@ int arc32_cache_invalidate(struct target *target)
 
 	/* restore DC_CTRL invalidate mode */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &backup);
+
+	arc32->cache_invalidated = true;
+
+	return retval;
+}
+
+/* Flush data cache. This function is cheap to call and return quickly if D$
+ * already has been flushed since target had been halted. JTAG debugger reads
+ * values directly from memory, bypassing cache, so if there are unflushed
+ * lines debugger will read invalid values, which will cause a lot of troubles.
+ * */
+int arc32_dcache_flush(struct target *target)
+{
+	int retval = ERROR_OK;
+	uint32_t value, dc_ctrl_value;
+	bool has_to_set_dc_ctrl_im;
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* Don't waste time if already done. */
+	if (!arc32->has_dcache || arc32->dcache_flushed)
+	    return ERROR_OK;
+
+	LOG_DEBUG("Flushing D$.");
+
+	/* Store current value of DC_CTRL */
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &dc_ctrl_value);
+	if (ERROR_OK != retval)
+	    return retval;
+
+	/* Set DC_CTRL invalidate mode to flush (if not already set) */
+	has_to_set_dc_ctrl_im = (dc_ctrl_value & DC_CTRL_IM) == 0;
+	if (has_to_set_dc_ctrl_im) {
+		value = dc_ctrl_value | DC_CTRL_IM;
+		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+		if (ERROR_OK != retval)
+		    return retval;
+	}
+
+	/* Flush D$ */
+	value = DC_IVDC_INVALIDATE;
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
+
+	/* Restore DC_CTRL invalidate mode (even of flush failed) */
+	if (has_to_set_dc_ctrl_im) {
+	    retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &dc_ctrl_value);
+	}
+
+	arc32->dcache_flushed = true;
 
 	return retval;
 }
