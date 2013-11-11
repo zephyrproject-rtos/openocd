@@ -16,17 +16,24 @@
 
 /* ----- Supporting functions ---------------------------------------------- */
 
-static int arc_mem_read_block(struct arc_jtag *jtag_info, uint32_t addr,
+static int arc_mem_read_block(struct target *target, uint32_t addr,
 	int size, int count, void *buf)
 {
+	struct arc32_common *arc32 = target_to_arc32(target);
 	int retval = ERROR_OK;
 	int i;
 
 	assert(!(addr & 3));
 	assert(size == 4);
 
+	/* Always call D$ flush, it will decide whether to perform actual
+	 * flush. */
+	retval = arc32_dcache_flush(target);
+	if (ERROR_OK != retval)
+		return retval;
+
 	for (i = 0; i < count; i++) {
-		retval = arc_jtag_read_memory(jtag_info, addr + (i * 4),
+		retval = arc_jtag_read_memory(&arc32->jtag_info, addr + (i * 4),
 			buf + (i * 4));
 	}
 
@@ -45,12 +52,17 @@ static int arc_mem_write_block32(struct target *target, uint32_t addr, int count
 	if (addr & 0x3u)
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 
+	/* No need to flush cache, because we don't read values from memory. */
+
 	for(i = 0; i < count; i++) {
 		retval = arc_jtag_write_memory(&arc32->jtag_info,
 			addr + i * sizeof(uint32_t) , buf + i * sizeof(uint32_t));
 		if (retval != ERROR_OK)
 			return retval;
 	}
+
+	/* Invalidate caches. */
+	retval = arc32_cache_invalidate(target);
 
 	return retval;
 }
@@ -66,6 +78,11 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 	/* Check arguments */
 	if (addr & 1u)
 		return ERROR_TARGET_UNALIGNED_ACCESS;
+
+	/* We will read data from memory, so we need to flush D$. */
+	retval = arc32_dcache_flush(target);
+	if (ERROR_OK != retval)
+		return retval;
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
@@ -94,6 +111,9 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
                         (addr + i * sizeof(uint16_t)) & ~3u, &buffer_he);
 	}
 
+	/* Invalidate caches. */
+	retval = arc32_cache_invalidate(target);
+
 	return retval;
 }
 
@@ -104,6 +124,11 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	int retval = ERROR_OK;
 	int i;
+
+	/* We will read data from memory, so we need to flush D$. */
+	retval = arc32_dcache_flush(target);
+	if (ERROR_OK != retval)
+		return retval;
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
@@ -118,6 +143,9 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 		retval = arc_jtag_write_memory(&arc32->jtag_info, (addr + i) & ~3, &buffer_he);
 	}
 
+	/* Invalidate caches. */
+	retval = arc32_cache_invalidate(target);
+
 	return retval;
 }
 
@@ -127,7 +155,6 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	uint32_t count, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
-	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -161,7 +188,7 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	}
 
 	/* We can read only word-aligned words. */
-	retval = arc_mem_read_block(&arc32->jtag_info, address & ~3u, sizeof(uint32_t),
+	retval = arc_mem_read_block(target, address & ~3u, sizeof(uint32_t),
 		words_to_read, tunnel_he);
 
 	/* arc32_..._read_mem with size 4/2 returns uint32_t/uint16_t in host */
