@@ -392,10 +392,8 @@ int arc_dbg_debug_entry(struct target *target)
 	arc32_save_context(target);
 
 	retval = arc_dbg_examine_debug_reason(target);
-	if (ERROR_OK != retval)
-		return retval;
 
-	return ERROR_OK;
+	return retval;
 }
 
 int arc_dbg_exit_debug(struct target *target)

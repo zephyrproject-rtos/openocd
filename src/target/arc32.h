@@ -68,6 +68,15 @@ struct arc32_common {
 	/* register cache to processor synchronization */
 	int (*read_core_reg)(struct target *target, int num);
 	int (*write_core_reg)(struct target *target, int num);
+
+	/* Cache control */
+	bool has_dcache;
+	/* If true, then D$ has been already flushed since core has been
+	 * halted. */
+	bool dcache_flushed;
+	/* If true, then caches have been already flushed since core has been
+	 * halted. */
+	bool cache_invalidated;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */
@@ -109,5 +118,6 @@ int arc32_wait_until_core_is_halted(struct target *target);
 int arc32_print_core_state(struct target *target);
 int arc32_arch_state(struct target *target);
 int arc32_get_current_pc(struct target *target);
+int arc32_dcache_flush(struct target *target);
 
 #endif /* ARC32_H */
