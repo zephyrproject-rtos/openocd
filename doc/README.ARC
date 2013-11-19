@@ -120,13 +120,34 @@ Usage: dadutil [--help] [--version] command [options]
   2. How to build OpenOCD on Linux
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Download and install OpenOCD on Ubuntu 12.04 build host
+Install prerequisites. For Ubuntu 12.04 build host:
 
   $> sudo apt-get install libftdi-dev libftdi1 libtool git-core asciidoc \
        build-essential flex bison \
        libgmp3-dev libmpfr-dev autoconf automake \
        texinfo libncurses5-dev libexpat1 libexpat1-dev \
        tk tk8.4 tk8.4-dev
+
+For RHEL 6 build host prerequisites are:
+
+  $> sudo yum install libtool asciidoc gcc flex bison gmp-devel mpfr-devel \
+     autoconf automake texinfo-tex ncurses-devel expat-devel tk-devel
+
+Because libftdi is not available in RHEL 6 it should be downloaded and
+installed manually from 3rd-party. Suggested location is:
+http://pkgs.org/search/?keyword=libftdi. Download and install libftdi and
+libftdi-devel packages:
+
+  $> wget http://dl.fedoraproject.org/pub/epel/6/x86_64/libftdi-0.18-2.el6.x86_64.rpm
+  $> sudo yum install libftdi-0.18-2.el6.x86_64.rpm
+  $> wget http://dl.fedoraproject.org/pub/epel/6/x86_64/libftdi-devel-0.18-2.el6.x86_64.rpm
+  $> sudo yum install libftdi-devel-0.18-2.el6.x86_64.rpm
+
+On Fedora systems libftdi is already available in official repositories:
+
+  $> sudo apt-get install libftdi libftdi-devel
+
+Download and install OpenOCD:
 
   $> git clone https://github.com/foss-for-synopsys-dwc-arc-processors/openocd
 
