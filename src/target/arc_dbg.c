@@ -391,6 +391,12 @@ int arc_dbg_debug_entry(struct target *target)
 
 	arc32_save_context(target);
 
+	/* We must reset internal indicators of caches states, otherwise D$/I$
+	 * will not be flushed/invalidated when required. */
+	retval = arc32_reset_caches_states(target);
+	if (ERROR_OK != retval)
+	    return retval;
+
 	retval = arc_dbg_examine_debug_reason(target);
 
 	return retval;
