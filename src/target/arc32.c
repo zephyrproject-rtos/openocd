@@ -48,8 +48,7 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	 * because if it isn't, there will be no error, just a slight
 	 * performance penalty from unnecessary JTAG operations. */
 	arc32->has_dcache = true;
-	arc32->dcache_flushed = false;
-	arc32->cache_invalidated = false;
+	arc32_reset_caches_states(target);
 
 	return retval;
 }
@@ -118,10 +117,6 @@ int arc32_start_core(struct target *target)
 	uint32_t value;
 
 	struct arc32_common *arc32 = target_to_arc32(target);
-
-	/* Reset caches states. */
-	arc32->dcache_flushed = false;
-	arc32->cache_invalidated = false;
 
 	target->state = TARGET_RUNNING;
 
@@ -338,3 +333,22 @@ int arc32_get_current_pc(struct target *target)
 
 	return retval;
 }
+
+/**
+ * Reset internal states of caches. Must be called when entering debugging.
+ *
+ * @param target Target for which to reset caches states.
+ */
+int arc32_reset_caches_states(struct target *target)
+{
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	LOG_DEBUG("Resetting internal variables of caches states");
+
+	/* Reset caches states. */
+	arc32->dcache_flushed = false;
+	arc32->cache_invalidated = false;
+
+	return ERROR_OK;
+}
+

@@ -120,4 +120,6 @@ int arc32_arch_state(struct target *target);
 int arc32_get_current_pc(struct target *target);
 int arc32_dcache_flush(struct target *target);
 
+int arc32_reset_caches_states(struct target *target);
+
 #endif /* ARC32_H */
