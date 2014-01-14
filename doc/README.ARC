@@ -122,30 +122,15 @@ Usage: dadutil [--help] [--version] command [options]
 
 Install prerequisites. For Ubuntu 12.04 build host:
 
-  $> sudo apt-get install libftdi-dev libftdi1 libtool git-core asciidoc \
-       build-essential flex bison \
-       libgmp3-dev libmpfr-dev autoconf automake \
-       texinfo libncurses5-dev libexpat1 libexpat1-dev \
-       tk tk8.4 tk8.4-dev
+  $> sudo apt-get install libtool git-core build-essential autoconf automake \
+       texinfo libusb-1.0-dev
 
 For RHEL 6 build host prerequisites are:
 
-  $> sudo yum install libtool asciidoc gcc flex bison gmp-devel mpfr-devel \
-     autoconf automake texinfo-tex ncurses-devel expat-devel tk-devel
+  $> sudo yum install libtool gcc autoconf automake texinfo libusbx-devel
 
-Because libftdi is not available in RHEL 6 it should be downloaded and
-installed manually from 3rd-party. Suggested location is:
-http://pkgs.org/search/?keyword=libftdi. Download and install libftdi and
-libftdi-devel packages:
-
-  $> wget http://dl.fedoraproject.org/pub/epel/6/x86_64/libftdi-0.18-2.el6.x86_64.rpm
-  $> sudo yum install libftdi-0.18-2.el6.x86_64.rpm
-  $> wget http://dl.fedoraproject.org/pub/epel/6/x86_64/libftdi-devel-0.18-2.el6.x86_64.rpm
-  $> sudo yum install libftdi-devel-0.18-2.el6.x86_64.rpm
-
-On Fedora systems libftdi is already available in official repositories:
-
-  $> sudo apt-get install libftdi libftdi-devel
+Optional dependencies required to build documentation are: asciidoc and
+texinfo-tex.
 
 Download and install OpenOCD:
 
@@ -153,7 +138,7 @@ Download and install OpenOCD:
 
   $> cd openocd
   $> ./bootstrap
-  $> ./configure --enable-ft2232_libftdi --disable-doxygen-html \
+  $> ./configure --enable-ftdi --disable-doxygen-html \
         --enable-maintainer-mode
     NOTE: for development activities, add to the above command line:
        --disable-werror --enable-verbose --enable-verbose-jtag-io
