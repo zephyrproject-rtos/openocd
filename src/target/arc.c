@@ -43,7 +43,6 @@ struct target_type arc32_target = {
 
 	.read_memory = arc_mem_read,
 	.write_memory = arc_mem_write,
-	.bulk_write_memory = arc_mem_bulk_write,
 	.checksum_memory = arc_mem_checksum,
 	.blank_check_memory = arc_mem_blank_check,
 
