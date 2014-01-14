@@ -133,7 +133,7 @@ int arc_regs_read_registers(struct target *target, uint32_t *regs);
 int arc_regs_write_registers(struct target *target, uint32_t *regs);
 
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
-	int *reg_list_size);
+	int *reg_list_size, enum target_register_class reg_class);
 
 int arc_regs_print_core_registers(struct target *target);
 int arc_regs_print_aux_registers(struct arc_jtag *jtag_info);

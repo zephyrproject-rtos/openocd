@@ -142,7 +142,7 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
 	struct reg_cache *cache = malloc(sizeof(struct reg_cache));
-	struct reg *reg_list = malloc(sizeof(struct reg) * num_regs);
+	struct reg *reg_list = calloc(num_regs, sizeof(struct reg));
 	struct arc32_core_reg *arch_info = 
 		malloc(sizeof(struct arc32_core_reg) * num_regs);
 
@@ -290,7 +290,7 @@ int arc_regs_write_registers(struct target *target, uint32_t *regs)
 }
 
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
-	int *reg_list_size)
+	int *reg_list_size, enum target_register_class reg_class)
 {
 	int retval = ERROR_OK;
 	int i;
