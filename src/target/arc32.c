@@ -112,12 +112,12 @@ int arc32_enable_interrupts(struct target *target, int enable)
 		/* enable interrupts */
 		value = SET_CORE_ENABLE_INTERRUPTS;
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
-		LOG_DEBUG("interrupts enabled [stat:%d]", retval);
+		LOG_DEBUG("interrupts enabled [stat:%i]", retval);
 	} else {
 		/* disable interrupts */
 		value = SET_CORE_DISABLE_INTERRUPTS;
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
-		LOG_DEBUG("interrupts disabled [stat:%d]", retval);
+		LOG_DEBUG("interrupts disabled [stat:%i]", retval);
 	}
 
 	return retval;
@@ -157,7 +157,7 @@ int arc32_config_step(struct target *target, int enable_step)
 		value &= ~SET_CORE_AE_BIT; /* clear the AE bit */
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
 			&value);
-		LOG_DEBUG(" [status32:0x%x] [stat:%d]", value, retval);
+		LOG_DEBUG(" [status32:0x%08" PRIx32 "] [stat:%i]", value, retval);
 
 		//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value = SET_CORE_SINGLE_INSTR_STEP; /* set the IS bit */
@@ -169,7 +169,7 @@ int arc32_config_step(struct target *target, int enable_step)
 
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
 			&value);
-		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%x] [stat:%d]",
+		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%08" PRIx32 "] [stat:%i]",
 			value, retval);
 	} else {
 		/* disable core debug step mode */
@@ -178,7 +178,7 @@ int arc32_config_step(struct target *target, int enable_step)
 		value &= ~SET_CORE_SINGLE_INSTR_STEP; /* clear the IS bit */
 		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
 			&value);
-		LOG_DEBUG("core debug step mode disabled [stat:%d]", retval);
+		LOG_DEBUG("core debug step mode disabled [stat:%i]", retval);
 	}
 
 #ifdef DEBUG
@@ -304,13 +304,13 @@ int arc32_print_core_state(struct target *target)
 	uint32_t value;
 
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	LOG_DEBUG("  AUX REG  [DEBUG]: 0x%x", value);
+	LOG_DEBUG("  AUX REG  [DEBUG]: 0x%08" PRIx32, value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_DEBUG("        [STATUS32]: 0x%x", value);
+	LOG_DEBUG("        [STATUS32]: 0x%08" PRIx32, value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS_REG, &value);
-	LOG_DEBUG("          [STATUS]: 0x%x", value);
+	LOG_DEBUG("          [STATUS]: 0x%08" PRIx32, value);
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-	LOG_DEBUG("              [PC]: 0x%x", value);
+	LOG_DEBUG("              [PC]: 0x%08" PRIx32, value);
 
 	return retval;
 }
@@ -321,7 +321,7 @@ int arc32_arch_state(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (PRINT) {
-		LOG_USER("target state: %s in: %s mode, PC at: 0x%8.8" PRIx32 "",
+		LOG_USER("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
 			target_state_name(target),
 			arc_isa_strings[arc32->isa_mode],
 			buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
