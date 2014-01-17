@@ -54,9 +54,9 @@ COMMAND_HANDLER(handle_set_pc_command)
 
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], value);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, value);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
 			arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-			LOG_USER("Core PC @: 0x%x", value);
+			LOG_USER("Core PC @: 0x%08" PRIx32, value);
 		} else
 			LOG_USER(" > missing address to set.");
 	} else
@@ -113,9 +113,9 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, reg_nbr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
-			LOG_USER("Core reg: 0x%x contains: 0x%x", reg_nbr, value);
+			LOG_USER("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_USER(" > missing reg nbr to read.");
 	} else
@@ -145,11 +145,11 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 
 		if (CMD_ARGC >= 2) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, reg_nbr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, value);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
 			arc_jtag_write_core_reg(&arc32->jtag_info, reg_nbr, &value);
-			LOG_DEBUG("Core reg: 0x%x contains: 0x%x", reg_nbr, value);
+			LOG_DEBUG("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_USER(" > missing reg nbr or value to write.");
 	} else
@@ -179,9 +179,9 @@ COMMAND_HANDLER(handle_read_aux_reg_command)
 
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, reg_nbr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			arc_jtag_read_aux_reg(&arc32->jtag_info, reg_nbr, &value);
-			LOG_USER("AUX reg: 0x%x contains: 0x%x", reg_nbr, value);
+			LOG_USER("AUX reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_USER(" > missing reg nbr to read.");
 	} else
@@ -211,9 +211,9 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 
 		if (CMD_ARGC >= 2) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, reg_nbr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, value);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
 			arc_jtag_write_aux_reg(&arc32->jtag_info, reg_nbr, &value);
 			LOG_DEBUG("AUX reg: 0x%x contains: 0x%x", reg_nbr, value);
 		} else
@@ -239,9 +239,9 @@ COMMAND_HANDLER(handle_read_mem_word_command)
 
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, mem_addr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
 			arc_jtag_read_memory(&arc32->jtag_info, mem_addr, &value);
-			LOG_USER("mem addr: 0x%x contains: 0x%x", mem_addr, value);
+			LOG_USER("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
 		} else
 			LOG_USER(" > missing memory address to read.");
 	} else
@@ -265,11 +265,11 @@ COMMAND_HANDLER(handle_write_mem_word_command)
 
 		if (CMD_ARGC >= 2) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, mem_addr);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
-			LOG_DEBUG("CMD_ARGC:%d  CMD_ARGV: 0x%x\n", CMD_ARGC, value);
+			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
 			arc_jtag_write_memory(&arc32->jtag_info, mem_addr, &value);
-			LOG_DEBUG("mem addr: 0x%x contains: 0x%x", mem_addr, value);
+			LOG_DEBUG("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
 		} else
 			LOG_USER(" > missing memory address or value to write.");
 	} else
@@ -344,9 +344,9 @@ COMMAND_HANDLER(handle_print_core_status_command)
 	if (head == (struct target_list *)NULL) {
 		uint32_t value;
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		LOG_USER(" AUX REG    [DEBUG]: 0x%x", value);
+		LOG_USER(" AUX REG    [DEBUG]: 0x%08" PRIx32, value);
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-		LOG_USER("         [STATUS32]: 0x%x", value);
+		LOG_USER("         [STATUS32]: 0x%08" PRIx32, value);
 	} else
 		LOG_USER(" > head list is not NULL !");
 
