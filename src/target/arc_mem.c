@@ -239,10 +239,8 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("start writing @ address: 0x%8.8" PRIx32 " : %d times %d bytes",
-			address, count, size);
-	LOG_DEBUG("address: 0x%8.8" PRIx32 ", size: 0x%8.8" PRIx32 ", count: 0x%8.8"
-		PRIx32 "", address, size, count);
+	LOG_DEBUG("address: 0x%08" PRIx32 ", size: %" PRIu32 ", count: %" PRIu32,
+		address, size, count);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
