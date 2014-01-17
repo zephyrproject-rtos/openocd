@@ -185,9 +185,9 @@ int arc_ocd_examine(struct target *target)
 
 		/* read JTAG info */
 		arc_jtag_idcode(&arc32->jtag_info, &value);
-		LOG_USER("JTAG ID: 0x%x", value);
+		LOG_USER("JTAG ID: 0x%08" PRIx32, value);
 		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_USER("JTAG status: 0x%x", status);
+		LOG_USER("JTAG status: 0x%08" PRIx32, status);
 
 		/* bring processor into HALT */
 		LOG_USER("bring ARC core into HALT state");
@@ -197,15 +197,15 @@ int arc_ocd_examine(struct target *target)
 		sleep(1); /* just give us once some time to come to rest ;-) */
 
 		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_USER("JTAG status: 0x%x", status);
+		LOG_USER("JTAG status: 0x%08" PRIx32, status);
 
 		/* read ARC core info */
 		arc_core_type_info(target);
 
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
-		LOG_USER("CPU ID: 0x%x", value);
+		LOG_USER("CPU ID: 0x%08" PRIx32, value);
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-		LOG_USER("current PC: 0x%x", value);
+		LOG_USER("current PC: 0x%08" PRIx32, value);
 
 		arc_jtag_status(&arc32->jtag_info, &status);
 		if (status & ARC_JTAG_STAT_RU) {
