@@ -304,7 +304,7 @@ int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_checksum NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -314,7 +314,7 @@ int arc_mem_blank_check(struct target *target, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_blank_check NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -329,7 +329,7 @@ int arc_mem_run_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_run_algorithm NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -342,7 +342,7 @@ int arc_mem_start_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_start_algorithm NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -355,7 +355,7 @@ int arc_mem_wait_algorithm(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_wait_algorithm NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -367,7 +367,7 @@ int arc_mem_virt2phys(struct target *target, uint32_t address,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_virt2phys NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -377,7 +377,7 @@ int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_read_phys_memory NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -387,7 +387,7 @@ int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("arc_mem_write_phys_memory NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -398,7 +398,7 @@ int arc_mem_mmu(struct target *target, int *enabled)
 
 	/* (gdb) load command runs through here */
 
-	LOG_DEBUG(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_DEBUG("arc_mem_mmu NOT SUPPORTED IN THIS RELEASE.");
 	LOG_DEBUG("    arc_mem_mmu() = entry point for performance upgrade");
 
 	return retval;
