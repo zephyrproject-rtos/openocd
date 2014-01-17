@@ -26,8 +26,6 @@
 
 #include "arc.h"
 
-static int PRINT = 1;
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static const char *arc_isa_strings[] = {
@@ -135,7 +133,7 @@ int arc32_start_core(struct target *target)
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	value &= ~SET_CORE_HALT_BIT;        /* clear the HALT bit */
 	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_DEBUG(" ARC Core Started Again (eating instructions)");
+	LOG_DEBUG("Core started to run");
 
 #ifdef DEBUG
 	arc32_print_core_state(target);
@@ -286,7 +284,6 @@ int arc32_wait_until_core_is_halted(struct target *target)
 	 */
 	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	while (!(value & 1)) {
-		printf(".");
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	}
 
@@ -320,13 +317,10 @@ int arc32_arch_state(struct target *target)
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	if (PRINT) {
-		LOG_USER("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
-			target_state_name(target),
-			arc_isa_strings[arc32->isa_mode],
-			buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
-		PRINT = 0; /* due to endless looping through ;-) */
-	}
+	LOG_DEBUG("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
+		target_state_name(target),
+		arc_isa_strings[arc32->isa_mode],
+		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
 
 	return retval;
 }

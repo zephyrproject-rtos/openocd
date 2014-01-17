@@ -32,7 +32,7 @@ int arc_core_soft_reset_halt(struct target *target)
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("Soft reset halt is NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
