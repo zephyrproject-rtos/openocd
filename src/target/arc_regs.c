@@ -328,7 +328,7 @@ int arc_regs_print_core_registers(struct target *target)
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_USER("\n ARC core register display.\n");
+	LOG_USER("ARC core register display.");
 
 	for(reg_nbr = 0; reg_nbr < ARC32_NUM_CORE_REGS; reg_nbr++) {
 		arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
@@ -361,7 +361,7 @@ int arc_regs_print_aux_registers(struct arc_jtag *jtag_info)
 	int retval = ERROR_OK;
 	uint32_t value;
 
-	LOG_USER("\n ARC auxiliary register display.\n");
+	LOG_USER("ARC auxiliary register display.");
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
 	LOG_USER(" STATUS:          0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")", value, AUX_STATUS_REG);

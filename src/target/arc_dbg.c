@@ -347,9 +347,9 @@ int arc_dbg_enter_debug(struct target *target)
 	alive_sleep(1);
 
 #ifdef DEBUG
-	LOG_USER("core stopped (halted) DEGUB-REG: 0x%08" PRIx32, value);
+	LOG_DEBUG("core stopped (halted) DEGUB-REG: 0x%08" PRIx32, value);
 	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
-	LOG_USER("core STATUS32: 0x%08" PRIx32, value);
+	LOG_DEBUG("core STATUS32: 0x%08" PRIx32, value);
 #endif
 
 	return retval;
@@ -502,7 +502,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 		buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, address);
 		arc32->core_cache->reg_list[PC_REG].dirty = 1;
 		arc32->core_cache->reg_list[PC_REG].valid = 1;
-		printf(" !! PC MANIPULATION !!");
+		LOG_DEBUG("Changing the value of current PC to 0x%08" PRIx32, address);
 	}
 
 	if (!current)
@@ -513,11 +513,11 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 
 	arc32_restore_context(target);
 
-	LOG_DEBUG(" >> RESUMING @: 0x%08" PRIx32 "($PC)\n",resume_pc);
-	LOG_DEBUG("         dirty:%i  valid: %i\n",
+	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
+		resume_pc,
 		arc32->core_cache->reg_list[PC_REG].dirty,
 		arc32->core_cache->reg_list[PC_REG].valid);
-	
+
 	/* check if GDB tells to set our PC where to continue from */
 	if ((arc32->core_cache->reg_list[PC_REG].valid == 1) &&
 		(resume_pc == buf_get_u32(arc32->core_cache->reg_list[PC_REG].value,
@@ -592,6 +592,9 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 		arc32->core_cache->reg_list[PC_REG].valid = 1;
 	}
 
+	LOG_DEBUG("Target steps one instruction from PC=0x%" PRIx32,
+		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
+
 	/* the front-end may request us not to handle breakpoints */
 	if (handle_breakpoints) {
 		breakpoint = breakpoint_find(target,
@@ -656,8 +659,7 @@ int arc_dbg_add_breakpoint(struct target *target,
 
 	if (breakpoint->type == BKPT_HARD) {
 		if (arc32->num_inst_bpoints_avail < 1) {
-			//LOG_INFO("no hardware breakpoint available");
-			LOG_INFO(" > Hardware breakpoints are not supported in this release.");
+			LOG_ERROR(" > Hardware breakpoints are not supported in this release.");
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 
@@ -668,7 +670,7 @@ int arc_dbg_add_breakpoint(struct target *target,
 		return arc_dbg_set_breakpoint(target, breakpoint);
 	} else {
 		arc_dbg_enter_debug(target);
-		LOG_USER(" > core was not halted, please try again.");
+		LOG_WARNING(" > core was not halted, please try again.");
 		return ERROR_OK;
 	}
 }
@@ -678,7 +680,7 @@ int arc_dbg_add_context_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("Context breakpoints are NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -688,7 +690,7 @@ int arc_dbg_add_hybrid_breakpoint(struct target *target,
 {
 	int retval = ERROR_OK;
 
-	LOG_USER(" > NOT SUPPORTED IN THIS RELEASE.");
+	LOG_ERROR("Hybryd breakpoints are NOT SUPPORTED IN THIS RELEASE.");
 
 	return retval;
 }
@@ -723,8 +725,7 @@ int arc_dbg_add_watchpoint(struct target *target,
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (arc32->num_data_bpoints_avail < 1) {
-		//LOG_INFO("no hardware watchpoints available");
-		LOG_INFO(" > Hardware watchpoints are not supported in this release.");
+		LOG_INFO("Hardware watchpoints are not supported in this release.");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
 
