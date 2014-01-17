@@ -26,8 +26,6 @@
 
 #include "arc.h"
 
-static int PRINT = 1;
-
 /* ----- Supporting functions ---------------------------------------------- */
 
 static int arc_ocd_init_arch_info(struct target *target,
@@ -36,7 +34,7 @@ static int arc_ocd_init_arch_info(struct target *target,
 	int retval = ERROR_OK;
 	struct arc32_common *arc32 = &arc->arc32;
 
-	LOG_DEBUG("  >>> Calling into <<<");
+	LOG_DEBUG("Entering");
 
 	arc->common_magic = ARC_COMMON_MAGIC;
 
@@ -62,14 +60,14 @@ int arc_ocd_poll(struct target *target)
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
-		LOG_USER(" >> target is still running !!");
+		LOG_WARNING("target is still running!");
 		target->state = TARGET_RUNNING;
 	} else {
 		if ((target->state == TARGET_RUNNING) ||
 			(target->state == TARGET_RESET)) {
 
 			target->state = TARGET_HALTED;
-			LOG_DEBUG("ARC core is halted or in reset.\n");
+			LOG_DEBUG("ARC core is halted or in reset.");
 
 			retval = arc_dbg_debug_entry(target);
 			if (retval != ERROR_OK)
@@ -79,19 +77,13 @@ int arc_ocd_poll(struct target *target)
 		} else if (target->state == TARGET_DEBUG_RUNNING) {
 
 			target->state = TARGET_HALTED;
-			LOG_USER("ARC core is in debug running mode");
+			LOG_DEBUG("ARC core is in debug running mode");
 
 			retval = arc_dbg_debug_entry(target);
 			if (retval != ERROR_OK)
 				return retval;
 
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
-		} else {
-			if (PRINT == 1) {
-				LOG_USER("OpenOCD for ARC is ready to accept:"
-					" (gdb) target remote <host ip address>:3333");
-				PRINT = 0;
-			}
 		}
 	}
 
@@ -185,31 +177,31 @@ int arc_ocd_examine(struct target *target)
 
 		/* read JTAG info */
 		arc_jtag_idcode(&arc32->jtag_info, &value);
-		LOG_USER("JTAG ID: 0x%08" PRIx32, value);
+		LOG_DEBUG("JTAG ID: 0x%08" PRIx32, value);
 		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_USER("JTAG status: 0x%08" PRIx32, status);
+		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
 
 		/* bring processor into HALT */
-		LOG_USER("bring ARC core into HALT state");
+		LOG_DEBUG("bring ARC core into HALT state");
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value |= SET_CORE_FORCE_HALT;
 		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		sleep(1); /* just give us once some time to come to rest ;-) */
 
 		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_USER("JTAG status: 0x%08" PRIx32, status);
+		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
 
 		/* read ARC core info */
 		arc_core_type_info(target);
 
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
-		LOG_USER("CPU ID: 0x%08" PRIx32, value);
+		LOG_DEBUG("CPU ID: 0x%08" PRIx32, value);
 		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
-		LOG_USER("current PC: 0x%08" PRIx32, value);
+		LOG_DEBUG("current PC: 0x%08" PRIx32, value);
 
 		arc_jtag_status(&arc32->jtag_info, &status);
 		if (status & ARC_JTAG_STAT_RU) {
-			LOG_USER("target is still running !!");
+			LOG_WARNING("target is still running !!");
 			target->state = TARGET_RUNNING;
 		} else {
 			LOG_DEBUG("target is halted.");
