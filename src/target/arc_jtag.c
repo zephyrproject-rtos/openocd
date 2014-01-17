@@ -30,7 +30,7 @@
 
 /* ----- Supporting functions ---------------------------------------------- */
 
-static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
+static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, uint32_t new_instr)
 {
 	int retval = ERROR_OK;
 	struct jtag_tap *tap;
@@ -44,7 +44,7 @@ static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
 		return ERROR_FAIL;
 
 #ifdef DEBUG
-	LOG_INFO(" cur_instr: 0x%x new_instr: 0x%x",
+	LOG_INFO(" cur_instr: 0x%08" PRIx32 " new_instr: 0x%08" PRIx32,
 		buf_get_u32(tap->cur_instr, 0, tap->ir_length), new_instr);
 #endif
 
@@ -61,11 +61,11 @@ static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
 		jtag_add_ir_scan(tap, &field, jtag_info->tap_end_state);
 
 		if (jtag_execute_queue() != ERROR_OK) {
-			LOG_ERROR("%s: setting new instruction failed", __func__);
+			LOG_ERROR("setting new instruction failed");
 			return ERROR_FAIL;
 #ifdef DEBUG
 		} else {
-			LOG_INFO(" set JTAG instruction: 0x%x", new_instr);
+			LOG_INFO(" set JTAG instruction: 0x%08" PRIx32, new_instr);
 #endif
 		}
 	}
@@ -73,7 +73,7 @@ static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, int new_instr)
 	return retval;
 }
 
-static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, int new_trans)
+static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, uint32_t new_trans)
 {
 	int retval = ERROR_OK;
 	struct jtag_tap *tap;
@@ -87,7 +87,7 @@ static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, int new_trans)
 		return ERROR_FAIL;
 
 #ifdef DEBUG
-	LOG_INFO(" in:  cur_trans: 0x%x new_trans: 0x%x",
+	LOG_INFO(" in:  cur_trans: 0x%08" PRIx32" new_trans: 0x%08" PRIx32,
 		jtag_info->cur_trans,new_trans);
 #endif
 
@@ -104,11 +104,11 @@ static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, int new_trans)
 		jtag_add_dr_scan(jtag_info->tap, 1, field, jtag_info->tap_end_state);
 
 		if (jtag_execute_queue() != ERROR_OK) {
-			LOG_ERROR("%s: setting new transaction failed", __func__);
+			LOG_ERROR("setting new transaction failed");
 			return ERROR_FAIL;
 		} else {
 #ifdef DEBUG
-			LOG_INFO(" set JTAG transaction: 0x%x\n", new_trans);
+			LOG_INFO("set JTAG transaction: 0x%08" PRIx32, new_trans);
 #endif
 			jtag_info->cur_trans = new_trans;
 		}
@@ -207,7 +207,7 @@ int arc_jtag_startup(struct arc_jtag *jtag_info)
 	retval = arc_jtag_status(jtag_info, &status);
 	if (retval != ERROR_OK)
 		return retval;
-	LOG_USER(" JTAG status(@:%d): 0x%x",__LINE__,status);
+	LOG_USER(" JTAG status: 0x%08" PRIx32, status);
 #endif
 
 	return retval;
@@ -622,7 +622,7 @@ int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value)
 		return retval;
 
 #ifdef DEBUG
-	LOG_INFO(" JTAG status: 0x%x",*value);
+	LOG_INFO(" JTAG status: 0x%08" PRIx32, *value);
 #endif
 
 	arc_jtag_transaction_reset(jtag_info);
@@ -691,28 +691,28 @@ int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 	printf("\n\t...\n");
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
-	printf(" STATUS:           0x%08X\t(@:0x%03X)\n", value, AUX_STATUS_REG);
+	printf(" STATUS:           0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_STATUS_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_SEMAPHORE_REG, &value);
-	printf(" SEMAPHORE:        0x%08X\t(@:0x%03X)\n", value, AUX_SEMAPHORE_REG);
+	printf(" SEMAPHORE:        0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_SEMAPHORE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, &value);
-	printf(" LP START:         0x%08X\t(@:0x%03X)\n", value, AUX_LP_START_REG);
+	printf(" LP START:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_LP_START_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG, &value);
-	printf(" LP END:           0x%08X\t(@:0x%03X)\n", value, AUX_LP_END_REG);
+	printf(" LP END:           0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_LP_END_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IDENTITY_REG, &value);
-	printf(" IDENTITY:         0x%08X\t(@:0x%03X)\n", value, AUX_IDENTITY_REG);
+	printf(" IDENTITY:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_IDENTITY_REG);
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
-	printf("\n DEBUG:            0x%08X\t(@:0x%03X)\n", value, AUX_DEBUG_REG);
+	printf("\n DEBUG:            0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_DEBUG_REG);
 	value = SET_CORE_RESET_APPLIED;
 	arc_jtag_write_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
 	value = 0;
 	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
-	printf(" DEBUG:            0x%08X\t(@:0x%03X)\n\n", value, AUX_DEBUG_REG);
+	printf(" DEBUG:            0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n\n", value, AUX_DEBUG_REG);
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
-	printf(" PC:               0x%08X\t(@:0x%03X)\n", value, AUX_PC_REG);
+	printf(" PC:               0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_PC_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, &value);
-	printf(" STATUS32:         0x%08X\t(@:0x%03X)\n", value, AUX_STATUS32_REG);
+	printf(" STATUS32:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_STATUS32_REG);
 
 	printf("\n\t...\n");
 	value = 0x5463728;
@@ -724,28 +724,28 @@ int arc_ocd_start_test(struct arc_jtag *jtag_info, int reg, uint32_t bits)
 	printf("\n\t...\n");
 
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS_REG, &value);
-	printf(" STATUS:           0x%08X\t(@:0x%03X)\n", value, AUX_STATUS_REG);
+	printf(" STATUS:           0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_STATUS_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_SEMAPHORE_REG, &value);
-	printf(" SEMAPHORE:        0x%08X\t(@:0x%03X)\n", value, AUX_SEMAPHORE_REG);
+	printf(" SEMAPHORE:        0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_SEMAPHORE_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_START_REG, &value);
-	printf(" LP START:         0x%08X\t(@:0x%03X)\n", value, AUX_LP_START_REG);
+	printf(" LP START:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_LP_START_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_LP_END_REG, &value);
-	printf(" LP END:           0x%08X\t(@:0x%03X)\n", value, AUX_LP_END_REG);
+	printf(" LP END:           0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_LP_END_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_IDENTITY_REG, &value);
-	printf(" IDENTITY:         0x%08X\t(@:0x%03X)\n", value, AUX_IDENTITY_REG);
+	printf(" IDENTITY:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_IDENTITY_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_DEBUG_REG, &value);
-	printf(" DEBUG:            0x%08X\t(@:0x%03X)\n", value, AUX_DEBUG_REG);
+	printf(" DEBUG:            0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_DEBUG_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_PC_REG, &value);
-	printf(" PC:               0x%08X\t(@:0x%03X)\n", value, AUX_PC_REG);
+	printf(" PC:               0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_PC_REG);
 	arc_jtag_read_aux_reg(jtag_info, AUX_STATUS32_REG, &value);
-	printf(" STATUS32:         0x%08X\t(@:0x%03X)\n", value, AUX_STATUS32_REG);
+	printf(" STATUS32:         0x%08" PRIx32 "\t(@:0x%08" PRIx32 ")\n", value, AUX_STATUS32_REG);
 
 	arc_jtag_read_core_reg(jtag_info, 22, &value);
-	printf(" R22 = 0x%x (?=11)\n",value);
+	printf(" R22 = 0x%08" PRIx32 " (?=11)\n",value);
 	arc_jtag_read_core_reg(jtag_info, 9, &value);
-	printf(" R9 = 0x%x (?=8)\n",value);
+	printf(" R9 = 0x%08" PRIx32 " (?=8)\n",value);
 	arc_jtag_read_core_reg(jtag_info, 63, &value);
-	printf(" R63(PC) = 0x%x (?=0x8fd00000)\n",value);
+	printf(" R63(PC) = 0x%08" PRIx32 " (?=0x8fd00000)\n",value);
 
 	printf("\n << Done, hit ^C >>\n");
 	sleep(10);
