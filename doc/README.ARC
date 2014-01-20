@@ -10,14 +10,15 @@ Content:
 5. Advanced debug commands
 6. Some useful ARC development commands
 7. Find your way in the source code
-8. Digilent probe installation instructions
-9. How to program a bit-file into FPGA with the Digilent HS probe
+8. Digilent cable installation instructions
+9. How to program a bit-file into FPGA with the Digilent HS cable
 
 Important notes:
 
-1. Only ARC EM Starter Kit and Digilent HS1 probe are supported.
-2. Digilent HS2 probe currently is not supported.
-3. There is NO Flash support in ARC OpenOCD.
+1. Only ARC EM Starter Kit and Digilent HS1 & HS2 cables are supported.
+2. This document uses term "Digilent HS" to refer to both HS1 and HS2 cables.
+   Statements that are applicable only to selected cable mention it explicitly.
+2. There is NO Flash support in ARC OpenOCD.
 
 
 1. How to build OpenOCD on Linux
@@ -65,13 +66,15 @@ It is possible to run OpenOCD from build directory, without installing, however
 this is out of scope of this document.
 
 Finally you need to configure udev rules in such way that OpenOCD would be able
-to claim your JTAG debug probe. In common case for ARC this is an FTDI-based
+to claim your JTAG debug cable. In common case for ARC this is an FTDI-based
 device. IF you already have libftdi package installed on your system, then
 required rules are already provided to udev. Otherwise create file
 `/etc/udev/rules.d/99-ftdi.rules` with following contents:
 
     # allow users to claim the device
+    # Digilent HS1 and EM Starter Kit
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", MODE="0664", GROUP="plugdev"
+    # Digilent HS2
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", MODE="0664", GROUP="plugdev"
 
 You also can use file `contrib/openocd.udev` supplied with OpenOCD sources,
@@ -79,10 +82,10 @@ however this file doesn't work with Digilent HS2, though on the other hand it
 mentions many other FTDI-based devices.
 
 Then either reboot your system or reload udev configuration and reconnect debug
-probe to the host computer:
+cable to the host computer:
 
     $ sudo udevadm control --reload-rules
-    # Disconnect JTAG probe from host, then connect again.
+    # Disconnect JTAG cable from host, then connect again.
 
 
 2. How to build OpenOCD for Windows (cross compile on Linux)
@@ -173,8 +176,8 @@ OpenOCD installation to Window host.
 -----------------------------------------------------------
 
 On the HOST (Linux PC which connects directly to the target) connect Digilent
-HS1 probe or EM Starter Kit to the Host. EM Starter Kit has built-in debug
-probe, it doesn't requires a separate Digilent HS1 probe. HS1 is required only
+HS cable or EM Starter Kit to the Host. EM Starter Kit has built-in debug
+cable, it doesn't requires a separate Digilent HS cable. HS is required only
 for other debug targets like ML-509 board, etc.
 
 Run lsusb application to ensure that FTDI device is there:
@@ -243,7 +246,7 @@ Resume execution to reach function exit:
 --------------------------------
 
 If you are using libusb/ftdi combination, then you have to download WinUSB
-driver and replace FTDI drivers for Digilent dongles or EM Starter Kit with it.
+driver and replace FTDI drivers for Digilent cables or EM Starter Kit with it.
 Refer to [this page](https://github.com/libusbx/libusbx/wiki/Windows-Backend)
 for details. In a nutshell, download [Zadig](http://zadig.akeo.ie/), run it and
 use it to install WinUSB driver for FTDI device. If your FTDI device is not
@@ -256,11 +259,10 @@ utility](http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2) and use it
 to install latest FTDI drivers. Then you need to change OpenOCD configuration
 file, because by default it uses ftdi/libusb combination. Refer to "How to use
 OpenOCD on Linux" for a list of available files. In your configuration script
-replace line `source [find interface/ftdi/digilent-hs.cfg]` with line `source
-[find interface/digilent-hs1.cfg]`. Note that `digilent-hs1.cfg` file supports
-only Digilent HS1, to use it with HS2, open it, and set `ft2232_vid_pid` to
-`0x0403 0x6010 0x0403 0x6014`; after that it will handle bith Digilent cables.
-Everything else is the same as for Linux or for ftdi/libusb combination.
+replace line `source [find interface/ftdi/digilent-hs1.cfg]` with line `source
+[find interface/digilent-hs1.cfg]`. If you are using Digilent HS2, then use
+files named `digilent-hs2.cfg`.  Everything else is the same as for Linux or
+for ftdi/libusb combination.
 
 
 5. Advanced debug commands
@@ -319,10 +321,10 @@ In src/target is the ARC specific code base:
 8. Digilent driver installation instructions
 --------------------------------------------
 
-OpenOCD doesn't use Digilent drivers to communicate with Digilent debug probes,
+OpenOCD doesn't use Digilent drivers to communicate with Digilent debug cables,
 instead it uses it's own implementation of FTDI MPSSE protocol, which us
-compatible with _virtually_ any other FTDI x232 probe. However to use some
-features of Digilent probes you might need to install their drivers and
+compatible with _virtually_ any other FTDI x232 cable. However to use some
+features of Digilent cables you might need to install their drivers and
 utilities. Following are instructions on how to do that.
 
 Download appropriate version of runtime and utilities from Digilent site:
@@ -343,11 +345,11 @@ Untar and install products:
     $ cd ..
 
 
-9. How to program a bit-file into FPGA with the Digilent HS probe
+9. How to program a bit-file into FPGA with the Digilent HS cable
 -----------------------------------------------------------------
 
 Below is an example given of how to program a Xilinx ML509 FPGA developers
-board. NOTE: make sure the Digilent HS dongle is connected to the right
+board. NOTE: make sure the Digilent HS cable is connected to the right
 JTAG connector on the board (programming the FPGA and not the memory).
 So, it should be connected to PC4 JTAG and not to J51 BDM.
 Further more, Device 4: XC5VLX110T is the FPGA to program, device 4 in the
