@@ -353,30 +353,12 @@ COMMAND_HANDLER(handle_print_core_status_command)
 	return retval;
 }
 
-COMMAND_HANDLER(handle_test_gdb_command)
-{
-	int retval = ERROR_OK;
-
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (head == (struct target_list *)NULL) {
-		arc_ocd_start_test(&arc32->jtag_info, 1, 2); /* just kickoff test */
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return retval;
-}
-
 COMMAND_HANDLER(arc_handle_has_dcache)
 {
 	struct target *target = get_current_target(CMD_CTX);
 	struct arc32_common *arc32 = target_to_arc32(target);
 	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
-		&arc32->has_dcache, "target has date-cache");
+		&arc32->has_dcache, "target has data-cache");
 }
 
 /* ----- Exported target commands ------------------------------------------ */
@@ -460,13 +442,6 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.help = "list the content of core aux debug & status32 register",
 	},
 	{
-		.name = "test-gdb",
-		.handler = handle_test_gdb_command,
-		.mode = COMMAND_EXEC,
-		.usage = "",
-		.help = "runs current core gdb tests",
-	},
-	{
 		.name = "has-dcache",
 		.handler = arc_handle_has_dcache,
 		.mode = COMMAND_ANY,
@@ -477,9 +452,6 @@ static const struct command_registration arc_core_command_handlers[] = {
 };
 
 const struct command_registration arc_monitor_command_handlers[] = {
-//	{ /* chain command groups */
-//		.chain = arc_registers_command_handlers,
-//	},
 	{
 		.name = "arc",
 		.mode = COMMAND_ANY,
