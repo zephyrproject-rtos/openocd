@@ -109,12 +109,12 @@ int arc32_enable_interrupts(struct target *target, int enable)
 	if (enable) {
 		/* enable interrupts */
 		value = SET_CORE_ENABLE_INTERRUPTS;
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_IENABLE_REG, value);
 		LOG_DEBUG("interrupts enabled [stat:%i]", retval);
 	} else {
 		/* disable interrupts */
 		value = SET_CORE_DISABLE_INTERRUPTS;
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IENABLE_REG, &value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_IENABLE_REG, value);
 		LOG_DEBUG("interrupts disabled [stat:%i]", retval);
 	}
 
@@ -130,9 +130,9 @@ int arc32_start_core(struct target *target)
 
 	target->state = TARGET_RUNNING;
 
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	value &= ~SET_CORE_HALT_BIT;        /* clear the HALT bit */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, value);
 	LOG_DEBUG("Core started to run");
 
 #ifdef DEBUG
@@ -150,11 +150,11 @@ int arc32_config_step(struct target *target, int enable_step)
 
 	if (enable_step) {
 		/* enable core debug step mode */
-		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
+		retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG,
 			&value);
 		value &= ~SET_CORE_AE_BIT; /* clear the AE bit */
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG,
-			&value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG,
+			value);
 		LOG_DEBUG(" [status32:0x%08" PRIx32 "] [stat:%i]", value, retval);
 
 		//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
@@ -165,17 +165,17 @@ int arc32_config_step(struct target *target, int enable_step)
 			LOG_DEBUG("ARC600 extra single step bit to set.");
 		}
 
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
-			&value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG,
+			value);
 		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%08" PRIx32 "] [stat:%i]",
 			value, retval);
 	} else {
 		/* disable core debug step mode */
-		retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
+		retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG,
 			&value);
 		value &= ~SET_CORE_SINGLE_INSTR_STEP; /* clear the IS bit */
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG,
-			&value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG,
+			value);
 		LOG_DEBUG("core debug step mode disabled [stat:%i]", retval);
 	}
 
@@ -201,19 +201,19 @@ int arc32_cache_invalidate(struct target *target)
 	LOG_DEBUG("Invalidating I$ & D$.");
 
 	value = IC_IVIC_INVALIDATE;	/* invalidate I$ */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_IC_IVIC_REG, &value);
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_IC_IVIC_REG, value);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
 
 	backup = value;
 	value = value & ~DC_CTRL_IM;
 
 	/* set DC_CTRL invalidate mode to invalidate-only (no flushing!!) */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, value);
 	value = DC_IVDC_INVALIDATE;	/* invalidate D$ */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_IVDC_REG, value);
 
 	/* restore DC_CTRL invalidate mode */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &backup);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, backup);
 
 	arc32->cache_invalidated = true;
 
@@ -240,7 +240,7 @@ int arc32_dcache_flush(struct target *target)
 	LOG_DEBUG("Flushing D$.");
 
 	/* Store current value of DC_CTRL */
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &dc_ctrl_value);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, &dc_ctrl_value);
 	if (ERROR_OK != retval)
 	    return retval;
 
@@ -248,18 +248,18 @@ int arc32_dcache_flush(struct target *target)
 	has_to_set_dc_ctrl_im = (dc_ctrl_value & DC_CTRL_IM) == 0;
 	if (has_to_set_dc_ctrl_im) {
 		value = dc_ctrl_value | DC_CTRL_IM;
-		retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, value);
 		if (ERROR_OK != retval)
 		    return retval;
 	}
 
 	/* Flush D$ */
 	value = DC_IVDC_INVALIDATE;
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_IVDC_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_IVDC_REG, value);
 
 	/* Restore DC_CTRL invalidate mode (even of flush failed) */
 	if (has_to_set_dc_ctrl_im) {
-	    retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DC_CTRL_REG, &dc_ctrl_value);
+	    retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DC_CTRL_REG, dc_ctrl_value);
 	}
 
 	arc32->dcache_flushed = true;
@@ -282,9 +282,9 @@ int arc32_wait_until_core_is_halted(struct target *target)
 	 * check if bit N starting from 0 is set; temp & (1 << N)
 	 *   here, lets check if we are HALTED
 	 */
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	while (!(value & 1)) {
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	}
 
 #ifdef DEBUG
@@ -300,13 +300,13 @@ int arc32_print_core_state(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 	uint32_t value;
 
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	LOG_DEBUG("  AUX REG  [DEBUG]: 0x%08" PRIx32, value);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 	LOG_DEBUG("        [STATUS32]: 0x%08" PRIx32, value);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS_REG, &value);
+	arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS_REG, &value);
 	LOG_DEBUG("          [STATUS]: 0x%08" PRIx32, value);
-	arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
+	arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &value);
 	LOG_DEBUG("              [PC]: 0x%08" PRIx32, value);
 
 	return retval;
@@ -332,7 +332,7 @@ int arc32_get_current_pc(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* read current PC */
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &dpc);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc);
 
 	/* save current PC */
 	buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, dpc);

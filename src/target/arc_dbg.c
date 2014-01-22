@@ -343,7 +343,7 @@ int arc_dbg_enter_debug(struct target *target)
 	//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
 	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
 	alive_sleep(1);
 
 #ifdef DEBUG
@@ -395,7 +395,7 @@ int arc_dbg_debug_entry(struct target *target)
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* save current PC */
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &dpc);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -424,9 +424,9 @@ int arc_dbg_exit_debug(struct target *target)
 	target->state = TARGET_RUNNING;
 
 	/* raise the Reset Applied bit flag */
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	value |= SET_CORE_RESET_APPLIED; /* set the RA bit */
-	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
 
 #ifdef DEBUG
 	arc32_print_core_state(target);
@@ -526,7 +526,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 		uint32_t value;
 		value = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
 		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
-		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
 	}
 
 	/* the front-end may request us not to handle breakpoints */
