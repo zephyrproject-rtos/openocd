@@ -20,8 +20,6 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.           *
  ***************************************************************************/
 
-/* TODO: This file has a lot of repetative code. Should be refactored. */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -30,623 +28,587 @@
 
 /* ----- Supporting functions ---------------------------------------------- */
 
-static int arc_jtag_set_instruction(struct arc_jtag *jtag_info, uint32_t new_instr)
+/**
+ * This functions set instruction register in TAP. TAP end state is always
+ * IRPAUSE.
+ *
+ * @param jtag_info
+ * @param new_instr	Instruction to write to instruction register.
+ */
+static void arc_jtag_write_ir(struct arc_jtag *jtag_info, uint32_t
+		new_instr)
 {
-	int retval = ERROR_OK;
-	struct jtag_tap *tap;
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
 
-#ifdef DEBUG
-	LOG_DEBUG("Entering");
-#endif
+	struct jtag_tap *tap = jtag_info->tap;
 
-	tap = jtag_info->tap;
-	if (tap == NULL)
-		return ERROR_FAIL;
-
-#ifdef DEBUG
-	LOG_DEBUG(" cur_instr: 0x%08" PRIx32 " new_instr: 0x%08" PRIx32,
-		buf_get_u32(tap->cur_instr, 0, tap->ir_length), new_instr);
-#endif
-
-	if (buf_get_u32(tap->cur_instr, 0, tap->ir_length) != (uint32_t)new_instr) {
-		struct scan_field field;
-		uint8_t instr[4];
-		uint8_t ret[4];
-
-		field.num_bits = tap->ir_length;
-		field.in_value = ret;
-		buf_set_u32(instr, 0, field.num_bits, new_instr);
-		field.out_value = instr;
-
-		jtag_add_ir_scan(tap, &field, jtag_info->tap_end_state);
-
-		if (jtag_execute_queue() != ERROR_OK) {
-			LOG_ERROR("setting new instruction failed");
-			return ERROR_FAIL;
-#ifdef DEBUG
-		} else {
-			LOG_DEBUG(" set JTAG instruction: 0x%08" PRIx32, new_instr);
-#endif
-		}
-	}
-
-	return retval;
-}
-
-static int arc_jtag_set_transaction(struct arc_jtag *jtag_info, uint32_t new_trans)
-{
-	int retval = ERROR_OK;
-	struct jtag_tap *tap;
-
-#ifdef DEBUG
-	LOG_DEBUG("Entering");
-#endif
-
-	tap = jtag_info->tap;
-	if (tap == NULL)
-		return ERROR_FAIL;
-
-#ifdef DEBUG
-	LOG_DEBUG(" in:  cur_trans: 0x%08" PRIx32" new_trans: 0x%08" PRIx32,
-		jtag_info->cur_trans,new_trans);
-#endif
-
-	if (jtag_info->cur_trans != (uint32_t)new_trans) {
-		struct scan_field field[1];
-		uint8_t trans[4] = {0};
-		uint8_t ret[4];
-
-		field[0].num_bits = 4;
-		field[0].in_value = ret;
-		buf_set_u32(trans, 0, field[0].num_bits, new_trans);
-		field[0].out_value = trans;
-
-		jtag_add_dr_scan(jtag_info->tap, 1, field, jtag_info->tap_end_state);
-
-		if (jtag_execute_queue() != ERROR_OK) {
-			LOG_ERROR("setting new transaction failed");
-			return ERROR_FAIL;
-		} else {
-#ifdef DEBUG
-			LOG_DEBUG("set JTAG transaction: 0x%08" PRIx32, new_trans);
-#endif
-			jtag_info->cur_trans = new_trans;
-		}
-	}
-
-	return retval;
-}
-
-static int arc_jtag_read_data(struct arc_jtag *jtag_info, uint32_t *pdata)
-{
-	int retval = ERROR_OK;
-	struct scan_field fields[1];
-	uint8_t data_buf[4];
-
-#ifdef DEBUG
-	LOG_DEBUG("Entering");
-#endif
-
-	memset(data_buf, 0, sizeof(data_buf));
-
-	fields[0].num_bits = 32;
-	fields[0].in_value = data_buf;
-	fields[0].out_value = NULL;
-
-	jtag_add_dr_scan(jtag_info->tap, 1, fields, jtag_info->tap_end_state);
-
-	if (jtag_execute_queue() != ERROR_OK) {
-		LOG_ERROR("%s: add_dr_scan failed", __func__);
-		return ERROR_FAIL;
-	}
-
-	*pdata = buf_get_u32(data_buf, 0, 32);
-
-	return retval;
-}
-
-static int arc_jtag_write_data(struct arc_jtag *jtag_info,	uint32_t data)
-{
-	int retval = ERROR_OK;
-	struct scan_field fields[1];
-	uint8_t data_buf[4];
-
-#ifdef DEBUG
-	LOG_DEBUG("Entering");
-#endif
-
-	memset(data_buf, 0, sizeof(data_buf));
-
-	buf_set_u32(data_buf, 0, 32, data);
-
-	fields[0].num_bits = 32;
-	fields[0].in_value = NULL;
-	fields[0].out_value = data_buf;
-
-	jtag_add_dr_scan(jtag_info->tap, 1, fields, jtag_info->tap_end_state);
-
-	if (jtag_execute_queue() != ERROR_OK) {
-		LOG_ERROR("%s: add_dr_scan failed", __func__);
-		return ERROR_FAIL;
-	}
-
-	return retval;
-}
-
-void arc_jtag_transaction_reset(struct arc_jtag *jtag_info)
-{
-	/*
-	 * run us through transaction reset.
-	 * this means that none of the previous settings/commands/etc. are
-	 * used anymore (of no influence)
-	 */
+	/* Set end state */
 	jtag_info->tap_end_state = TAP_IRPAUSE;
-	arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_IDLE;
-	arc_jtag_set_transaction(jtag_info, ARC_JTAG_CMD_NOP);
+
+	/* Do not set instruction if it is the same as current. */
+	uint32_t current_instr = buf_get_u32(tap->cur_instr, 0, tap->ir_length);
+	if (current_instr == new_instr)
+		return;
+
+	/* Create scan field to output new instruction. */
+	struct scan_field field;
+	uint8_t instr_buffer[4];
+	field.num_bits = tap->ir_length;
+	field.in_value = NULL;
+	buf_set_u32(instr_buffer, 0, field.num_bits, new_instr);
+	field.out_value = instr_buffer;
+
+	/* From code in src/jtag/drivers/driver.c it look like that fields are
+	 * copied so it is OK that field in this function is allocated in stack and
+	 * thus this memory will be repurposed before jtag_queue_execute() will be
+	 * invoked. */
+	jtag_add_ir_scan(tap, &field, jtag_info->tap_end_state);
+}
+
+/**
+ * Set transaction in command register. This function sets instruction register
+ * and then transaction register, there is no need to invoke write_ir before
+ * invoking this function.
+ *
+ * @param jtag_info
+ * @param new_trans	Transaction to write to transaction command register.
+ * @param end_state	End state after writing.
+ */
+static void arc_jtag_set_transaction(struct arc_jtag *jtag_info,
+		arc_jtag_transaction_t new_trans, tap_state_t end_state)
+{
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	/* No need to do anything. */
+	if (jtag_info->cur_trans == new_trans)
+		return;
+
+	/* Set instruction. We used to call write_ir at upper levels, however
+	 * write_ir-write_transaction were constantly in pair, so to avoid code
+	 * duplication this function does it self. For this reasons it is "set"
+	 * instead of "write". */
+	arc_jtag_write_ir(jtag_info, ARC_TRANSACTION_CMD_REG);
+
+	jtag_info->tap_end_state = end_state;
+
+	const int num_bits[1] = { ARC_TRANSACTION_CMD_REG_LENGTH };
+	const uint32_t values[1] = { new_trans };
+	jtag_add_dr_out(jtag_info->tap, 1, num_bits, values, end_state);
+	jtag_info->cur_trans = new_trans;
+}
+
+/**
+ * Read 4-byte word from data register.
+ *
+ * Unlike arc_jtag_write_data, this function returns byte-buffer, caller must
+ * convert this data to required format himself. This is done, because it is
+ * impossible to convert data before jtag_queue_execute() is invoked, so it
+ * cannot be done inside this function, so it has to operate with
+ * byte-buffers. Write function on the other hand can "write-and-forget", data
+ * is converted to byte-buffer before jtag_queue_execute().
+ *
+ * @param jtag_info
+ * @param data		Array of bytes to read into.
+ * @param end_state	End state after reading.
+ */
+static void arc_jtag_read_dr(struct arc_jtag *jtag_info, uint8_t *data,
+		tap_state_t end_state)
+{
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	jtag_info->tap_end_state = end_state;
+	struct scan_field field;
+	field.num_bits = 32;
+	field.in_value = data;
+	field.out_value = NULL;
+	jtag_add_dr_scan(jtag_info->tap, 1, &field, jtag_info->tap_end_state);
+}
+
+/**
+ * Write 4-byte word to data register.
+ *
+ * @param jtag_info
+ * @param data		4-byte word to write into data register.
+ * @param end_state	End state after writing.
+ */
+static void arc_jtag_write_dr(struct arc_jtag *jtag_info, uint32_t data,
+		tap_state_t end_state)
+{
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	jtag_info->tap_end_state = end_state;
+
+	const int num_bits[1] = { 32 };
+	const uint32_t values[1] = { data };
+	jtag_add_dr_out(jtag_info->tap, 1, num_bits, values, end_state);
+}
+
+/**
+ * Run us through transaction reset. This means that none of the previous
+ * settings/commands/etc. are used anymore (of no influence).
+ */
+static void arc_jtag_reset_transaction(struct arc_jtag *jtag_info)
+{
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_CMD_NOP, TAP_IDLE);
 }
 
 /* ----- Exported JTAG functions ------------------------------------------- */
 
 int arc_jtag_startup(struct arc_jtag *jtag_info)
 {
-	int retval = ERROR_OK;
-
-	jtag_info->tap_end_state = TAP_IDLE;
-
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	if (retval != ERROR_OK)
+	arc_jtag_reset_transaction(jtag_info);
+	int retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Starting JTAG failed.");
 		return retval;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_CMD_NOP);
-	if (retval != ERROR_OK)
-		return retval;
-
-#ifdef DEBUG
-	uint32_t status;
-
-	retval = arc_jtag_status(jtag_info, &status);
-	if (retval != ERROR_OK)
-		return retval;
-	LOG_USER(" JTAG status: 0x%08" PRIx32, status);
-#endif
-
+	}
 	return retval;
 }
 
 int arc_jtag_shutdown(struct arc_jtag *jtag_info)
 {
-	int retval = ERROR_OK;
-
 	LOG_WARNING("arc_jtag_shutdown not implemented");
-
-	return retval;
+	return ERROR_OK;
 }
 
-int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
+/** Read STATUS register. */
+int arc_jtag_status(struct arc_jtag * const jtag_info, uint32_t * const value)
 {
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	LOG_DEBUG("Reading STATUS register.");
+
 	int retval = ERROR_OK;
+	uint8_t buffer[4];
 
-	arc_jtag_transaction_reset(jtag_info);
+	/* Fill command queue. */
+	arc_jtag_reset_transaction(jtag_info);
+	arc_jtag_write_ir(jtag_info, ARC_JTAG_STATUS_REG);
+	arc_jtag_read_dr(jtag_info, buffer, TAP_IDLE);
+	arc_jtag_reset_transaction(jtag_info);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_MEMORY);
+	/* Execute queue. */
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Reading STATUS register failed. Error code = %i", retval);
+		return retval;
+	}
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 4Byte behind */
-	retval = arc_jtag_write_data(jtag_info, addr);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
-	retval = arc_jtag_read_data(jtag_info, value);
-
-	arc_jtag_transaction_reset(jtag_info);
+	/* Parse output. */
+	*value = buf_get_u32(buffer, 0, 32);
+	LOG_DEBUG("STATUS register=0x%08" PRIx32, *value);
 
 	return retval;
 }
 
+/** Read IDCODE register. */
+int arc_jtag_idcode(struct arc_jtag * const jtag_info, uint32_t * const value)
+{
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	LOG_DEBUG("Reading IDCODE register.");
+
+	int retval = ERROR_OK;
+	uint8_t buffer[4];
+
+	/* Fill command queue. */
+	arc_jtag_reset_transaction(jtag_info);
+	arc_jtag_write_ir(jtag_info, ARC_IDCODE_REG);
+	arc_jtag_read_dr(jtag_info, buffer, TAP_IDLE);
+	arc_jtag_reset_transaction(jtag_info);
+
+	/* Execute queue. */
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Reading IDCODE register failed. Error code = %i", retval);
+		return retval;
+	}
+
+	/* Parse output. */
+	*value = buf_get_u32(buffer, 0, 32);
+	LOG_DEBUG("IDCODE register=0x%08" PRIx32, *value);
+
+	return retval;
+}
+
+/**
+ * Write a sequence of 4-byte words into target memory.
+ *
+ * We can write only 4byte words via JTAG, so any non-word writes should be
+ * handled at higher levels by read-modify-write.
+ *
+ * This function writes directly to the memory, leaving any caches (if there
+ * are any) in inconsistent state. It is responsibility of upper level to
+ * resolve this.
+ *
+ * @param jtag_info
+ * @param addr		Address of first word to write into.
+ * @param count		Amount of word to write.
+ * @param buffer	Array to write into memory.
+ */
 int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
+		uint32_t count, const uint32_t* buffer)
 {
 	int retval = ERROR_OK;
 
-	arc_jtag_transaction_reset(jtag_info);
+	assert(jtag_info != NULL);
+	assert(buffer != NULL);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_MEMORY);
+	LOG_DEBUG("Writing to memory: addr=0x%08" PRIx32 ";count=%" PRIu32 ";buffer[0]=0x%08" PRIx32,
+		addr, count, *buffer);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
+	/* No need to waste time on useless operations. */
+	if (count == 0)
+		return retval;
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	retval = arc_jtag_write_data(jtag_info, *value);
+	/* We do not know where we come from. */
+	arc_jtag_reset_transaction(jtag_info);
 
-	arc_jtag_transaction_reset(jtag_info);
+	/* We want to write to memory. */
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_MEMORY, TAP_DRPAUSE);
+
+	/* Set target memory address of the first word. */
+	arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+	arc_jtag_write_dr(jtag_info, addr, TAP_DRPAUSE);
+
+	/* Start sending words. Address is auto-incremented on 4bytes by HW. */
+	arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+	uint32_t i;
+	for (i = 0; i < count; i++) {
+		arc_jtag_write_dr(jtag_info, *(buffer + i), TAP_IDLE);
+	}
+
+	/* Cleanup. */
+	arc_jtag_reset_transaction(jtag_info);
+
+	/* Run queue. */
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Writing to memory failed. Error code = %i", retval);
+		return retval;
+	}
 
 	return retval;
 }
 
-int arc_jtag_read_block(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t size,  uint32_t count, uint32_t *value)
+/**
+ * Read a sequence of 4-byte words from target memory.
+ *
+ * We can read only 4byte words via JTAG.
+ *
+ * This function read directly from the memory, so it can read invalid data if
+ * data cache hasn't been flushed before hand. It is responsibility of upper
+ * level to resolve this.
+ *
+ * @param jtag_info
+ * @param addr		Address of first word to read from.
+ * @param count		Amount of words to read.
+ * @param buffer	Array of words to read into.
+ */
+int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t count, uint32_t *buffer )
 {
 	int retval = ERROR_OK;
 
-	LOG_ERROR("arc_jtag_read_block is not implemented");
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
+
+	LOG_DEBUG("Reading memory: addr=0x%" PRIu32 ";count=%" PRIu32, addr, count);
+
+	if (count == 0)
+		return retval;
+
+	arc_jtag_reset_transaction(jtag_info);
+
+	/* We are reading from memory. */
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_MEMORY, TAP_DRPAUSE);
+
+	/* Set address of the first word */
+	arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+	arc_jtag_write_dr(jtag_info, addr, TAP_IDLE);
+
+	/* Read data */
+	arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+	uint8_t *data_buf = calloc(sizeof(uint8_t), count * 4);
+	uint32_t i;
+	for (i = 0; i < count; i++) {
+		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
+	}
+
+	/* Clean up */
+	arc_jtag_reset_transaction(jtag_info);
+
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Reading from memory failed. Error code=%i", retval);
+		return retval;
+	}
+
+	/* Convert byte-buffers to host presentation. */
+	for (i = 0; i < count; i++) {
+		buffer[i] = buf_get_u32(data_buf + 4*i, 0, 32);
+	}
+
+	free(data_buf);
 
 	return retval;
 }
 
-int arc_jtag_write_block(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t size, uint32_t count, uint32_t *value)
+/**
+ * Write core registers in sequential order.
+ *
+ * @param jtag_info
+ * @param addr		Number of first register to write into.
+ * @param count		Amount of registers to write after the first one.
+ * @param buffer	Array of words to write into registers. One word = one register.
+ */
+int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t count, const uint32_t *buffer)
 {
 	int retval = ERROR_OK;
 	uint32_t i;
 
-	assert(size <= 4); /* 4 = 32bits */
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
 
-	/* we do not know where we come from */
-	arc_jtag_transaction_reset(jtag_info);
+	LOG_DEBUG("Writing to core registers: addr=0x%" PRIu32 ";count=%" PRIu32 ";buffer[0]=0x%08" PRIx32,
+		addr, count, *buffer);
 
-	/* get us started with first word */
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_MEMORY);
+	if (count == 0)
+		return retval;
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	arc_jtag_write_data(jtag_info, addr);
+	arc_jtag_reset_transaction(jtag_info);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	arc_jtag_write_data(jtag_info, *value);
+	/* We are writing code registers */
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_CORE_REG, TAP_DRPAUSE);
 
-	/* remaining data, address increment is taken care of by hw */
-	for(i = 1; i < count; i++) {
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-		arc_jtag_write_data(jtag_info, *(uint32_t *)(value + i));
+	/* Set address of first register */
+	arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+	arc_jtag_write_dr(jtag_info, addr, TAP_DRPAUSE);
+
+	/* Write actual data. Register number is increased each time by HW. */
+	arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+	for (i = 0; i < count; i++) {
+		arc_jtag_write_dr(jtag_info, *(buffer + i), TAP_IDLE);
 	}
 
-	arc_jtag_transaction_reset(jtag_info); /* done, cleanup behind you */
+	/* Clean up */
+	arc_jtag_reset_transaction(jtag_info);
+
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Writing to core registers failed. Error code=%i", retval);
+		return retval;
+	}
 
 	return retval;
 }
 
+/**
+ * Real core registers in sequential order starting from addr for count
+ * registers
+ *
+ * @param jtag_info
+ * @param addr		Number of first register to read from.
+ * @param count		Amount of registers to read.
+ * @param buffer	Array of words to read into.
+ */
 int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
+	uint32_t count, uint32_t *buffer )
 {
 	int retval = ERROR_OK;
+	uint32_t i;
 
-	arc_jtag_transaction_reset(jtag_info);
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_CORE_REG);
+	LOG_DEBUG("Reading core registers: addr=0x%" PRIu32 ";count=%" PRIu32 ";buffer[0]=0x%08" PRIx32,
+		addr, count, *buffer);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
-	retval = arc_jtag_write_data(jtag_info, addr);
+	if (count == 0)
+		return retval;
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
-	retval = arc_jtag_read_data(jtag_info, value);
+	arc_jtag_reset_transaction(jtag_info);
 
-	arc_jtag_transaction_reset(jtag_info);
+	/* We are reading core registers */
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_CORE_REG, TAP_DRPAUSE);
 
-	return retval;
-}
+	/* Set address of first register */
+	arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+	arc_jtag_write_dr(jtag_info, addr, TAP_IDLE); // TAP_IDLE or TAP_DRPAUSE?..
 
-int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
-{
-	int retval = ERROR_OK;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_CORE_REG);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	retval = arc_jtag_write_data(jtag_info, *value);
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
-}
-
-/**
- * Real all core registers. This is much faster then calling
- * arc_jtag_read_core_reg for each register. Core registers are sequential so
- * there is no need to set register addresses for each - hardware increments
- * them by one each time, so we need to set it only for the first one.
- *
- * @param jtag_info
- * @param values	Array of register values, values must start from R0 and be sequential.
- * @param count		Amount of registers.
- */
-int arc_jtag_read_core_reg_bulk(struct arc_jtag *jtag_info, uint32_t *values,
-	unsigned int count )
-{
-	int retval = ERROR_OK;
-	unsigned int i;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_CORE_REG);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
-	retval = arc_jtag_write_data(jtag_info, 0);
-
-	for (i = 0; i < count; i++ ) {
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
-		retval = arc_jtag_read_data(jtag_info, values + i);
-	}
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
-}
-
-/**
- * Write all core registers. This is much faster then calling
- * arc_jtag_write_core_reg for each register. Core registers are sequential so
- * there is no need to set register addresses for each - hardware increments
- * them by one each time, so we need to set it only for the first one.
- *
- * @param jtag_info
- * @param values	Array of register values, values must start from R0 and be sequential.
- * @param count		Amount of registers.
- */
-int arc_jtag_write_core_reg_bulk(struct arc_jtag *jtag_info, uint32_t *value,
-	unsigned int count)
-{
-	int retval = ERROR_OK;
-	unsigned int i;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_CORE_REG);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, 0);
+	/* Read data */
+	arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+	uint8_t *data_buf = calloc(sizeof(uint8_t), count * 4);
 
 	for (i = 0; i < count; i++) {
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-		retval = arc_jtag_write_data(jtag_info, *(value + i) );
+		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
 	}
 
-	arc_jtag_transaction_reset(jtag_info);
+	/* Clean up */
+	arc_jtag_reset_transaction(jtag_info);
+
+	retval = jtag_execute_queue();
+	if (ERROR_OK != ERROR_OK) {
+		LOG_ERROR("Reading from core registers failed. Error code=%i", retval);
+		return retval;
+	}
+
+	/* Convert byte-buffers to host presentation. */
+	for (i = 0; i < count; i++) {
+		buffer[i] = buf_get_u32(data_buf + 4*i, 0, 32);
+	}
+
+	free(data_buf);
 
 	return retval;
 }
 
-int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
+/** Wrapper function to ease writing of one AUX register. */
+int arc_jtag_write_aux_reg_one(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t value)
 {
-	int retval = ERROR_OK;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* otherwise 1 register behind */
-	retval = arc_jtag_write_data(jtag_info, addr);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
-	retval = arc_jtag_read_data(jtag_info, value);
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
-}
-
-int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t *value)
-{
-	int retval = ERROR_OK;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_write_data(jtag_info, addr);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-	retval = arc_jtag_write_data(jtag_info, *value);
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
+	return arc_jtag_write_aux_reg(jtag_info, &addr, 1, &value);
 }
 
 /**
- * Read all AUX registers. This is much faster then calling
- * arc_jtag_read_aux_reg for each register, however unlike core registers AUX
- * registers are not necessarily sequential and we have to set addresses
- * explicitly.
+ * Read all AUX registers. Unlike core registers and memory, AUX registers are
+ * not necessarily sequential, thus addr is not an address of first register,
+ * but an array of addresses for each AUX register to read. If those registers
+ * are sequential then this function will not set address explicitly to avoid
+ * unnecessary JTAG traffic.
  *
  * @param jtag_info
- * @param addr		Array of AUX register addresses.
- * @param values	Array of register values. 
+ * @param addr		Array of AUX register number.
  * @param count		Amount of registers in arrays.
+ * @param values	Array of register values.
  */
-int arc_jtag_read_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
-	uint32_t *values, unsigned int count)
+int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t count, const uint32_t *buffer)
 {
 	int retval = ERROR_OK;
 	unsigned int i;
 
-	arc_jtag_transaction_reset(jtag_info);
+	LOG_DEBUG("Writing to aux registers: addr[0]=0x%" PRIu32 ";count=%" PRIu32 ";buffer[0]=0x%08" PRIx32,
+			*addr, count, *buffer);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG);
+	if (count == 0)
+		return retval;
 
-	for (i = 0; i < count; i++ ) {
-		/* Some of AUX registers are sequential, so it is possible to reduce
-		 * transaction duration by exploiting this. I've measure that
-		 * transaction takes around 200ms less with this patch. */
-		if ( i == 0 || (addr[i] != addr[i-1] + 1)) {
-			jtag_info->tap_end_state = TAP_IRPAUSE;
-			retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-			jtag_info->tap_end_state = TAP_IDLE;
-			retval = arc_jtag_write_data(jtag_info, addr[i]);
-		}
+	arc_jtag_reset_transaction(jtag_info);
 
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the read */
-		retval = arc_jtag_read_data(jtag_info, values + i);
-	}
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG, TAP_DRPAUSE);
 
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
-}
-
-/**
- * Write all AUX registers. This is much faster then calling
- * arc_jtag_write_aux_reg for each register, however unlike core registers AUX
- * registers are not necessarily sequential and we have to set addresses
- * explicitly.
- *
- * @param jtag_info
- * @param addr		Array of AUX register addresses.
- * @param values	Array of register values. 
- * @param count		Amount of registers in arrays.
- */
-int arc_jtag_write_aux_reg_bulk(struct arc_jtag *jtag_info, uint32_t *addr,
-	uint32_t *value, unsigned int count)
-{
-	int retval = ERROR_OK;
-	unsigned int i;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_TRANSACTION_CMD_REG);
-	jtag_info->tap_end_state = TAP_DRPAUSE;
-	retval = arc_jtag_set_transaction(jtag_info, ARC_JTAG_WRITE_TO_AUX_REG);
-
-	for (i = 0; i < count; i++) { 
-		/* Some of AUX registers are sequential, so it is possible to reduce
-		 * transaction duration by exploiting this. I've measure that
-		 * transaction takes around 200ms less with this patch. */
+	for (i = 0; i < count; i++) {
+		/* Some of AUX registers are sequential, so we need to set address only
+		 * for the first one in sequence. */
 		if ( i == 0 || (addr[i] != addr[i-1] + 1) ) {
-			jtag_info->tap_end_state = TAP_IRPAUSE;
-			retval = arc_jtag_set_instruction(jtag_info, ARC_ADDRESS_REG);
-			jtag_info->tap_end_state = TAP_DRPAUSE;
-			retval = arc_jtag_write_data(jtag_info, addr[i]);
+			arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+			arc_jtag_write_dr(jtag_info, addr[i], TAP_DRPAUSE);
+			/* No need to set ir each time, but only if current ir is
+			 * different. It is safe to put it into the if body, because this
+			 * if is always executed in first iteration. */
+			arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
 		}
-
-		jtag_info->tap_end_state = TAP_IRPAUSE;
-		retval = arc_jtag_set_instruction(jtag_info, ARC_DATA_REG);
-		jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the write */
-		retval = arc_jtag_write_data(jtag_info, *(value + i)  );
+		arc_jtag_write_dr(jtag_info, *(buffer + i), TAP_IDLE);
 	}
 
-	arc_jtag_transaction_reset(jtag_info);
+	/* Cleanup. */
+	arc_jtag_reset_transaction(jtag_info);
+
+	/* Execute queue. */
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Writing to aux registers failed. Error code=%i", retval);
+		return retval;
+	}
 
 	return retval;
 }
 
-int arc_jtag_status(struct arc_jtag *jtag_info, uint32_t *value)
+/** Wrapper function to ease reading of one AUX register. */
+int arc_jtag_read_aux_reg_one(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t *value)
+{
+	return arc_jtag_read_aux_reg(jtag_info, &addr, 1, value);
+}
+
+/**
+ * Read all AUX registers. Unlike core registers and memory AUX registers are
+ * not necessarily sequential, thus addr is not an address of first register,
+ * but an array of addresses for each AUX register to read. If those registers
+ * are sequential then this function will not set address explicitly to avoid
+ * unnecessary JTAG traffic.
+ *
+ * @param jtag_info
+ * @param addr		Array of AUX register numbers.
+ * @param values	Array of register values.
+ * @param count		Amount of registers in arrays.
+ */
+int arc_jtag_read_aux_reg(struct arc_jtag *jtag_info, uint32_t *addr,
+	uint32_t count, uint32_t* buffer)
 {
 	int retval = ERROR_OK;
+	uint32_t i;
 
-	arc_jtag_transaction_reset(jtag_info);
+	assert(jtag_info != NULL);
+	assert(jtag_info->tap != NULL);
 
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_JTAG_STATUS_REG);
-	if (retval != ERROR_OK)
+	LOG_DEBUG("Reading aux registers: addr[0]=0x%" PRIu32 ";count=%" PRIu32 ";buffer[0]=0x%08" PRIx32,
+		*addr, count, *buffer);
+
+	if (count == 0)
 		return retval;
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the status */
-	retval = arc_jtag_read_data(jtag_info, value);
-	if (retval != ERROR_OK)
+
+	arc_jtag_reset_transaction(jtag_info);
+
+	/* We are reading aux registers */
+	arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_AUX_REG, TAP_DRPAUSE);
+
+	/* Read data */
+	struct scan_field *fields = calloc(sizeof(struct scan_field), count);
+	uint8_t *data_buf = calloc(sizeof(uint8_t), count * 4);
+
+	for (i = 0; i < count; i++) {
+		/* Some of AUX registers are sequential, so we need to set address only
+		 * for the first one in sequence. */
+		if (i == 0 || (addr[i] != addr[i-1] + 1)) {
+			/* Set address of register */
+			arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+			arc_jtag_write_dr(jtag_info, addr[i], TAP_IDLE); // TAP_IDLE or TAP_DRPAUSE?..
+			/* No need to set ir each time, but only if current ir is
+			 * different. It is safe to put it into the if body, because this
+			 * if is always executed in first iteration. */
+			arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+		}
+
+		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
+	}
+
+	/* Clean up */
+	arc_jtag_reset_transaction(jtag_info);
+
+	retval = jtag_execute_queue();
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Reading from aux registers failed. Error code=%i", retval);
 		return retval;
+	}
 
-#ifdef DEBUG
-	LOG_DEBUG(" JTAG status: 0x%08" PRIx32, *value);
-#endif
+	/* Convert byte-buffers to host presentation. */
+	for (i = 0; i < count; i++) {
+		buffer[i] = buf_get_u32(data_buf + 4*i, 0, 32);
+	}
 
-	arc_jtag_transaction_reset(jtag_info);
+	free(data_buf);
+	free(fields);
 
 	return retval;
 }
 
-int arc_jtag_idcode(struct arc_jtag *jtag_info, uint32_t *value)
-{
-	int retval = ERROR_OK;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	jtag_info->tap_end_state = TAP_IRPAUSE;
-	retval = arc_jtag_set_instruction(jtag_info, ARC_IDCODE_REG);
-	if (retval != ERROR_OK)
-		return retval;
-	jtag_info->tap_end_state = TAP_IDLE; /* OK, give us the idcode */
-	retval = arc_jtag_read_data(jtag_info, value);
-	if (retval != ERROR_OK)
-		return retval;
-
-	arc_jtag_transaction_reset(jtag_info);
-
-	return retval;
-}
 
