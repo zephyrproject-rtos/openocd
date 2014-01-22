@@ -33,7 +33,6 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 	int retval = ERROR_OK;
-	int i;
 
 	assert(!(addr & 3));
 	assert(size == 4);
@@ -44,10 +43,7 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 	if (ERROR_OK != retval)
 		return retval;
 
-	for (i = 0; i < count; i++) {
-		retval = arc_jtag_read_memory(&arc32->jtag_info, addr + (i * 4),
-			buf + (i * 4));
-	}
+	retval = arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf);
 
 	return retval;
 }
@@ -58,20 +54,15 @@ static int arc_mem_write_block32(struct target *target, uint32_t addr, int count
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 	int retval = ERROR_OK;
-	int i;
 
 	/* Check arguments */
 	if (addr & 0x3u)
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 
 	/* No need to flush cache, because we don't read values from memory. */
-
-	for(i = 0; i < count; i++) {
-		retval = arc_jtag_write_memory(&arc32->jtag_info,
-			addr + i * sizeof(uint32_t) , buf + i * sizeof(uint32_t));
-		if (retval != ERROR_OK)
-			return retval;
-	}
+	retval = arc_jtag_write_memory( &arc32->jtag_info, addr, count, (uint32_t *)buf);
+	if (ERROR_OK != retval)
+		return retval;
 
 	/* Invalidate caches. */
 	retval = arc32_cache_invalidate(target);
@@ -99,6 +90,9 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
 	uint8_t halfword_te[sizeof(uint16_t)];
+	/* non-word writes are less common, than 4-byte writes, so I suppose we can
+	 * allowe ourselves to write this in a cycle, instead of calling arc_jtag
+	 * with count > 1. */
 	for(i = 0; i < count; i++) {
 		/* We can read only word at word-aligned address. Also *jtag_read_memory
 		 * functions return data in host endianness, so host endianness !=
@@ -111,7 +105,7 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 		 *   5) write word back to target.
 		 */
 		retval = arc_jtag_read_memory(&arc32->jtag_info,
-		            (addr + i * sizeof(uint16_t)) & ~3u, &buffer_he);
+				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		/* buf is in host endianness, convert to target */
 		target_buffer_set_u16(target, halfword_te,
@@ -120,7 +114,10 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
                         halfword_te + i * sizeof(uint16_t), sizeof(uint16_t));
 		buffer_he = target_buffer_get_u32(target, buffer_te);
 		retval = arc_jtag_write_memory(&arc32->jtag_info,
-                        (addr + i * sizeof(uint16_t)) & ~3u, &buffer_he);
+                        (addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
+
+		if (ERROR_OK != retval)
+			return retval;
 	}
 
 	/* Invalidate caches. */
@@ -144,15 +141,21 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
+	/* non-word writes are less common, than 4-byte writes, so I suppose we can
+	 * allowe ourselves to write this in a cycle, instead of calling arc_jtag
+	 * with count > 1. */
 	for(i = 0; i < count; i++) {
 		/* See comment in arc_mem_write_block16 for details. Since it is a byte
 		 * there is not need to convert write buffer to target endianness, but
 		 * we still have to convert read buffer. */
-		retval = arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, &buffer_he);
+		retval = arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he);
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		memcpy(buffer_te  + ((addr + i) & 3), (uint8_t*)buf + i, 1);
 		buffer_he = target_buffer_get_u32(target, buffer_te);
-		retval = arc_jtag_write_memory(&arc32->jtag_info, (addr + i) & ~3, &buffer_he);
+		retval = arc_jtag_write_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he);
+
+		if (ERROR_OK != retval)
+			return retval;
 	}
 
 	/* Invalidate caches. */
