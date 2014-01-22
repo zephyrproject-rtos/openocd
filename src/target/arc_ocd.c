@@ -183,9 +183,9 @@ int arc_ocd_examine(struct target *target)
 
 		/* bring processor into HALT */
 		LOG_DEBUG("bring ARC core into HALT state");
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value |= SET_CORE_FORCE_HALT;
-		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
 		sleep(1); /* just give us once some time to come to rest ;-) */
 
 		arc_jtag_status(&arc32->jtag_info, &status);
@@ -194,9 +194,9 @@ int arc_ocd_examine(struct target *target)
 		/* read ARC core info */
 		arc_core_type_info(target);
 
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
 		LOG_DEBUG("CPU ID: 0x%08" PRIx32, value);
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &value);
 		LOG_DEBUG("current PC: 0x%08" PRIx32, value);
 
 		arc_jtag_status(&arc32->jtag_info, &status);
