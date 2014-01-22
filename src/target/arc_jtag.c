@@ -181,8 +181,6 @@ int arc_jtag_status(struct arc_jtag * const jtag_info, uint32_t * const value)
 	assert(jtag_info != NULL);
 	assert(jtag_info->tap != NULL);
 
-	LOG_DEBUG("Reading STATUS register.");
-
 	int retval = ERROR_OK;
 	uint8_t buffer[4];
 
@@ -201,7 +199,6 @@ int arc_jtag_status(struct arc_jtag * const jtag_info, uint32_t * const value)
 
 	/* Parse output. */
 	*value = buf_get_u32(buffer, 0, 32);
-	LOG_DEBUG("STATUS register=0x%08" PRIx32, *value);
 
 	return retval;
 }
