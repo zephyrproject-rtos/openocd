@@ -55,7 +55,7 @@ COMMAND_HANDLER(handle_set_pc_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], value);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_PC_REG, &value);
+			arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
 			LOG_INFO("Core PC @: 0x%08" PRIx32, value);
 		} else
 			LOG_ERROR(" > missing address to set.");
@@ -83,9 +83,9 @@ COMMAND_HANDLER(handle_set_core_into_halted_command)
 
 	if (head == (struct target_list *)NULL) {
 		uint32_t value;
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
-		arc_jtag_write_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
 	} else
 		LOG_ERROR(" > head list is not NULL !");
 
@@ -114,7 +114,7 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
-			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, &value);
+			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, 1, &value);
 			LOG_INFO("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr to read.");
@@ -148,7 +148,7 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			arc_jtag_write_core_reg(&arc32->jtag_info, reg_nbr, &value);
+			arc_jtag_write_core_reg(&arc32->jtag_info, reg_nbr, 1, &value);
 			LOG_DEBUG("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr or value to write.");
@@ -180,7 +180,7 @@ COMMAND_HANDLER(handle_read_aux_reg_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
-			arc_jtag_read_aux_reg(&arc32->jtag_info, reg_nbr, &value);
+			arc_jtag_read_aux_reg_one(&arc32->jtag_info, reg_nbr, &value);
 			LOG_ERROR("AUX reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr to read.");
@@ -214,7 +214,7 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			arc_jtag_write_aux_reg(&arc32->jtag_info, reg_nbr, &value);
+			arc_jtag_write_aux_reg_one(&arc32->jtag_info, reg_nbr, value);
 			LOG_DEBUG("AUX reg: 0x%x contains: 0x%x", reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr or value to write.");
@@ -240,7 +240,7 @@ COMMAND_HANDLER(handle_read_mem_word_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
-			arc_jtag_read_memory(&arc32->jtag_info, mem_addr, &value);
+			arc_jtag_read_memory(&arc32->jtag_info, mem_addr, 1, &value);
 			LOG_ERROR("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
 		} else
 			LOG_ERROR(" > missing memory address to read.");
@@ -268,7 +268,7 @@ COMMAND_HANDLER(handle_write_mem_word_command)
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			arc_jtag_write_memory(&arc32->jtag_info, mem_addr, &value);
+			arc_jtag_write_memory(&arc32->jtag_info, mem_addr, 1, &value);
 			LOG_DEBUG("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
 		} else
 			LOG_ERROR(" > missing memory address or value to write.");
@@ -343,9 +343,9 @@ COMMAND_HANDLER(handle_print_core_status_command)
 
 	if (head == (struct target_list *)NULL) {
 		uint32_t value;
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 		LOG_INFO(" AUX REG    [DEBUG]: 0x%08" PRIx32, value);
-		arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value);
 		LOG_INFO("         [STATUS32]: 0x%08" PRIx32, value);
 	} else
 		LOG_ERROR(" > head list is not NULL !");
