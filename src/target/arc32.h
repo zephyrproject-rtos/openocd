@@ -58,7 +58,6 @@ struct arc32_common {
 
 	struct arc_jtag jtag_info;
 
-	uint32_t core_regs[ARC32_NUM_GDB_REGS];
 	struct reg_cache *core_cache;
 
 	enum arc_processor_type processor_type;
@@ -76,10 +75,6 @@ struct arc32_common {
 	struct arc32_comparator *inst_break_list;
 	struct arc32_comparator *data_break_list;
 
-	/* register cache to processor synchronization */
-	int (*read_core_reg)(struct target *target, int num);
-	int (*write_core_reg)(struct target *target, int num);
-
 	/* Cache control */
 	bool has_dcache;
 	/* If true, then D$ has been already flushed since core has been
@@ -88,6 +83,15 @@ struct arc32_common {
 	/* If true, then caches have been already flushed since core has been
 	 * halted. */
 	bool cache_invalidated;
+
+	/* If BCRs have been read and and optioanl registers have been proeprly
+	 * assigned whether they exist or not. */
+	bool bcr_init;
+	/* Whether to support old ARC GDB that doesn't understand XML target
+	 * descriptions. */
+	bool gdb_compatibility_mode;
+	/* Store values of BCR permanently. */
+	struct bcr_set_t bcr_set;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */

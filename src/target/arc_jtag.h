@@ -86,10 +86,14 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t count, uint32_t *buffer);
 
-int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
+int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t *addr,
 	uint32_t count, const uint32_t *buffer);
-int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t addr,
+int arc_jtag_read_core_reg(struct arc_jtag *jtag_info, uint32_t *addr,
 	uint32_t count, uint32_t *buffer);
+int arc_jtag_write_core_reg_one(struct arc_jtag *jtag_info, uint32_t addr,
+	const uint32_t buffer);
+int arc_jtag_read_core_reg_one(struct arc_jtag *jtag_info, uint32_t addr,
+	uint32_t *buffer);
 
 int arc_jtag_write_aux_reg(struct arc_jtag *jtag_info, uint32_t *addr,
 	uint32_t count, const uint32_t* buffer);

@@ -114,7 +114,7 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], reg_nbr);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
-			arc_jtag_read_core_reg(&arc32->jtag_info, reg_nbr, 1, &value);
+			arc_jtag_read_core_reg_one(&arc32->jtag_info, reg_nbr, &value);
 			LOG_INFO("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr to read.");
@@ -148,7 +148,7 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%" PRIx32, CMD_ARGC, reg_nbr);
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			arc_jtag_write_core_reg(&arc32->jtag_info, reg_nbr, 1, &value);
+			arc_jtag_write_core_reg_one(&arc32->jtag_info, reg_nbr, value);
 			LOG_DEBUG("Core reg: 0x%" PRIx32 " contains: 0x%08" PRIx32, reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr or value to write.");
@@ -314,6 +314,14 @@ COMMAND_HANDLER(arc_handle_has_dcache)
 		&arc32->has_dcache, "target has data-cache");
 }
 
+COMMAND_HANDLER(arc_handle_gdb_compatibility_mode)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->gdb_compatibility_mode, "GDB compatibility mode");
+}
+
 /* ----- Exported target commands ------------------------------------------ */
 
 static const struct command_registration arc_core_command_handlers[] = {
@@ -386,6 +394,15 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.usage = "True or false",
 		.help = "Does target has D$? If yes it will be flushed before memory reads.",
+	},
+	{
+		.name = "gdb-compatibility-mode",
+		.handler = arc_handle_gdb_compatibility_mode,
+		.mode = COMMAND_CONFIG,
+		.usage = "true or false",
+		.help = "GDB compatibility mode: if true OpenOCD will use register "\
+			"specification compatible with old GDB for ARC that doesn't support "\
+			"XML target descriptions.",
 	},
 	COMMAND_REGISTRATION_DONE
 };
