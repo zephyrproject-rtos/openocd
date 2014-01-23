@@ -370,7 +370,7 @@ int arc_dbg_examine_debug_reason(struct target *target)
 	uint32_t pc; /* Value of PC register */
 	int retval = ERROR_OK;
 
-	pc = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
+	pc = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32);
 	
 	retval = target_read_u16(target, pc, &insn);
 	if (ERROR_OK != retval) {
@@ -499,32 +499,32 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 
 	/* current = 1: continue on current PC, otherwise continue at <address> */
 	if (!current) {
-		buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, address);
-		arc32->core_cache->reg_list[PC_REG].dirty = 1;
-		arc32->core_cache->reg_list[PC_REG].valid = 1;
+		buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, address);
+		arc32->core_cache->reg_list[ARC_REG_PC].dirty = 1;
+		arc32->core_cache->reg_list[ARC_REG_PC].valid = 1;
 		LOG_DEBUG("Changing the value of current PC to 0x%08" PRIx32, address);
 	}
 
 	if (!current)
 		resume_pc = address;
 	else
-		resume_pc = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value,
+		resume_pc = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value,
 			0, 32);
 
 	arc32_restore_context(target);
 
 	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
 		resume_pc,
-		arc32->core_cache->reg_list[PC_REG].dirty,
-		arc32->core_cache->reg_list[PC_REG].valid);
+		arc32->core_cache->reg_list[ARC_REG_PC].dirty,
+		arc32->core_cache->reg_list[ARC_REG_PC].valid);
 
 	/* check if GDB tells to set our PC where to continue from */
-	if ((arc32->core_cache->reg_list[PC_REG].valid == 1) &&
-		(resume_pc == buf_get_u32(arc32->core_cache->reg_list[PC_REG].value,
+	if ((arc32->core_cache->reg_list[ARC_REG_PC].valid == 1) &&
+		(resume_pc == buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value,
 			0, 32))) {
 
 		uint32_t value;
-		value = buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32);
+		value = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32);
 		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
 		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
 	}
@@ -587,18 +587,18 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 
 	/* current = 1: continue on current pc, otherwise continue at <address> */
 	if (!current) {
-		buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, address);
-		arc32->core_cache->reg_list[PC_REG].dirty = 1;
-		arc32->core_cache->reg_list[PC_REG].valid = 1;
+		buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, address);
+		arc32->core_cache->reg_list[ARC_REG_PC].dirty = 1;
+		arc32->core_cache->reg_list[ARC_REG_PC].valid = 1;
 	}
 
 	LOG_DEBUG("Target steps one instruction from PC=0x%" PRIx32,
-		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
+		buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
 
 	/* the front-end may request us not to handle breakpoints */
 	if (handle_breakpoints) {
 		breakpoint = breakpoint_find(target,
-			buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
+			buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
 		if (breakpoint)
 			arc_dbg_unset_breakpoint(target, breakpoint);
 	}

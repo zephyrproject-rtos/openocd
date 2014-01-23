@@ -51,52 +51,224 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->bp_scanned = 0;
 	arc32->data_break_list = NULL;
 
-	arc32->read_core_reg = arc_regs_read_core_reg;
-	arc32->write_core_reg = arc_regs_write_core_reg;
-
 	/* Flush D$ by default. It is safe to assume that D$ is present,
 	 * because if it isn't, there will be no error, just a slight
 	 * performance penalty from unnecessary JTAG operations. */
 	arc32->has_dcache = true;
 	arc32_reset_caches_states(target);
 
+	arc32->bcr_init = false;
+	arc32->gdb_compatibility_mode = true;
+
 	return retval;
 }
 
+/**
+ * Read register that are used in GDB g-packet. We don't read them one-by-one,
+ * but do that in one batch operation to improve speed. Calls to JTAG layer are
+ * expensive so it is better to make one big call that reads all necessary
+ * registers, instead of many calls, one for one register.
+ */
 int arc32_save_context(struct target *target)
 {
 	int retval = ERROR_OK;
-	int i;
+	unsigned int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
+	struct reg *reg_list = arc32->core_cache->reg_list;
 
-	retval = arc_regs_read_registers(target, arc32->core_regs);
-	if (retval != ERROR_OK)
-		return retval;
+	LOG_DEBUG("-");
+	assert(reg_list);
 
-	for (i = 0; i < ARC32_NUM_GDB_REGS; i++) {
-		if (!arc32->core_cache->reg_list[i].valid)
-			arc32->read_core_reg(target, i);
+	if (!arc32->bcr_init)
+		arc_regs_read_bcrs(target);
+
+	/* It is assumed that there is at least one AUX register in the list, for
+	 * example PC. */
+	const uint32_t core_regs_size = ARC_REG_FIRST_AUX * sizeof(uint32_t);
+	const uint32_t regs_to_scan = (arc32->gdb_compatibility_mode ?
+			ARC_TOTAL_NUM_REGS : ARC_REG_AFTER_GDB_GENERAL);
+	const uint32_t aux_regs_size = (regs_to_scan - ARC_REG_FIRST_AUX) *
+		sizeof(uint32_t);
+	uint32_t *core_values = malloc(core_regs_size);
+	uint32_t *aux_values = malloc(aux_regs_size);
+	uint32_t *core_addrs = malloc(core_regs_size);
+	uint32_t *aux_addrs = malloc(aux_regs_size);
+	unsigned int core_cnt = 0;
+	unsigned int aux_cnt = 0;
+
+	if (!core_values || !core_addrs || !aux_values || !aux_addrs)  {
+		LOG_ERROR("Not enough memory");
+		retval = ERROR_FAIL;
+		goto exit;
 	}
 
-	return ERROR_OK;
+	memset(core_values, 0xdeadbeef, core_regs_size);
+	memset(core_addrs, 0xdeadbeef, core_regs_size);
+	memset(aux_values, 0xdeadbeef, aux_regs_size);
+	memset(aux_addrs, 0xdeadbeef, aux_regs_size);
+
+	for (i = 0; i < regs_to_scan; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (!reg->valid && reg->exist && !arc_reg->dummy) {
+			if (arc_reg->desc->regnum < ARC_REG_FIRST_AUX) {
+				/* core reg */
+				core_addrs[core_cnt] = arc_reg->desc->addr;
+				core_cnt += 1;
+			} else {
+				/* aux reg */
+				aux_addrs[aux_cnt] = arc_reg->desc->addr;
+				aux_cnt += 1;
+			}
+		}
+	}
+
+	/* Read data from target. */
+	retval = arc_jtag_read_core_reg(&arc32->jtag_info, core_addrs, core_cnt, core_values);
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Attempt to read core registers failed.");
+		retval = ERROR_FAIL;
+		goto exit;
+	}
+	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, aux_addrs, aux_cnt, aux_values);
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Attempt to read aux registers failed.");
+		retval = ERROR_FAIL;
+		goto exit;
+	}
+
+	/* Parse core regs */
+	core_cnt = 0;
+	for (i = 0; i < ARC_REG_FIRST_AUX; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (!reg->valid && reg->exist) {
+			if (!arc_reg->dummy) {
+				arc_reg->value = core_values[core_cnt];
+				core_cnt += 1;
+			} else {
+				arc_reg->value = 0;
+			}
+			buf_set_u32(reg->value, 0, 32, arc_reg->value);
+			reg->valid = true;
+			reg->dirty = false;
+			LOG_DEBUG("Get core register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
+				i , arc_reg->desc->name, arc_reg->value);
+		}
+	}
+
+	/* Parse aux regs */
+	aux_cnt = 0;
+	for (i = ARC_REG_FIRST_AUX; i < regs_to_scan; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (!reg->valid && reg->exist) {
+			if (!arc_reg->dummy) {
+				arc_reg->value = aux_values[aux_cnt];
+				aux_cnt += 1;
+			} else {
+				arc_reg->value = 0;
+			}
+			buf_set_u32(reg->value, 0, 32, arc_reg->value);
+			reg->valid = true;
+			reg->dirty = false;
+			LOG_DEBUG("Get aux register regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
+				i , arc_reg->desc->name, arc_reg->value);
+		}
+	}
+
+exit:
+	free(core_values);
+	free(core_addrs);
+	free(aux_values);
+	free(aux_addrs);
+
+	return retval;
 }
 
+/**
+ * See arc32_save_context() for reason why we want to dump all regs at once.
+ * This however means that if there are dependencies between registers they
+ * will not be observable until target will be resumed.
+ */
 int arc32_restore_context(struct target *target)
 {
 	int retval = ERROR_OK;
-	int i;
+	unsigned int i;
 	struct arc32_common *arc32 = target_to_arc32(target);
+	struct reg *reg_list = arc32->core_cache->reg_list;
 
-	for (i = 0; i < ARC32_NUM_GDB_REGS; i++) {
-		if (arc32->core_cache->reg_list[i].dirty)
-			arc32->write_core_reg(target, i);
+	LOG_DEBUG("-");
+	assert(reg_list);
+
+	if (!arc32->bcr_init) {
+		LOG_ERROR("Attempt to restore context before saving it first.");
+		return ERROR_FAIL;
 	}
 
-	retval = arc_regs_write_registers(target, arc32->core_regs);
-	if (retval != ERROR_OK)
-		return retval;
+	/* It is assumed that there is at least one AUX register in the list. */
+	const uint32_t core_regs_size = ARC_REG_AFTER_CORE_EXT * sizeof(uint32_t);
+	const uint32_t aux_regs_size = (ARC_REG_AFTER_AUX - ARC_REG_FIRST_AUX) *
+		sizeof(uint32_t);
+	uint32_t *core_values = malloc(core_regs_size);
+	uint32_t *aux_values = malloc(aux_regs_size);
+	uint32_t *core_addrs = malloc(core_regs_size);
+	uint32_t *aux_addrs = malloc(aux_regs_size);
+	unsigned int core_cnt = 0;
+	unsigned int aux_cnt = 0;
 
-	return ERROR_OK;
+	if (!core_values || !core_addrs || !aux_values || !aux_addrs)  {
+		LOG_ERROR("Not enough memory");
+		retval = ERROR_FAIL;
+		goto exit;
+	}
+
+	memset(core_values, 0xdeadbeef, core_regs_size);
+	memset(core_addrs, 0xdeadbeef, core_regs_size);
+	memset(aux_values, 0xdeadbeef, aux_regs_size);
+	memset(aux_addrs, 0xdeadbeef, aux_regs_size);
+
+	for (i = 0; i < ARC_REG_AFTER_AUX; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (reg->valid && reg->exist && reg->dirty) {
+			LOG_DEBUG("Will write regnum=%u", i);
+			if (arc_reg->desc->regnum < ARC_REG_FIRST_AUX) {
+				/* core reg */
+				core_addrs[core_cnt] = arc_reg->desc->addr;
+				core_values[core_cnt] = arc_reg->value;
+				core_cnt += 1;
+			} else {
+				/* aux reg */
+				aux_addrs[aux_cnt] = arc_reg->desc->addr;
+				aux_values[aux_cnt] = arc_reg->value;
+				aux_cnt += 1;
+			}
+		}
+	}
+
+	/* Write data to target. */
+	/* JTAG layer will return quickly if count == 0. */
+	retval = arc_jtag_write_core_reg(&arc32->jtag_info, core_addrs, core_cnt, core_values);
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Attempt to write to core registers failed.");
+		retval = ERROR_FAIL;
+		goto exit;
+	}
+	retval = arc_jtag_write_aux_reg(&arc32->jtag_info, aux_addrs, aux_cnt, aux_values);
+	if (ERROR_OK != retval) {
+		LOG_ERROR("Attempt to write to aux registers failed.");
+		retval = ERROR_FAIL;
+		goto exit;
+	}
+
+exit:
+	free(core_values);
+	free(core_addrs);
+	free(aux_values);
+	free(aux_addrs);
+
+	return retval;
 }
 
 int arc32_enable_interrupts(struct target *target, int enable)
@@ -320,7 +492,8 @@ int arc32_arch_state(struct target *target)
 	LOG_DEBUG("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
 		target_state_name(target),
 		arc_isa_strings[arc32->isa_mode],
-		buf_get_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32));
+		buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
+
 
 	return retval;
 }
@@ -335,7 +508,7 @@ int arc32_get_current_pc(struct target *target)
 	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc);
 
 	/* save current PC */
-	buf_set_u32(arc32->core_cache->reg_list[PC_REG].value, 0, 32, dpc);
+	buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, dpc);
 
 	return retval;
 }
