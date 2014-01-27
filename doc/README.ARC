@@ -47,11 +47,9 @@ Configure OpenOCD. Consult `configure --help` and generic OpenOCD documentation
 for details. For ARC you probably would want to have an ftdi driver.
 
     $ ./bootstrap
-    $ ./configure --enable-ftdi --disable-doxygen-html --enable-maintainer-mode
+    $ ./configure --enable-ftdi --disable-doxygen-html
 
 Where:
-  * option `--enable-maintainer-mode` is required when building from GIT,
-    otherwise documentation will fail to build
   * if documentation is required, remove the option `--disable-doxygen-html`
   * for development activities, add those options:
     `--enable-verbose --enable-verbose-jtag-io`
@@ -143,7 +141,7 @@ for details. This command line is recommended for ARC with libusb/ftdi:
 
     $ PKG_CONFIG_PATH=</libusbx/install/path>/lib/pkgconfig ./configure \
       --enable-ftdi --host=i686-w64-mingw32 --build=x86_64-linux-gnu \
-      --disable-werror --prefix=<openocd/install/path> --enable-maintainer-mode
+      --disable-werror --prefix=<openocd/install/path>
 
 Note that it is required to set PKG_CONFIG_PATH, otherwise configure script
 will detect host libusb installation, instead of the one cross-compiled for
