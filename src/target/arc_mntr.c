@@ -278,53 +278,6 @@ COMMAND_HANDLER(handle_write_mem_word_command)
 	return retval;
 }
 
-COMMAND_HANDLER(handle_print_core_registers_command)
-{
-	int retval = ERROR_OK;
-
-	struct target *target = get_current_target(CMD_CTX);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
-			CMD_NAME);
-		return ERROR_OK;
-	}
-
-	if (head == (struct target_list *)NULL) {
-		arc_regs_print_core_registers(target);
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return retval;
-}
-
-COMMAND_HANDLER(handle_print_aux_registers_command)
-{
-	int retval = ERROR_OK;
-
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
-			CMD_NAME);
-		return ERROR_OK;
-	}
-
-	if (head == (struct target_list *)NULL) {
-		arc_regs_print_aux_registers(&arc32->jtag_info);
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return retval;
-}
-
 COMMAND_HANDLER(handle_print_core_status_command)
 {
 	int retval = ERROR_OK;
@@ -419,20 +372,6 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has two argument: <mem-addr> <value to write>",
 		.help = "write value (1 word) to a particular memory location",
-	},
-	{
-		.name = "print-core-registers",
-		.handler = handle_print_core_registers_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has no arguments",
-		.help = "list the content of all core registers",
-	},
-	{
-		.name = "print-aux-registers",
-		.handler = handle_print_aux_registers_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has no arguments",
-		.help = "list the content of all auxilary registers",
 	},
 	{
 		.name = "print-core-status",
