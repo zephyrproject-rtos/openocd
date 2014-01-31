@@ -34,6 +34,8 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	int retval = ERROR_OK;
 
+	LOG_DEBUG("Read memory: addr=0x%" PRIx32 ", size=%i, count=%i",
+			addr, size, count);
 	assert(!(addr & 3));
 	assert(size == 4);
 
