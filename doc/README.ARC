@@ -113,12 +113,13 @@ Install MinGW cross-compiler to your system:
 
 If you are going to use libusb drivers, then download libusb or
 [libusbsx](http://libusbx.org/) sources. Configure and build them with MinGW
-compiler:
+compiler. It is recommended to build only static libusb, so that OpenOCD will
+not need this library's dll file to be copied around:
 
     $ tar xaf libusbx-1.0.18-rc1.tar.bz2
     $ cd libusbx-1.0.18-rc1
     $ ./configure --host=i686-w64-mingw32 --build=x86_64-linux-gnu \
-      --prefix=</libusbx/install/path>
+      --prefix=</libusbx/install/path> --disable-shared --disable-static
     $ make
     $ make install
 
