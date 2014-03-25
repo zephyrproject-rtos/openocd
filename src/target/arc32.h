@@ -105,6 +105,18 @@ struct arc32_common {
 
 /* ----- Inlined functions ------------------------------------------------- */
 
+/**
+ * Convert data in host endianness to the middle endian. This is required to
+ * write 4-byte instructions.
+ */
+static inline void arc32_h_u32_to_me(uint8_t* buf, int val)
+{
+    buf[1] = (uint8_t) (val >> 24);
+    buf[0] = (uint8_t) (val >> 16);
+    buf[3] = (uint8_t) (val >> 8);
+    buf[2] = (uint8_t) (val >> 0);
+}
+
 static inline struct arc32_common * target_to_arc32(struct target *target)
 {
 	return target->arch_info;
@@ -136,5 +148,8 @@ int arc32_get_current_pc(struct target *target);
 int arc32_dcache_flush(struct target *target);
 
 int arc32_reset_caches_states(struct target *target);
+
+int arc32_write_instruction_u32(struct target *target, uint32_t address,
+		uint32_t instr);
 
 #endif /* ARC32_H */

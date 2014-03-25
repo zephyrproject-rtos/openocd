@@ -531,3 +531,34 @@ int arc32_reset_caches_states(struct target *target)
 	return ERROR_OK;
 }
 
+/**
+ * Write 4-byte instruction to memory. This is like target_write_u32, however
+ * in case of little endian ARC instructions are in middle endian format, not
+ * little endian, so different type of conversion should be done.
+ */
+int arc32_write_instruction_u32(struct target *target, uint32_t address,
+	uint32_t instr)
+{
+    int retval;
+    uint8_t value_buf[4];
+    if (!target_was_examined(target)) {
+        LOG_ERROR("Target not examined yet");
+        return ERROR_FAIL;
+    }
+
+    LOG_DEBUG("address: 0x%08" PRIx32 ", value: 0x%08" PRIx32 "", address,
+		instr);
+
+    if (target->endianness == TARGET_LITTLE_ENDIAN) {
+        arc32_h_u32_to_me(value_buf, instr);
+    } else{
+        h_u32_to_be(value_buf, instr);
+    }
+
+    retval = target_write_memory(target, address, 4, 1, value_buf);
+    if (retval != ERROR_OK)
+        LOG_DEBUG("failed: %i", retval);
+
+    return retval;
+}
+
