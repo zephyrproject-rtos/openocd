@@ -74,7 +74,8 @@ static int arc_dbg_set_breakpoint(struct target *target,
 			if (retval != ERROR_OK)
 				return retval;
 
-			retval = target_write_u32(target, breakpoint->address, ARC32_SDBBP);
+			retval = arc32_write_instruction_u32(target, breakpoint->address,
+					ARC32_SDBBP);
 			if (retval != ERROR_OK)
 				return retval;
 
