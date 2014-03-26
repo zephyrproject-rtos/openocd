@@ -546,7 +546,7 @@ int arc32_write_instruction_u32(struct target *target, uint32_t address,
         return ERROR_FAIL;
     }
 
-    LOG_DEBUG("address: 0x%08" PRIx32 ", value: 0x%08" PRIx32 "", address,
+    LOG_DEBUG("Address: 0x%08" PRIx32 ", value: 0x%08" PRIx32, address,
 		instr);
 
     if (target->endianness == TARGET_LITTLE_ENDIAN) {
@@ -557,7 +557,39 @@ int arc32_write_instruction_u32(struct target *target, uint32_t address,
 
     retval = target_write_memory(target, address, 4, 1, value_buf);
     if (retval != ERROR_OK)
-        LOG_DEBUG("failed: %i", retval);
+        LOG_ERROR("Write to 0x%08" PRIx32 " failed, errno=%i", address, retval);
+
+    return retval;
+}
+
+/**
+ * Read 32-bit instruction from memory. It is like target_read_u32, however in
+ * case of little endian ARC instructions are in middle endian format, so
+ * different type of conversion should be done.
+ */
+int arc32_read_instruction_u32(struct target *target, uint32_t address,
+		uint32_t *value)
+{
+    uint8_t value_buf[4];
+    if (!target_was_examined(target)) {
+        LOG_ERROR("Target not examined yet");
+        return ERROR_FAIL;
+    }
+
+    int retval = target_read_memory(target, address, 4, 1, value_buf);
+
+    if (retval == ERROR_OK) {
+		if (target->endianness == TARGET_LITTLE_ENDIAN)
+			*value = arc32_me_to_h_u32(value_buf);
+		else
+			*value = be_to_h_u32(value_buf);
+        LOG_DEBUG("Address: 0x%08" PRIx32 ", value: 0x%08" PRIx32, address,
+            *value);
+    } else {
+        *value = 0x0;
+        LOG_ERROR("Read from address: 0x%08" PRIx32 " failed, errno=%i",
+			address, retval);
+    }
 
     return retval;
 }
