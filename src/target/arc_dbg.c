@@ -79,7 +79,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 			if (retval != ERROR_OK)
 				return retval;
 
-			retval = target_read_u32(target, breakpoint->address, &verify);
+			retval = arc32_read_instruction_u32(target, breakpoint->address, &verify);
 
 			if (retval != ERROR_OK)
 				return retval;
@@ -152,17 +152,9 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			uint32_t current_instr;
 
 			/* check that user program has not modified breakpoint instruction */
-			retval = target_read_memory(target, breakpoint->address, 4, 1,
-					(uint8_t *)&current_instr);
+			retval = arc32_read_instruction_u32(target, breakpoint->address, &current_instr);
 			if (retval != ERROR_OK)
 				return retval;
-
-			/*
-			 * target_read_memory() gets us data in _target_ endianess.
-			 * If we want to use this data on the host for comparisons with some macros
-			 * we must first transform it to _host_ endianess using target_buffer_get_u32().
-			 */
-			current_instr = target_buffer_get_u32(target, (uint8_t *)&current_instr);
 
 			if (current_instr == ARC32_SDBBP) {
 				retval = target_write_memory(target, breakpoint->address, 4, 1,
@@ -367,22 +359,35 @@ int arc_dbg_examine_debug_reason(struct target *target)
 	}
 
 	struct arc32_common *arc32 = target_to_arc32(target);
-	uint16_t insn; /* Current instruction, [PC] */
+	uint16_t insn; /* Current instruction as 16bit, [PC] */
+	uint32_t insn32; /* Current instruction as 32bit, [PC] */
 	uint32_t pc; /* Value of PC register */
 	int retval = ERROR_OK;
 
 	pc = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32);
-	
+
+	/* If current instruction is BRK or BRK_S, then this is a software
+	 * breakpoint.  Will simple comparison work for big endian? Yes, because
+	 * functions to read memory will convert data from target endian to the
+	 * host endian. First we check for BRK_S, then if that is not true for BRK.
+	 */
 	retval = target_read_u16(target, pc, &insn);
 	if (ERROR_OK != retval) {
-		LOG_WARNING("Can't read current instruction, PC=0x%08" PRIx32, pc);
+		LOG_ERROR("Can't read current instruction, PC=0x%08" PRIx32, pc);
 		return retval;
 	}
-	
-	/* If current instruction is brk_s, then this is a software breakpoint. */
-	/* Will simple comparison work for big endian? */
-	if ( ARC16_SDBBP == insn ) {
+
+	if (ARC16_SDBBP == insn) {
 		target->debug_reason = DBG_REASON_BREAKPOINT;
+	} else {
+		retval = arc32_read_instruction_u32(target, pc, &insn32);
+		if (ERROR_OK != retval) {
+			LOG_ERROR("Can't read current instruction, PC=0x%08" PRIx32, pc);
+			return retval;
+		}
+		if (ARC32_SDBBP == insn32) {
+			target->debug_reason = DBG_REASON_BREAKPOINT;
+		}
 	}
 
 	return ERROR_OK;
