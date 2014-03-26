@@ -117,6 +117,15 @@ static inline void arc32_h_u32_to_me(uint8_t* buf, int val)
     buf[2] = (uint8_t) (val >> 0);
 }
 
+/**
+ * Convert data in middle endian to host endian. This is required to read 32-bit
+ * instruction from little endian ARCs.
+ */
+static inline uint32_t arc32_me_to_h_u32(const uint8_t* buf)
+{
+    return (uint32_t)(buf[2] | buf[3] << 8 | buf[0] << 16 | buf[1] << 24);
+}
+
 static inline struct arc32_common * target_to_arc32(struct target *target)
 {
 	return target->arch_info;
@@ -151,5 +160,7 @@ int arc32_reset_caches_states(struct target *target);
 
 int arc32_write_instruction_u32(struct target *target, uint32_t address,
 		uint32_t instr);
+int arc32_read_instruction_u32(struct target *target, uint32_t address,
+		uint32_t *value);
 
 #endif /* ARC32_H */
