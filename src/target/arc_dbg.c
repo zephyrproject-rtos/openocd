@@ -358,39 +358,25 @@ int arc_dbg_examine_debug_reason(struct target *target)
 		return ERROR_OK;
 	}
 
-	struct arc32_common *arc32 = target_to_arc32(target);
-	uint16_t insn; /* Current instruction as 16bit, [PC] */
-	uint32_t insn32; /* Current instruction as 32bit, [PC] */
-	uint32_t pc; /* Value of PC register */
 	int retval = ERROR_OK;
 
-	pc = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32);
-
-	/* If current instruction is BRK or BRK_S, then this is a software
-	 * breakpoint.  Will simple comparison work for big endian? Yes, because
-	 * functions to read memory will convert data from target endian to the
-	 * host endian. First we check for BRK_S, then if that is not true for BRK.
-	 */
-	retval = target_read_u16(target, pc, &insn);
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Can't read current instruction, PC=0x%08" PRIx32, pc);
-		return retval;
-	}
-
-	if (ARC16_SDBBP == insn) {
-		target->debug_reason = DBG_REASON_BREAKPOINT;
-	} else {
-		retval = arc32_read_instruction_u32(target, pc, &insn32);
+	/* Ensure that DEBUG register value is in cache */
+	struct reg *debug_reg = &(target->reg_cache->reg_list[ARC_REG_DEBUG]);
+	if (!debug_reg->valid) {
+		retval = debug_reg->type->get(debug_reg);
 		if (ERROR_OK != retval) {
-			LOG_ERROR("Can't read current instruction, PC=0x%08" PRIx32, pc);
+			LOG_ERROR("Can not read DEBUG AUX register");
 			return retval;
 		}
-		if (ARC32_SDBBP == insn32) {
-			target->debug_reason = DBG_REASON_BREAKPOINT;
-		}
 	}
 
-	return ERROR_OK;
+	/* DEBUG.BH is set if core halted due to BRK instruction. */
+	uint32_t debug_reg_value = buf_get_u32(debug_reg->value, 0, debug_reg->size);
+	if (debug_reg_value & SET_CORE_BREAKPOINT_HALT) {
+		target->debug_reason = DBG_REASON_BREAKPOINT;
+	}
+
+	return retval;
 }
 
 int arc_dbg_debug_entry(struct target *target)
