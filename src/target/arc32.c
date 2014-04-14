@@ -555,7 +555,7 @@ int arc32_write_instruction_u32(struct target *target, uint32_t address,
         h_u32_to_be(value_buf, instr);
     }
 
-    retval = target_write_memory(target, address, 4, 1, value_buf);
+    retval = target_write_buffer(target, address, 4, value_buf);
     if (retval != ERROR_OK)
         LOG_ERROR("Write to 0x%08" PRIx32 " failed, errno=%i", address, retval);
 
@@ -576,7 +576,7 @@ int arc32_read_instruction_u32(struct target *target, uint32_t address,
         return ERROR_FAIL;
     }
 
-    int retval = target_read_memory(target, address, 4, 1, value_buf);
+    int retval = target_read_buffer(target, address, 4, value_buf);
 
     if (retval == ERROR_OK) {
 		if (target->endianness == TARGET_LITTLE_ENDIAN)
