@@ -69,7 +69,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		if (breakpoint->length == 4) { /* WAS: == 4) { but we have only 32 bits access !!*/
 			uint32_t verify = 0xffffffff;
 
-			retval = target_read_memory(target, breakpoint->address, breakpoint->length, 1,
+			retval = target_read_buffer(target, breakpoint->address, breakpoint->length,
 					breakpoint->orig_instr);
 			if (retval != ERROR_OK)
 				return retval;
@@ -91,7 +91,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		} else {
 			uint16_t verify = 0xffff;
 
-			retval = target_read_memory(target, breakpoint->address, breakpoint->length, 1,
+			retval = target_read_buffer(target, breakpoint->address, breakpoint->length,
 					breakpoint->orig_instr);
 			if (retval != ERROR_OK)
 				return retval;
@@ -157,8 +157,8 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				return retval;
 
 			if (current_instr == ARC32_SDBBP) {
-				retval = target_write_memory(target, breakpoint->address, 4, 1,
-						breakpoint->orig_instr);
+				retval = target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr);
 				if (retval != ERROR_OK)
 					return retval;
 			}
@@ -172,8 +172,8 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				return retval;
 			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
 			if (current_instr == ARC16_SDBBP) {
-				retval = target_write_memory(target, breakpoint->address, 2, 1,
-						breakpoint->orig_instr);
+				retval = target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr);
 				if (retval != ERROR_OK)
 					return retval;
 			}
