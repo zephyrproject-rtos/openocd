@@ -80,6 +80,8 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 	int retval = ERROR_OK;
 	int i;
 
+	LOG_DEBUG("Write memory (16bit): addr=0x%" PRIx32 ", count=%i", addr, count);
+
 	/* Check arguments */
 	if (addr & 1u)
 		return ERROR_TARGET_UNALIGNED_ACCESS;
@@ -110,10 +112,9 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		/* buf is in host endianness, convert to target */
-		target_buffer_set_u16(target, halfword_te,
-                        *((uint16_t*)(buf + i * sizeof(uint16_t))));
+		target_buffer_set_u16(target, halfword_te, ((uint16_t *)buf)[i]);
 		memcpy(buffer_te  + ((addr + i * sizeof(uint16_t)) & 3u),
-                        halfword_te + i * sizeof(uint16_t), sizeof(uint16_t));
+                        halfword_te, sizeof(uint16_t));
 		buffer_he = target_buffer_get_u32(target, buffer_te);
 		retval = arc_jtag_write_memory(&arc32->jtag_info,
                         (addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
@@ -173,6 +174,9 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 {
 	int retval = ERROR_OK;
 
+	LOG_DEBUG("Read memory: addr=0x%" PRIx32 ", size=%i, count=%i",
+			address, size, count);
+
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
@@ -194,8 +198,11 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	 * duplicate some logic, but it would be much easier to understand it,
 	 * those bit operations are just asking for a trouble. And they emulate
 	 * size-specific logic, that is smart, but dangerous.  */
-	/* Reads are word-aligned, so padding might be required if count > 1. */
-	bytes_to_read = (count * size + 3) & ~3u;
+	/* Reads are word-aligned, so padding might be required if count > 1.
+	 * NB: +3 is a padding for the last word (in case it's not aligned;
+	 * addr&3 is a padding for the first word (since address can be
+	 * unaligned as well).  */
+	bytes_to_read = (count * size + 3 + (address & 3u)) & ~3u;
 	words_to_read = bytes_to_read >> 2;
 	tunnel_he = malloc(bytes_to_read);
 	tunnel_te = malloc(bytes_to_read);
