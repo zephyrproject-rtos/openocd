@@ -29,7 +29,7 @@ and its development package. Command to install those on Ubuntu 12.04 build
 host:
 
     $ sudo apt-get install libtool git-core build-essential autoconf automake
-    texinfo libusb-1.0-dev
+    texinfo libusb-1.0-dev pkg-config
 
 Command to install prerequisites on RHEL 6 are:
 
