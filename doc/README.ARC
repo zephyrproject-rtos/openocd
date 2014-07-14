@@ -15,8 +15,7 @@ Content:
 
 Important notes:
 
-1. Only ARC EM Starter Kit and Digilent HS1 & HS2 cables are supported.
-2. This document uses term "Digilent HS" to refer to both HS1 and HS2 cables.
+1. This document uses term "Digilent HS" to refer to both HS1 and HS2 cables.
    Statements that are applicable only to selected cable mention it explicitly.
 2. There is NO Flash support in ARC OpenOCD.
 
@@ -25,13 +24,13 @@ Important notes:
 --------------------------------
 
 Install prerequisites: libtool, autoconf, automake, GCC, Git, makeinfo, libusb
-and its development package. Command to install those on Ubuntu 12.04 build
+and its development package. Command to install those on Ubuntu 12.04/14.04 build
 host:
 
     $ sudo apt-get install libtool git-core build-essential autoconf automake
     texinfo libusb-1.0-dev pkg-config
 
-Command to install prerequisites on RHEL 6 are:
+Command to install prerequisites on RHEL 6:
 
     $ sudo yum install libtool gcc autoconf automake texinfo libusbx-devel
 
@@ -44,12 +43,12 @@ Download OpenOCD sources:
     $ cd openocd
 
 Configure OpenOCD. Consult `configure --help` and generic OpenOCD documentation
-for details. For ARC you probably would want to have an ftdi driver.
+for details. For ARC you would want to have an ftdi driver.
 
     $ ./bootstrap
     $ ./configure --enable-ftdi --disable-doxygen-html
 
-Where:
+Notes:
   * if documentation is required, remove the option `--disable-doxygen-html`
   * for development activities, add those options:
     `--enable-verbose --enable-verbose-jtag-io`
@@ -65,12 +64,12 @@ this is out of scope of this document.
 
 Finally you need to configure udev rules in such way that OpenOCD would be able
 to claim your JTAG debug cable. In common case for ARC this is an FTDI-based
-device. IF you already have libftdi package installed on your system, then
+device. If you already have libftdi package installed on your system, then
 required rules are already provided to udev. Otherwise create file
-`/etc/udev/rules.d/99-ftdi.rules` with following contents:
+`/etc/udev/rules.d/99-ftdi.rules` with the following contents:
 
     # allow users to claim the device
-    # Digilent HS1 and EM Starter Kit
+    # Digilent HS1 and similiar products
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", MODE="0664", GROUP="plugdev"
     # Digilent HS2
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", MODE="0664", GROUP="plugdev"
@@ -89,17 +88,17 @@ cable to the host computer:
 2. How to build OpenOCD for Windows (cross compile on Linux)
 ------------------------------------------------------------
 
-There are two ways to use OpenOCD with Digilent cables and EM Starter Kit: with
+There are two ways to use OpenOCD with FTDI-based debug cables: with an
 obsolete ft2232 interface and proprietary FTD2xx drivers (further down called
 ft2232/ftd2xx) or with new ftdi interface and libusb driver (further down
 called ftdi/libusb).
 
 Since ft2232 interface is considered obsolete by OpenOCD developers in general
-it is suggested to use ftdi/libusb combination, however this requires replacing
-the original FTDI drivers with open source ones. This will render Digilent
-cable unusable by Digilent tools, like Adept.  Consequently you have to choose
-depending on your requirements. It is also has to be mentioned that in practice
-ftdi/libusb is much more faster on Windows that ft2232/ftd2xx.
+it is suggested to use ftdi/libusb combination, however on Windows this
+requires replacing the original FTDI drivers with open source ones. This will
+render Digilent cable unusable by Digilent tools, like Adept.  Consequently you
+have to choose depending on your requirements. It is also has to be mentioned
+that in practice ftdi/libusb is much faster on Windows than ft2232/ftd2xx.
 
 Install the same prerequisites like for Linux build (except for libusb-dev) and
 MinGW on your system:
@@ -124,7 +123,7 @@ not need this library's dll file to be copied around:
     $ make install
 
 If you are planing to use FTD2xx drivers, then download them from [FTDI
-site]a(http://www.ftdichip.com/Drivers/D2XX.htm). Unzip them:
+site](http://www.ftdichip.com/Drivers/D2XX.htm). Unzip them:
 
     $ mkdir ftd2xx
     $ cd ftd2xx
@@ -166,24 +165,28 @@ Build and install:
     $ make
     $ make install
 
-If your application uses libusb and linked dynamically (this is by default),
-copy </libusbx/install/path>/bin/libusb-1.0.dll to OpenOCD bin directory. Copy
-OpenOCD installation to Window host.
+If your application uses libusb and is being linked dynamically (this is by
+default), copy </libusbx/install/path>/bin/libusb-1.0.dll to the OpenOCD bin
+directory. Copy OpenOCD installation to Window host.
 
 
 3. How to use OpenOCD on Linux
 -----------------------------------------------------------
 
-On the HOST (Linux PC which connects directly to the target) connect Digilent
-HS cable or EM Starter Kit to the Host. EM Starter Kit has built-in debug
-cable, it doesn't requires a separate Digilent HS cable. HS is required only
-for other debug targets like ML-509 board, etc.
+> Connection host is a host that is connected to the debug target via USB cable
+> and runs OpenOCD. Debug host is a hsot that runs GDB, which connects to the
+> OpenOCD with TCP connection. Ehily typically it is the same host, they
+> actually can be different host and it is important to distinguish them.
+
+Connect debug target to the connection host. AXS10x products and EM Starter Kit
+have built-in debug cable, the don't require a separate Digilent HS cable. HS
+is required only for other debug targets like ML-509 board, etc.
 
 Run lsusb application to ensure that FTDI device is there:
 
     $ lsusb
 
-In case of HS1 or EM Starter Kit there should line like this:
+In case of HS1, EM Starter Kit and AXS10x there should line like this:
 
     Bus 001 Device 002: ID 0403:6010 Future Technology Devices International, Ltd FT2232C Dual USB-UART/FIFO IC
 
@@ -195,35 +198,22 @@ Note that exact lines could differ from host to host.
 
 Run OpenOCD:
 
-    $ openocd -f <openocd.cfg> -c init -c halt -c "reset halt"
+    $ openocd -f <openocd.cfg>
 
 Valid openocd.cfg files are installed into
-`/usr/local/share/openocd/scripts/target/`:
- * snps_starter_kit_arc-em.cfg
- * snps_starter_kit_arc-em_eb.cfg - configuration for big endian EM Starter Kit
- * snps_ml509_arc600.cfg
- * snps_ml509_arc700.cfg
- * snps_haps51_arc700.cfg
+`/usr/local/share/openocd/scripts/board/`:
+ * snps_em_sk.cfg - DW ARC EM Starter Kit
+ * snps_axs101.cfg - DW ARC AXS101 Software Development platform
 
-For development activities, add to the above command line:
-`-d0 [-d 3 -l <logfile>.log]`.
+On the debug host (PC with GDB) start an ELF32 GDB debugger:
 
-On the debug host (PC with GDB, which is not necessarily the same PC as
-host connected to debug target) start the ELF32 GDB debugger which has to
-connect to OpenOCD later on:
-
-    $ arc-elf32-gdb ./<elf app_to_debug>
-
-Increase remote timeout to avoid possible issues caused by snowiness of the
-OpenOCD:
-
-    (gdb) set remotetimeout 15
+    $ arc-elf32-gdb ./<elf_app_to_debug>
 
 Make the connection between arc-elf32-gdb and OpenOCD:
 
-    (gdb) target extended-remote <host ip address>:3333
+    (gdb) target remote <connection host ip address>:3333
 
-Load the image to be debugged (./<app_to_debug>.elf) into the target:
+Load image to be debugged (./<app_to_debug>.elf) into the target memory:
 
     (gdb) load
 
