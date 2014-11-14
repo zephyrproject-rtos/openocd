@@ -60,7 +60,6 @@ int arc_ocd_poll(struct target *target)
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
-		LOG_WARNING("target is still running!");
 		target->state = TARGET_RUNNING;
 	} else {
 		if ((target->state == TARGET_RUNNING) ||

@@ -331,8 +331,6 @@ int arc_dbg_enter_debug(struct target *target)
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	target->state = TARGET_DEBUG_RUNNING;
-
 	//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
 	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
@@ -544,9 +542,6 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	/* ready to get us going again */
 	arc32_start_core(target);
 
-	/* wait until we are halted again */
-	arc32_wait_until_core_is_halted(target);
-
 	/* registers are now invalid */
 	register_cache_invalidate(arc32->core_cache);
 
@@ -635,7 +630,9 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	 * in debug_entry. Thus either every other target is suspect to the
 	 * error, or they do something else differently, but I couldn't
 	 * understand this. */
-	target->state = TARGET_HALTED; 
+	/* TODO (akolesov): Perhaps just move this to arc_dbg_debug_entry?
+	 * See nds32_v3_debug_entry. */
+	target->state = TARGET_HALTED;
 	arc_dbg_debug_entry(target);
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
