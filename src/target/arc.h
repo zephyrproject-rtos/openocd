@@ -48,6 +48,19 @@
 #define sleep(x) Sleep(x)
 #endif
 
+
+/* Borrowed from nds32.h */
+#define CHECK_RETVAL(action)			\
+	do {					\
+		int __retval = (action);	\
+		if (__retval != ERROR_OK) {	\
+			LOG_DEBUG("error while calling \"%s\"",	\
+				# action);     \
+			return __retval;	\
+		}				\
+	} while (0)
+
+
 #define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 
 struct arc_common {
