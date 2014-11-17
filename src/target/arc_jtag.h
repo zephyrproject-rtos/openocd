@@ -28,13 +28,13 @@
 /* JTAG core registers plus bit fields within registers */
 #define ARC_INSTRUCTION_REG 		0x0 /* Instruction register */
 
-#define ARC_JTAG_STATUS_REG 		0x8 /* Jtag cmd transaction status */
-#define ARC_JTAG_STAT_ST			(000001)
-#define ARC_JTAG_STAT_FL			(000010)
-#define ARC_JTAG_STAT_RD			(000100)
-#define ARC_JTAG_STAT_NIU			(001000) /* Not in use */
-#define ARC_JTAG_STAT_RU			(010000)
-#define ARC_JTAG_STAT_RA			(100000)
+#define ARC_JTAG_STATUS_REG		0x8 /* Jtag cmd transaction status */
+#define ARC_JTAG_STAT_ST		0x1
+#define ARC_JTAG_STAT_FL		0x2
+#define ARC_JTAG_STAT_RD		0x4
+#define ARC_JTAG_STAT_NIU		0x8 /* Not in use */
+#define ARC_JTAG_STAT_RU		0x10
+#define ARC_JTAG_STAT_RA		0x20
 
 #define ARC_TRANSACTION_CMD_REG 	0x9 /* Command to perform */
 #define ARC_TRANSACTION_CMD_REG_LENGTH 4
