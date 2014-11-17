@@ -30,17 +30,13 @@
 
 int arc_core_soft_reset_halt(struct target *target)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("Soft reset halt is NOT SUPPORTED IN THIS RELEASE.");
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_core_type_info(struct target *target)
 {
-	int retval = ERROR_OK;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (strncmp(target_name(target), ARCEM_STR, 6) == 0) {
@@ -58,5 +54,5 @@ int arc_core_type_info(struct target *target)
 	} else
 	LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
 
-	return retval;
+	return ERROR_OK;
 }
