@@ -307,15 +307,16 @@ int arc_dbg_enter_debug(struct target *target)
 	uint32_t value;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
-	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
+	/* Do read-modify-write sequence, or DEBUG.UB will be reset unintentionally. */
+	/* TODO: I think this should be moved to halt(). */
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
+	value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
 	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value));
 	alive_sleep(1);
 
 #ifdef DEBUG
 	LOG_DEBUG("core stopped (halted) DEGUB-REG: 0x%08" PRIx32, value);
-	CHECK_RETVAL(arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value));
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
 	LOG_DEBUG("core STATUS32: 0x%08" PRIx32, value);
 #endif
 
