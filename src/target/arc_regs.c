@@ -237,7 +237,6 @@ static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] =
 
 static int arc_regs_get_core_reg(struct reg *reg)
 {
-	int retval = ERROR_OK;
 	assert(reg != NULL);
 
 	struct arc_reg_t *arc_reg = reg->arch_info;
@@ -274,13 +273,11 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	LOG_DEBUG("Get register regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
 			regnum , arc_reg->desc->name, arc_reg->value);
 
-	return retval;
+	return ERROR_OK;
 }
 
 static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 {
-	int retval = ERROR_OK;
-
 	LOG_DEBUG("-");
 	struct arc_reg_t *arc_reg = reg->arch_info;
 	struct target *target = arc_reg->target;
@@ -311,7 +308,7 @@ static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 	arc32->core_cache->reg_list[regnum].valid = true;
 	arc32->core_cache->reg_list[regnum].dirty = true;
 
-	return retval;
+	return ERROR_OK;
 }
 
 static const struct reg_arch_type arc32_reg_type = {
@@ -671,7 +668,6 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size, enum target_register_class reg_class)
 {
-	int retval = ERROR_OK;
 	int i;
 
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -707,6 +703,6 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 		LOG_DEBUG("REG_CLASS_GENERAL: number of regs=%i", *reg_list_size);
 	}
 
-	return retval;
+	return ERROR_OK;
 }
 
