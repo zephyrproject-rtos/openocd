@@ -32,7 +32,6 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 	int size, int count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int retval = ERROR_OK;
 
 	LOG_DEBUG("Read memory: addr=0x%" PRIx32 ", size=%i, count=%i",
 			addr, size, count);
@@ -41,13 +40,10 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 
 	/* Always call D$ flush, it will decide whether to perform actual
 	 * flush. */
-	retval = arc32_dcache_flush(target);
-	if (ERROR_OK != retval)
-		return retval;
+	CHECK_RETVAL(arc32_dcache_flush(target));
+	CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf));
 
-	retval = arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf);
-
-	return retval;
+	return ERROR_OK;
 }
 
 /* Write word at word-aligned address */
@@ -55,21 +51,18 @@ static int arc_mem_write_block32(struct target *target, uint32_t addr, int count
 	void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int retval = ERROR_OK;
 
 	/* Check arguments */
 	if (addr & 0x3u)
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 
 	/* No need to flush cache, because we don't read values from memory. */
-	retval = arc_jtag_write_memory( &arc32->jtag_info, addr, count, (uint32_t *)buf);
-	if (ERROR_OK != retval)
-		return retval;
+	CHECK_RETVAL(arc_jtag_write_memory( &arc32->jtag_info, addr, count, (uint32_t *)buf));
 
 	/* Invalidate caches. */
-	retval = arc32_cache_invalidate(target);
+	CHECK_RETVAL(arc32_cache_invalidate(target));
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* Write half-word at half-word-aligned address */
@@ -77,7 +70,6 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 	void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int retval = ERROR_OK;
 	int i;
 
 	LOG_DEBUG("Write memory (16bit): addr=0x%" PRIx32 ", count=%i", addr, count);
@@ -87,9 +79,7 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 
 	/* We will read data from memory, so we need to flush D$. */
-	retval = arc32_dcache_flush(target);
-	if (ERROR_OK != retval)
-		return retval;
+	CHECK_RETVAL(arc32_dcache_flush(target));
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
@@ -108,25 +98,22 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 		 *   4) convert back to host endianness
 		 *   5) write word back to target.
 		 */
-		retval = arc_jtag_read_memory(&arc32->jtag_info,
-				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
+		CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info,
+				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he));
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		/* buf is in host endianness, convert to target */
 		target_buffer_set_u16(target, halfword_te, ((uint16_t *)buf)[i]);
 		memcpy(buffer_te  + ((addr + i * sizeof(uint16_t)) & 3u),
                         halfword_te, sizeof(uint16_t));
 		buffer_he = target_buffer_get_u32(target, buffer_te);
-		retval = arc_jtag_write_memory(&arc32->jtag_info,
-                        (addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he);
-
-		if (ERROR_OK != retval)
-			return retval;
+		CHECK_RETVAL(arc_jtag_write_memory(&arc32->jtag_info,
+                        (addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he));
 	}
 
 	/* Invalidate caches. */
-	retval = arc32_cache_invalidate(target);
+	CHECK_RETVAL(arc32_cache_invalidate(target));
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* Write byte at address */
@@ -134,13 +121,10 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 	void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int retval = ERROR_OK;
 	int i;
 
 	/* We will read data from memory, so we need to flush D$. */
-	retval = arc32_dcache_flush(target);
-	if (ERROR_OK != retval)
-		return retval;
+	CHECK_RETVAL(arc32_dcache_flush(target));
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
@@ -151,20 +135,17 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 		/* See comment in arc_mem_write_block16 for details. Since it is a byte
 		 * there is not need to convert write buffer to target endianness, but
 		 * we still have to convert read buffer. */
-		retval = arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he);
+		CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he));
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		memcpy(buffer_te  + ((addr + i) & 3), (uint8_t*)buf + i, 1);
 		buffer_he = target_buffer_get_u32(target, buffer_te);
-		retval = arc_jtag_write_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he);
-
-		if (ERROR_OK != retval)
-			return retval;
+		CHECK_RETVAL(arc_jtag_write_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he));
 	}
 
 	/* Invalidate caches. */
-	retval = arc32_cache_invalidate(target);
+	CHECK_RETVAL(arc32_cache_invalidate(target));
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ----- Exported functions ------------------------------------------------ */
@@ -314,21 +295,15 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
 	uint32_t *checksum)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_checksum NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_blank_check(struct target *target, uint32_t address,
 	uint32_t count, uint32_t *blank)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_blank_check NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 /* ......................................................................... */
@@ -339,11 +314,8 @@ int arc_mem_run_algorithm(struct target *target,
 	uint32_t entry_point, uint32_t exit_point,
 	int timeout_ms, void *arch_info)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_run_algorithm NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_start_algorithm(struct target *target,
@@ -352,11 +324,8 @@ int arc_mem_start_algorithm(struct target *target,
 	uint32_t entry_point, uint32_t exit_point,
 	void *arch_info)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_start_algorithm NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_wait_algorithm(struct target *target,
@@ -365,11 +334,8 @@ int arc_mem_wait_algorithm(struct target *target,
 	uint32_t exit_point, int timeout_ms,
 	void *arch_info)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_wait_algorithm NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 /* ......................................................................... */
@@ -377,41 +343,30 @@ int arc_mem_wait_algorithm(struct target *target,
 int arc_mem_virt2phys(struct target *target, uint32_t address,
 	uint32_t *physical)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_virt2phys NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_read_phys_memory NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("arc_mem_write_phys_memory NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_mem_mmu(struct target *target, int *enabled)
 {
-	int retval = ERROR_OK;
-
 	/* (gdb) load command runs through here */
 
 	LOG_DEBUG("arc_mem_mmu NOT SUPPORTED IN THIS RELEASE.");
 	LOG_DEBUG("    arc_mem_mmu() = entry point for performance upgrade");
 
-	return retval;
+	return ERROR_OK;
 }
