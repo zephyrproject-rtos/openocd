@@ -30,11 +30,7 @@
 int arc_trgt_request_data(struct target *target, uint32_t size,
 	uint8_t *buffer)
 {
-	int retval = ERROR_OK;
-
 	LOG_DEBUG("Entering");
-
 	LOG_ERROR("arc_trgt_request_data NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }

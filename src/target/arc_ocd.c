@@ -31,7 +31,6 @@
 static int arc_ocd_init_arch_info(struct target *target,
 	struct arc_common *arc, struct jtag_tap *tap)
 {
-	int retval = ERROR_OK;
 	struct arc32_common *arc32 = &arc->arc32;
 
 	LOG_DEBUG("Entering");
@@ -39,24 +38,21 @@ static int arc_ocd_init_arch_info(struct target *target,
 	arc->common_magic = ARC_COMMON_MAGIC;
 
 	/* initialize arc specific info */
-	retval = arc32_init_arch_info(target, arc32, tap);
+	CHECK_RETVAL(arc32_init_arch_info(target, arc32, tap));
 	arc32->arch_info = arc;
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_ocd_poll(struct target *target)
 {
-	int retval = ERROR_OK;
 	uint32_t status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* gdb calls continuously through this arc_poll() function  */
-	retval = arc_jtag_status(&arc32->jtag_info, &status);
-	if (retval != ERROR_OK)
-		return retval;
+	CHECK_RETVAL(arc_jtag_status(&arc32->jtag_info, &status));
 
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
@@ -68,9 +64,7 @@ int arc_ocd_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			LOG_DEBUG("ARC core is halted or in reset.");
 
-			retval = arc_dbg_debug_entry(target);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(arc_dbg_debug_entry(target));
 
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		} else if (target->state == TARGET_DEBUG_RUNNING) {
@@ -78,22 +72,19 @@ int arc_ocd_poll(struct target *target)
 			target->state = TARGET_HALTED;
 			LOG_DEBUG("ARC core is in debug running mode");
 
-			retval = arc_dbg_debug_entry(target);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(arc_dbg_debug_entry(target));
 
 			target_call_event_callbacks(target, TARGET_EVENT_DEBUG_HALTED);
 		}
 	}
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ......................................................................... */
 
 int arc_ocd_assert_reset(struct target *target)
 {
-	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
@@ -125,52 +116,44 @@ int arc_ocd_assert_reset(struct target *target)
 	register_cache_invalidate(arc32->core_cache);
 
 	if (target->reset_halt)
-		retval = target_halt(target);
+		CHECK_RETVAL(target_halt(target));
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_ocd_deassert_reset(struct target *target)
 {
-	int retval = ERROR_OK;
-
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	/* deassert reset lines */
 	jtag_add_reset(0, 0);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ......................................................................... */
 
 int arc_ocd_target_create(struct target *target, Jim_Interp *interp)
 {
-	int retval = ERROR_OK;
-
 	struct arc_common *arc = calloc(1, sizeof(struct arc_common));
 
-	retval = arc_ocd_init_arch_info(target, arc, target->tap);
+	CHECK_RETVAL(arc_ocd_init_arch_info(target, arc, target->tap));
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
 {
-	int retval = ERROR_OK;
-
 	arc_regs_build_reg_cache(target);
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_ocd_examine(struct target *target)
 {
-	int retval = ERROR_OK;
 	uint32_t value, status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	retval = arc_jtag_startup(&arc32->jtag_info);
+	CHECK_RETVAL(arc_jtag_startup(&arc32->jtag_info));
 
 	if (!target_was_examined(target)) {
 
@@ -210,5 +193,5 @@ int arc_ocd_examine(struct target *target)
 		target_set_examined(target);
 	}
 
-	return retval;
+	return ERROR_OK;
 }

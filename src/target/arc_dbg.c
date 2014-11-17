@@ -31,7 +31,6 @@
 static int arc_dbg_set_breakpoint(struct target *target,
 		struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
 
@@ -69,21 +68,15 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		if (breakpoint->length == 4) { /* WAS: == 4) { but we have only 32 bits access !!*/
 			uint32_t verify = 0xffffffff;
 
-			retval = target_read_buffer(target, breakpoint->address, breakpoint->length,
-					breakpoint->orig_instr);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(target_read_buffer(target, breakpoint->address, breakpoint->length,
+					breakpoint->orig_instr));
 
-			retval = arc32_write_instruction_u32(target, breakpoint->address,
-					ARC32_SDBBP);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(arc32_write_instruction_u32(target, breakpoint->address,
+					ARC32_SDBBP));
 
-			retval = arc32_read_instruction_u32(target, breakpoint->address, &verify);
+			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &verify));
 
-			if (retval != ERROR_OK)
-				return retval;
-				if (verify != ARC32_SDBBP) {
+			if (verify != ARC32_SDBBP) {
 				LOG_ERROR("Unable to set 32bit breakpoint at address %08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
@@ -91,17 +84,11 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		} else {
 			uint16_t verify = 0xffff;
 
-			retval = target_read_buffer(target, breakpoint->address, breakpoint->length,
-					breakpoint->orig_instr);
-			if (retval != ERROR_OK)
-				return retval;
-			retval = target_write_u16(target, breakpoint->address, ARC16_SDBBP);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(target_read_buffer(target, breakpoint->address, breakpoint->length,
+					breakpoint->orig_instr));
+			CHECK_RETVAL(target_write_u16(target, breakpoint->address, ARC16_SDBBP));
 
-			retval = target_read_u16(target, breakpoint->address, &verify);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &verify));
 			if (verify != ARC16_SDBBP) {
 				LOG_ERROR("Unable to set 16bit breakpoint at address %08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
@@ -110,12 +97,12 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		}
 
 		/* core instruction cache is now invalid */
-		arc32_cache_invalidate(target);
+		CHECK_RETVAL(arc32_cache_invalidate(target));
 
 		breakpoint->set = 64; /* Any nice value but 0 */
 	}
 
-	return retval;
+	return ERROR_OK;
 }
 
 static int arc_dbg_unset_breakpoint(struct target *target,
@@ -124,7 +111,6 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->inst_break_list;
-	int retval;
 
 	if (!breakpoint->set) {
 		LOG_WARNING("breakpoint not set");
@@ -152,36 +138,28 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			uint32_t current_instr;
 
 			/* check that user program has not modified breakpoint instruction */
-			retval = arc32_read_instruction_u32(target, breakpoint->address, &current_instr);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &current_instr));
 
 			if (current_instr == ARC32_SDBBP) {
-				retval = target_write_buffer(target, breakpoint->address,
-					breakpoint->length, breakpoint->orig_instr);
-				if (retval != ERROR_OK)
-					return retval;
+				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr));
 			}
 		} else {
 			uint16_t current_instr;
 
 			/* check that user program has not modified breakpoint instruction */
-			retval = target_read_memory(target, breakpoint->address, 2, 1,
-					(uint8_t *)&current_instr);
-			if (retval != ERROR_OK)
-				return retval;
+			CHECK_RETVAL(target_read_memory(target, breakpoint->address, 2, 1,
+					(uint8_t *)&current_instr));
 			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
 			if (current_instr == ARC16_SDBBP) {
-				retval = target_write_buffer(target, breakpoint->address,
-					breakpoint->length, breakpoint->orig_instr);
-				if (retval != ERROR_OK)
-					return retval;
+				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr));
 			}
 		}
 	}
 
 	/* core instruction cache is now invalid */
-	arc32_cache_invalidate(target);
+	CHECK_RETVAL(arc32_cache_invalidate(target));
 
 	breakpoint->set = 0;
 
@@ -326,24 +304,22 @@ static int arc_dbg_single_step_core(struct target *target)
 
 int arc_dbg_enter_debug(struct target *target)
 {
-	int retval = ERROR_OK;
 	uint32_t value;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
 	//value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
 	value = SET_CORE_FORCE_HALT; /* set the HALT bit */
-	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
+	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value));
 	alive_sleep(1);
 
 #ifdef DEBUG
 	LOG_DEBUG("core stopped (halted) DEGUB-REG: 0x%08" PRIx32, value);
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value);
+	CHECK_RETVAL(arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_STATUS32_REG, &value));
 	LOG_DEBUG("core STATUS32: 0x%08" PRIx32, value);
 #endif
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_examine_debug_reason(struct target *target)
@@ -356,16 +332,10 @@ int arc_dbg_examine_debug_reason(struct target *target)
 		return ERROR_OK;
 	}
 
-	int retval = ERROR_OK;
-
 	/* Ensure that DEBUG register value is in cache */
 	struct reg *debug_reg = &(target->reg_cache->reg_list[ARC_REG_DEBUG]);
 	if (!debug_reg->valid) {
-		retval = debug_reg->type->get(debug_reg);
-		if (ERROR_OK != retval) {
-			LOG_ERROR("Can not read DEBUG AUX register");
-			return retval;
-		}
+		CHECK_RETVAL(debug_reg->type->get(debug_reg));
 	}
 
 	/* DEBUG.BH is set if core halted due to BRK instruction. */
@@ -374,62 +344,49 @@ int arc_dbg_examine_debug_reason(struct target *target)
 		target->debug_reason = DBG_REASON_BREAKPOINT;
 	}
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_debug_entry(struct target *target)
 {
-	int retval = ERROR_OK;
 	uint32_t dpc;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* save current PC */
-	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc);
-	if (retval != ERROR_OK)
-		return retval;
-
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc));
 	arc32->jtag_info.dpc = dpc;
-
 	arc32_save_context(target);
 
 	/* We must reset internal indicators of caches states, otherwise D$/I$
 	 * will not be flushed/invalidated when required. */
-	retval = arc32_reset_caches_states(target);
-	if (ERROR_OK != retval)
-	    return retval;
+	CHECK_RETVAL(arc32_reset_caches_states(target));
+	CHECK_RETVAL(arc_dbg_examine_debug_reason(target));
 
-	retval = arc_dbg_examine_debug_reason(target);
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_exit_debug(struct target *target)
 {
-	int retval = ERROR_OK;
 	uint32_t value;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	target->state = TARGET_RUNNING;
 
 	/* raise the Reset Applied bit flag */
-	retval = arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
 	value |= SET_CORE_RESET_APPLIED; /* set the RA bit */
-	retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
+	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value));
 
 #ifdef DEBUG
-	arc32_print_core_state(target);
+	CHECK_RETVAL(arc32_print_core_state(target));
 #endif
-	return retval;
+	return ERROR_OK;
 }
 
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_dbg_halt(struct target *target)
 {
-	int retval = ERROR_OK;
-
 	LOG_DEBUG("target->state: %s", target_state_name(target));
 
 	if (target->state == TARGET_HALTED) {
@@ -456,17 +413,16 @@ int arc_dbg_halt(struct target *target)
 	}
 
 	/* break (stop) processor */
-	arc_dbg_enter_debug(target);
+	CHECK_RETVAL(arc_dbg_enter_debug(target));
 
 	target->debug_reason = DBG_REASON_DBGRQ;
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	int handle_breakpoints, int debug_execution)
 {
-	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
 	uint32_t resume_pc = 0;
@@ -555,14 +511,12 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 		LOG_DEBUG("target debug resumed at 0x%08" PRIx32, resume_pc);
 	}
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_step(struct target *target, int current, uint32_t address,
 	int handle_breakpoints)
 {
-	int retval = ERROR_OK;
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
@@ -636,7 +590,7 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	arc_dbg_debug_entry(target);
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ......................................................................... */
@@ -667,28 +621,20 @@ int arc_dbg_add_breakpoint(struct target *target,
 int arc_dbg_add_context_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("Context breakpoints are NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_add_hybrid_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
-
 	LOG_ERROR("Hybryd breakpoints are NOT SUPPORTED IN THIS RELEASE.");
-
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_remove_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -703,14 +649,12 @@ int arc_dbg_remove_breakpoint(struct target *target,
 	if (breakpoint->type == BKPT_HARD)
 		arc32->num_inst_bpoints_avail++;
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_add_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	int retval = ERROR_OK;
-
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	if (arc32->num_data_bpoints_avail < 1) {
@@ -722,14 +666,12 @@ int arc_dbg_add_watchpoint(struct target *target,
 
 	arc_dbg_set_watchpoint(target, watchpoint);
 
-	return retval;
+	return ERROR_OK;
 }
 
 int arc_dbg_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	int retval = ERROR_OK;
-
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 
@@ -743,5 +685,5 @@ int arc_dbg_remove_watchpoint(struct target *target,
 
 	arc32->num_data_bpoints_avail++;
 
-	return retval;
+	return ERROR_OK;
 }

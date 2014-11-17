@@ -175,7 +175,6 @@ static void arc_jtag_reset_transaction(struct arc_jtag *jtag_info)
 static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	uint32_t *addr, uint32_t count, const uint32_t *buffer)
 {
-	int retval = ERROR_OK;
 	unsigned int i;
 
 	LOG_DEBUG("Writing to %s registers: addr[0]=0x%" PRIu32 ";count=%" PRIu32
@@ -183,7 +182,7 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 		(type == ARC_JTAG_CORE_REG ? "core" : "aux"), *addr, count, *buffer);
 
 	if (count == 0)
-		return retval;
+		return ERROR_OK;
 
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -210,14 +209,9 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Execute queue. */
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Writing to %s registers failed. Error code=%i",
-			(type == ARC_JTAG_CORE_REG ? "core" : "aux"), retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
-	return retval;
+	return ERROR_OK;
 }
 
 /**
@@ -234,7 +228,6 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 		uint32_t *addr, uint32_t count, uint32_t *buffer)
 {
-	int retval = ERROR_OK;
 	uint32_t i;
 
 	assert(jtag_info != NULL);
@@ -244,7 +237,7 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 		(type == ARC_JTAG_CORE_REG ? "core" : "aux"), *addr, count);
 
 	if (count == 0)
-		return retval;
+		return ERROR_OK;
 
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -272,12 +265,7 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	/* Clean up */
 	arc_jtag_reset_transaction(jtag_info);
 
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Reading from %s registers failed. Error code=%i",
-			(type == ARC_JTAG_CORE_REG ? "core" : "aux"), retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Convert byte-buffers to host presentation. */
 	for (i = 0; i < count; i++) {
@@ -287,7 +275,7 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	free(fields);
 	LOG_DEBUG("Read from register: buf[0]=0x%" PRIx32, buffer[0]);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /* ----- Exported JTAG functions ------------------------------------------- */
@@ -295,12 +283,8 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 int arc_jtag_startup(struct arc_jtag *jtag_info)
 {
 	arc_jtag_reset_transaction(jtag_info);
-	int retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Starting JTAG failed.");
-		return retval;
-	}
-	return retval;
+	CHECK_RETVAL(jtag_execute_queue());
+	return ERROR_OK;
 }
 
 int arc_jtag_shutdown(struct arc_jtag *jtag_info)
@@ -315,7 +299,6 @@ int arc_jtag_status(struct arc_jtag * const jtag_info, uint32_t * const value)
 	assert(jtag_info != NULL);
 	assert(jtag_info->tap != NULL);
 
-	int retval = ERROR_OK;
 	uint8_t buffer[4];
 
 	/* Fill command queue. */
@@ -325,16 +308,12 @@ int arc_jtag_status(struct arc_jtag * const jtag_info, uint32_t * const value)
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Execute queue. */
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Reading STATUS register failed. Error code = %i", retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Parse output. */
 	*value = buf_get_u32(buffer, 0, 32);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /** Read IDCODE register. */
@@ -345,7 +324,6 @@ int arc_jtag_idcode(struct arc_jtag * const jtag_info, uint32_t * const value)
 
 	LOG_DEBUG("Reading IDCODE register.");
 
-	int retval = ERROR_OK;
 	uint8_t buffer[4];
 
 	/* Fill command queue. */
@@ -355,17 +333,13 @@ int arc_jtag_idcode(struct arc_jtag * const jtag_info, uint32_t * const value)
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Execute queue. */
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Reading IDCODE register failed. Error code = %i", retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Parse output. */
 	*value = buf_get_u32(buffer, 0, 32);
 	LOG_DEBUG("IDCODE register=0x%08" PRIx32, *value);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /**
@@ -386,8 +360,6 @@ int arc_jtag_idcode(struct arc_jtag * const jtag_info, uint32_t * const value)
 int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 		uint32_t count, const uint32_t* buffer)
 {
-	int retval = ERROR_OK;
-
 	assert(jtag_info != NULL);
 	assert(buffer != NULL);
 
@@ -396,7 +368,7 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 
 	/* No need to waste time on useless operations. */
 	if (count == 0)
-		return retval;
+		return ERROR_OK;
 
 	/* We do not know where we come from. */
 	arc_jtag_reset_transaction(jtag_info);
@@ -419,13 +391,9 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Run queue. */
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Writing to memory failed. Error code = %i", retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
-	return retval;
+	return ERROR_OK;
 }
 
 /**
@@ -445,15 +413,13 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t count, uint32_t *buffer )
 {
-	int retval = ERROR_OK;
-
 	assert(jtag_info != NULL);
 	assert(jtag_info->tap != NULL);
 
 	LOG_DEBUG("Reading memory: addr=0x%" PRIx32 ";count=%" PRIu32, addr, count);
 
 	if (count == 0)
-		return retval;
+		return ERROR_OK;
 
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -475,11 +441,7 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	/* Clean up */
 	arc_jtag_reset_transaction(jtag_info);
 
-	retval = jtag_execute_queue();
-	if (ERROR_OK != retval) {
-		LOG_ERROR("Reading from memory failed. Error code=%i", retval);
-		return retval;
-	}
+	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Convert byte-buffers to host presentation. */
 	for (i = 0; i < count; i++) {
@@ -488,7 +450,7 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 
 	free(data_buf);
 
-	return retval;
+	return ERROR_OK;
 }
 
 /** Wrapper function to ease writing of one core register. */
