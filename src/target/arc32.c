@@ -427,32 +427,6 @@ int arc32_dcache_flush(struct target *target)
 	return ERROR_OK;
 }
 
-int arc32_wait_until_core_is_halted(struct target *target)
-{
-	uint32_t value = 1; /* get us into checking for HALT bit */
-
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-//#ifdef DEBUG
-	CHECK_RETVAL(arc32_print_core_state(target));
-//#endif
-
-	/*
-	 * check if bit N starting from 0 is set; temp & (1 << N)
-	 *   here, lets check if we are HALTED
-	 */
-	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
-	while (!(value & 1)) {
-	    CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
-	}
-
-#ifdef DEBUG
-	CHECK_RETVAL(arc32_print_core_state(target));
-#endif
-
-	return ERROR_OK;
-}
-
 int arc32_print_core_state(struct target *target)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
