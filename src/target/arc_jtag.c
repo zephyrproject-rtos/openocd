@@ -98,9 +98,15 @@ static void arc_jtag_set_transaction(struct arc_jtag *jtag_info,
 
 	jtag_info->tap_end_state = end_state;
 
-	const int num_bits[1] = { ARC_TRANSACTION_CMD_REG_LENGTH };
-	const uint32_t values[1] = { new_trans };
-	jtag_add_dr_out(jtag_info->tap, 1, num_bits, values, end_state);
+	uint8_t out_value[4];
+	buf_set_u32(out_value, 0, ARC_TRANSACTION_CMD_REG_LENGTH, new_trans);
+
+	struct scan_field field;
+	field.num_bits = ARC_TRANSACTION_CMD_REG_LENGTH;
+	field.out_value = out_value;
+	field.in_value = NULL;
+
+	jtag_add_dr_scan(jtag_info->tap, 1, &field, jtag_info->tap_end_state);
 	jtag_info->cur_trans = new_trans;
 }
 
@@ -147,9 +153,14 @@ static void arc_jtag_write_dr(struct arc_jtag *jtag_info, uint32_t data,
 
 	jtag_info->tap_end_state = end_state;
 
-	const int num_bits[1] = { 32 };
-	const uint32_t values[1] = { data };
-	jtag_add_dr_out(jtag_info->tap, 1, num_bits, values, end_state);
+	uint8_t out_value[4];
+	buf_set_u32(out_value, 0, 32, data);
+
+	struct scan_field field;
+	field.num_bits = 32;
+	field.out_value = out_value;
+	field.in_value = NULL;
+	jtag_add_dr_scan(jtag_info->tap, 1, &field, jtag_info->tap_end_state);
 }
 
 /**
