@@ -289,6 +289,72 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	return ERROR_OK;
 }
 
+static void arc_jtag_enque_status_read(struct arc_jtag * const jtag_info,
+	uint8_t * const buffer)
+{
+	assert(jtag_info);
+	assert(jtag_info->tap);
+	assert(buffer);
+
+	arc_jtag_write_ir(jtag_info, ARC_JTAG_STATUS_REG);
+	arc_jtag_read_dr(jtag_info, buffer, TAP_IDLE);
+}
+
+/** Decode value of JTAG status register int human readable form. Returns
+ * pointer to static buffer. */
+static const char * arc_jtag_decode_status(const uint32_t jtag_status)
+{
+    static char buffer[64]; /* 64 is much more than we really need. */
+    snprintf(buffer, 64, "reg=0x%" PRIx32 ":%s%s%s%s%s",
+           jtag_status,
+           (jtag_status & ARC_JTAG_STAT_RA) ? " RA" : "",
+           (jtag_status & ARC_JTAG_STAT_RU) ? " RU" : "",
+           (jtag_status & ARC_JTAG_STAT_RD) ? " RD" : "",
+           (jtag_status & ARC_JTAG_STAT_FL) ? " FL" : "",
+           (jtag_status & ARC_JTAG_STAT_ST) ? " ST" : ""
+           );
+    return buffer;
+}
+
+/** Wait until RD (ready) bit in JTAG Status register will be set. It is very
+ * hard to find a case when this bit is not set, however there were cases with
+ * failed memory reads, and adding this check even though it immediately
+ * succeeds resolves the problem.
+ *
+ * We are calling this check only before memory reads, because we never had
+ * problems with other operations, so I don't want to incur additional
+ * performance penalties unless it is proven to be required.
+ *
+ * This check would be a total moot in case of non-stop debugging, since core
+ * will continue to run after this check, so while it might be ready at that
+ * time, it might be not ready by the time of next command. We don't support
+ * non-stop debugging on the other hand, so that is not a problem at the
+ * moment.
+ */
+static int arc_wait_until_jtag_ready(struct arc_jtag * const jtag_info)
+{
+	assert(jtag_info);
+	assert(jtag_info->tap);
+
+	bool ready = 0;
+	do {
+		uint8_t buf[4];
+		arc_jtag_reset_transaction(jtag_info);
+		arc_jtag_enque_status_read(jtag_info, buf);
+		arc_jtag_reset_transaction(jtag_info);
+		CHECK_RETVAL(jtag_execute_queue());
+
+		uint32_t jtag_status = buf_get_u32(buf, 0, 32);
+		ready = jtag_status & ARC_JTAG_STAT_RD;
+
+		if (!ready) {
+			LOG_DEBUG("JTAG on core is not ready: %s", arc_jtag_decode_status(jtag_status));
+		}
+	} while(!ready);
+
+	return ERROR_OK;
+}
+
 /* ----- Exported JTAG functions ------------------------------------------- */
 
 int arc_jtag_startup(struct arc_jtag *jtag_info)
@@ -433,6 +499,10 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 
 	if (count == 0)
 		return ERROR_OK;
+
+	/* Workaround problems in STAR 9000830091 */
+	if (slow_memory)
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
 
 	arc_jtag_reset_transaction(jtag_info);
 
