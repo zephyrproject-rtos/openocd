@@ -39,6 +39,8 @@ enum arc_processor_type {
 #define ARC600_STR	"arc600"
 #define ARC700_STR	"arc700"
 
+typedef uint32_t arc32_address_t;
+
 /* ARC core ARCompatISA register set */
 enum arc32_isa_mode {
 	ARC32_ISA_ARC32 = 0,
@@ -89,6 +91,14 @@ struct arc32_common {
 	bool gdb_compatibility_mode;
 	/* Store values of BCR permanently. */
 	struct bcr_set_t bcr_set;
+
+	/* CCM memory regions (optional). */
+	arc32_address_t iccm0_start;
+	arc32_address_t iccm0_end;
+	arc32_address_t iccm1_start;
+	arc32_address_t iccm1_end;
+	arc32_address_t dccm_start;
+	arc32_address_t dccm_end;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */
@@ -159,5 +169,7 @@ int arc32_write_instruction_u32(struct target *target, uint32_t address,
 		uint32_t instr);
 int arc32_read_instruction_u32(struct target *target, uint32_t address,
 		uint32_t *value);
+
+int arc32_configure(struct target *target);
 
 #endif /* ARC32_H */
