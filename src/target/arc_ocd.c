@@ -190,6 +190,10 @@ int arc_ocd_examine(struct target *target)
 			target->state = TARGET_RESET; /* means HALTED after restart */
 		}
 
+		/* Read BCRs and configure optinal registers. */
+		CHECK_RETVAL(arc_regs_read_bcrs(target));
+		arc_regs_build_reg_list(target);
+
 		target_set_examined(target);
 	}
 

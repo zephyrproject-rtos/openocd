@@ -84,9 +84,6 @@ struct arc32_common {
 	 * halted. */
 	bool cache_invalidated;
 
-	/* If BCRs have been read and and optioanl registers have been proeprly
-	 * assigned whether they exist or not. */
-	bool bcr_init;
 	/* Whether to support old ARC GDB that doesn't understand XML target
 	 * descriptions. */
 	bool gdb_compatibility_mode;
