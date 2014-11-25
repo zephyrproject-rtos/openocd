@@ -55,7 +55,6 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->has_dcache = true;
 	arc32_reset_caches_states(target);
 
-	arc32->bcr_init = false;
 	arc32->gdb_compatibility_mode = true;
 
 	return ERROR_OK;
@@ -76,9 +75,6 @@ int arc32_save_context(struct target *target)
 
 	LOG_DEBUG("-");
 	assert(reg_list);
-
-	if (!arc32->bcr_init)
-		arc_regs_read_bcrs(target);
 
 	/* It is assumed that there is at least one AUX register in the list, for
 	 * example PC. */
@@ -198,11 +194,6 @@ int arc32_restore_context(struct target *target)
 
 	LOG_DEBUG("-");
 	assert(reg_list);
-
-	if (!arc32->bcr_init) {
-		LOG_ERROR("Attempt to restore context before saving it first.");
-		return ERROR_FAIL;
-	}
 
 	/* It is assumed that there is at least one AUX register in the list. */
 	const uint32_t core_regs_size = ARC_REG_AFTER_CORE_EXT * sizeof(uint32_t);
