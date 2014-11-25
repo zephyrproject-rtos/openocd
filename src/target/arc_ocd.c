@@ -153,6 +153,7 @@ int arc_ocd_examine(struct target *target)
 	uint32_t value, status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	LOG_DEBUG("-");
 	CHECK_RETVAL(arc_jtag_startup(&arc32->jtag_info));
 
 	if (!target_was_examined(target)) {
@@ -193,6 +194,7 @@ int arc_ocd_examine(struct target *target)
 		/* Read BCRs and configure optinal registers. */
 		CHECK_RETVAL(arc_regs_read_bcrs(target));
 		arc_regs_build_reg_list(target);
+		CHECK_RETVAL(arc32_configure(target));
 
 		target_set_examined(target);
 	}

@@ -535,3 +535,61 @@ int arc32_read_instruction_u32(struct target *target, uint32_t address,
     return ERROR_OK;
 }
 
+
+/* Configure some core features, depending on BCRs. */
+int arc32_configure(struct target *target)
+{
+	LOG_DEBUG("-");
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct bcr_set_t *bcrs = &(arc32->bcr_set);
+
+	/* DCCM */
+	if (bcrs->dccm_build.version >= 3 && bcrs->dccm_build.size0 > 0) {
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DCCM, &(arc32->dccm_start)));
+		arc32_address_t dccm_size = 0x100;
+		dccm_size <<= bcrs->dccm_build.size0;
+		if (bcrs->dccm_build.size0 == 0xF)
+			dccm_size <<= bcrs->dccm_build.size1;
+		arc32->dccm_end = arc32->dccm_start + dccm_size;
+		LOG_DEBUG("DCCM detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->dccm_start, arc32->dccm_end);
+	} else {
+		arc32->dccm_start = 0;
+		arc32->dccm_end = 0;
+	}
+
+	/* ICCM0 */
+	arc32_address_t aux_iccm = 0;
+	if (bcrs->iccm_build.version >= 4 && bcrs->iccm_build.iccm0_size0 > 0) {
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_ICCM, &aux_iccm));
+		arc32_address_t iccm0_size = 0x100;
+		iccm0_size <<= bcrs->iccm_build.iccm0_size0;
+		if (bcrs->iccm_build.iccm0_size0 == 0xF)
+			iccm0_size <<= bcrs->iccm_build.iccm0_size1;
+		arc32->iccm0_start = aux_iccm & (0xF0000000 >> (32 - arc_regs_addr_size_bits(bcrs)));
+		arc32->iccm0_end = arc32->iccm0_start + iccm0_size;
+		LOG_DEBUG("ICCM0 detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->iccm0_start, arc32->iccm0_end);
+	} else {
+		arc32->iccm0_start = 0;
+		arc32->iccm0_end = 0;
+	}
+
+	/* ICCM1 */
+	if (bcrs->iccm_build.version >= 4 && bcrs->iccm_build.iccm1_size0 > 0) {
+		/* Use value read for ICCM0 */
+		if (!aux_iccm)
+			CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_ICCM, &aux_iccm));
+		arc32_address_t iccm1_size = 0x100;
+		iccm1_size <<= bcrs->iccm_build.iccm1_size0;
+		if (bcrs->iccm_build.iccm1_size0 == 0xF)
+			iccm1_size <<= bcrs->iccm_build.iccm1_size1;
+		arc32->iccm1_start = aux_iccm & (0x0F000000 >> (32 - arc_regs_addr_size_bits(bcrs)));
+		arc32->iccm1_end = arc32->iccm1_start + iccm1_size;
+		LOG_DEBUG("ICCM1 detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->iccm1_start, arc32->iccm1_end);
+	} else {
+		arc32->iccm1_start = 0;
+		arc32->iccm1_end = 0;
+	}
+
+	return ERROR_OK;
+}
+

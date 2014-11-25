@@ -66,6 +66,8 @@
 #define AUX_IC_IVIC_REG			0X10
 #define IC_IVIC_INVALIDATE		0XFFFFFFFF
 
+#define AUX_DCCM			0x18
+
 #define AUX_COUNT0_REG			0x21
 #define AUX_CONTROL0_REG		0x22
 #define AUX_LIMIT0_REG			0x23
@@ -83,6 +85,7 @@
 #define AUX_LIMIT1_REG			0x102
 #define AUX_IRQ_LEV_REG			0x200
 #define AUX_IRQ_HINT_REG		0x201
+#define AUX_ICCM			0x208
 #define AUX_ERET_REG			0x400
 #define AUX_ERBTA_REG			0x401
 #define AUX_ERSTATUS_REG		0x402
@@ -438,7 +441,8 @@ struct bcr_set_t {
 		uint32_t raw;
 		struct {
 			uint8_t version : 8;
-			uint8_t size    : 4;
+			uint8_t size0   : 4;
+			uint8_t size1   : 4;
 		};
 	} dccm_build;
 
@@ -477,9 +481,11 @@ struct bcr_set_t {
 	union {
 		uint32_t raw;
 		struct {
-			uint8_t version    : 8;
-			uint8_t iccm0_size : 4;
-			uint8_t iccm1_size : 4;
+			uint8_t version     : 8;
+			uint8_t iccm0_size0 : 4;
+			uint8_t iccm1_size0 : 4;
+			uint8_t iccm0_size1 : 4;
+			uint8_t iccm1_size1 : 4;
 		};
 	} iccm_build;
 
@@ -598,5 +604,26 @@ int arc_regs_read_bcrs(struct target *target);
 void arc_regs_build_reg_list(struct target *target);
 int arc_regs_print_core_registers(struct target *target);
 int arc_regs_print_aux_registers(struct arc_jtag *jtag_info);
+
+static inline unsigned int arc_regs_addr_size_bits(struct bcr_set_t *bcrs)
+{
+	assert(bcrs);
+	switch (bcrs->isa_config.addr_size) {
+	    case 0:
+		return 16;
+	    case 1:
+		return 20;
+	    case 2:
+		return 24;
+	    case 3:
+		return 28;
+	    case 4:
+		return 32;
+	    default:
+		LOG_ERROR("isa_config.addr_size value %i is invalid.", bcrs->isa_config.addr_size);
+		assert(false);
+		return 32;
+	}
+}
 
 #endif /* ARC_REGS_H */
