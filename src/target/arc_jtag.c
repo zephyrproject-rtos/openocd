@@ -188,7 +188,7 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 {
 	unsigned int i;
 
-	LOG_DEBUG("Writing to %s registers: addr[0]=0x%" PRIu32 ";count=%" PRIu32
+	LOG_DEBUG("Writing to %s registers: addr[0]=0x%" PRIx32 ";count=%" PRIu32
 			  ";buffer[0]=0x%08" PRIx32,
 		(type == ARC_JTAG_CORE_REG ? "core" : "aux"), *addr, count, *buffer);
 
