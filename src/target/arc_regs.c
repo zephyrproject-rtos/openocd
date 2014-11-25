@@ -250,9 +250,6 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	if (regnum >= ARC_TOTAL_NUM_REGS)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	if (!arc32->bcr_init)
-		arc_regs_read_bcrs(target);
-
 	if (reg->valid) {
 		LOG_DEBUG("Get register (cached) regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
 				regnum, arc_reg->desc->name, arc_reg->value);
@@ -291,9 +288,6 @@ static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 	if (regnum >= ARC_TOTAL_NUM_REGS)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 
-	if (!arc32->bcr_init)
-		arc_regs_read_bcrs(target);
-
 	if (arc_reg->desc->readonly) {
 		LOG_ERROR("Cannot set value to a read-only register %s.", arc_reg->desc->name);
 		return ERROR_FAIL;
@@ -323,20 +317,7 @@ int arc_regs_read_bcrs(struct target *target)
 {
 	LOG_DEBUG("-");
 
-	int retval = ERROR_OK;
 	struct arc32_common *arc32 = target_to_arc32(target);
-	struct reg *reg_list = arc32->core_cache->reg_list;
-
-	/* BCRs never change. No need to execute this function multiple times. */
-	if (arc32->bcr_init)
-		return retval;
-
-	/* Don't read BCR's in compatibility mode. */
-	if (arc32->gdb_compatibility_mode) {
-		arc32->bcr_init = true;
-		return retval;
-	}
-
 	uint32_t numregs = ARC_REG_AFTER_BCR - ARC_REG_FIRST_BCR;
 	uint32_t *addrs = calloc(numregs, sizeof(uint32_t));
 	uint32_t *values = calloc(numregs, sizeof(uint32_t));
@@ -344,12 +325,12 @@ int arc_regs_read_bcrs(struct target *target)
 	for (unsigned i = ARC_REG_FIRST_BCR; i < ARC_REG_AFTER_BCR; i++) {
 		addrs[i - ARC_REG_FIRST_BCR]  = arc32_regs_descriptions[i].addr;
 	}
-	retval = arc_jtag_read_aux_reg(&arc32->jtag_info, addrs, numregs, values);
-	if (ERROR_OK != retval) {
+	int jtag_retval = arc_jtag_read_aux_reg(&arc32->jtag_info, addrs, numregs, values);
+	if (ERROR_OK != jtag_retval) {
 		LOG_ERROR("Error reading BCR registers from target.");
 		free(addrs);
 		free(values);
-		return retval;
+		return jtag_retval;
 	}
 
 	struct bcr_set_t *bcrs = &(arc32->bcr_set);
@@ -379,6 +360,22 @@ int arc_regs_read_bcrs(struct target *target)
 
 	free(addrs);
 	free(values);
+
+	return ERROR_OK;
+}
+
+/** Configure optional registers, depending on BCR values. */
+void arc_regs_build_reg_list(struct target *target)
+{
+	LOG_DEBUG("-");
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct reg *reg_list = arc32->core_cache->reg_list;
+	struct bcr_set_t *bcrs = &(arc32->bcr_set);
+
+	if (arc32->gdb_compatibility_mode) {
+		return;
+	}
 
 	/* Enable baseline registers which are always present. */
 	reg_list[ARC_REG_IDENTITY].exist = true;
@@ -550,11 +547,6 @@ int arc_regs_read_bcrs(struct target *target)
 				break;
 		}
 	}
-
-	/* Ensure that this function will not be called in the future. */
-	arc32->bcr_init = true;
-
-	return retval;
 }
 
 struct reg_cache *arc_regs_build_reg_cache(struct target *target)

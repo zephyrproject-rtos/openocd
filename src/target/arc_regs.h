@@ -595,6 +595,7 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size, enum target_register_class reg_class);
 
 int arc_regs_read_bcrs(struct target *target);
+void arc_regs_build_reg_list(struct target *target);
 int arc_regs_print_core_registers(struct target *target);
 int arc_regs_print_aux_registers(struct arc_jtag *jtag_info);
 
