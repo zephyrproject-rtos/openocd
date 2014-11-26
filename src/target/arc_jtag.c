@@ -33,6 +33,26 @@ typedef enum arc_jtag_reg_type {
 	ARC_JTAG_AUX_REG
 } reg_type_t;
 
+/* Declare functions */
+static void arc_jtag_write_ir(struct arc_jtag *jtag_info, uint32_t
+	new_instr);
+static void arc_jtag_set_transaction(struct arc_jtag *jtag_info,
+	arc_jtag_transaction_t new_trans, tap_state_t end_state);
+static void arc_jtag_read_dr(struct arc_jtag *jtag_info, uint8_t *data,
+	tap_state_t end_state);
+static void arc_jtag_write_dr(struct arc_jtag *jtag_info, uint32_t data,
+	tap_state_t end_state);
+static void arc_jtag_reset_transaction(struct arc_jtag *jtag_info);
+static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
+	uint32_t *addr, uint32_t count, const uint32_t *buffer);
+static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
+	uint32_t *addr, uint32_t count, uint32_t *buffer);
+static void arc_jtag_enque_status_read(struct arc_jtag * const jtag_info,
+	uint8_t * const buffer);
+static const char * arc_jtag_decode_status(const uint32_t jtag_status);
+static int arc_wait_until_jtag_ready(struct arc_jtag * const jtag_info);
+
+
 /**
  * This functions sets instruction register in TAP. TAP end state is always
  * IRPAUSE.
@@ -195,6 +215,9 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	if (count == 0)
 		return ERROR_OK;
 
+	if (jtag_info->always_check_status_rd)
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
+
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* What registers are we writing to? */
@@ -249,6 +272,9 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 
 	if (count == 0)
 		return ERROR_OK;
+
+	if (jtag_info->always_check_status_rd)
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
 
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -447,6 +473,9 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	if (count == 0)
 		return ERROR_OK;
 
+	if (jtag_info->always_check_status_rd)
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
+
 	/* We do not know where we come from. */
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -501,7 +530,7 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 		return ERROR_OK;
 
 	/* Workaround problems in STAR 9000830091 */
-	if (slow_memory)
+	if (slow_memory || jtag_info->always_check_status_rd)
 		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
 
 	arc_jtag_reset_transaction(jtag_info);
