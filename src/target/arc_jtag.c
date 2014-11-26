@@ -52,6 +52,17 @@ static void arc_jtag_enque_status_read(struct arc_jtag * const jtag_info,
 static const char * arc_jtag_decode_status(const uint32_t jtag_status);
 static int arc_wait_until_jtag_ready(struct arc_jtag * const jtag_info);
 
+/* Helper macro */
+#define CHECK_STATUS_FL(jtag_info, buf) \
+	if (jtag_info->check_status_fl) { \
+		uint32_t status = buf_get_u32(buf, 0, 32); \
+		if (status & ARC_JTAG_STAT_FL) { \
+		    LOG_ERROR("JTAG operation failed. STATUS.FL bit is set: %s", \
+			    arc_jtag_decode_status(status)); \
+		    return ERROR_FAIL; \
+		} \
+	} \
+
 
 /**
  * This functions sets instruction register in TAP. TAP end state is always
@@ -86,7 +97,7 @@ static void arc_jtag_write_ir(struct arc_jtag *jtag_info, uint32_t
 
 	/* From code in src/jtag/drivers/driver.c it look like that fields are
 	 * copied so it is OK that field in this function is allocated in stack and
-	 * thus this memory will be repurposed before jtag_queue_execute() will be
+	 * thus this memory will be repurposed before jtag_execute_queue() will be
 	 * invoked. */
 	jtag_add_ir_scan(tap, &field, jtag_info->tap_end_state);
 }
@@ -135,10 +146,10 @@ static void arc_jtag_set_transaction(struct arc_jtag *jtag_info,
  *
  * Unlike arc_jtag_write_data, this function returns byte-buffer, caller must
  * convert this data to required format himself. This is done, because it is
- * impossible to convert data before jtag_queue_execute() is invoked, so it
+ * impossible to convert data before jtag_execute_queue() is invoked, so it
  * cannot be done inside this function, so it has to operate with
  * byte-buffers. Write function on the other hand can "write-and-forget", data
- * is converted to byte-buffer before jtag_queue_execute().
+ * is converted to byte-buffer before jtag_execute_queue().
  *
  * @param jtag_info
  * @param data		Array of bytes to read into.
@@ -239,11 +250,16 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 		arc_jtag_write_dr(jtag_info, *(buffer + i), TAP_IDLE);
 	}
 
+	uint8_t status_buf[4];
+	if (jtag_info->check_status_fl)
+		arc_jtag_enque_status_read(jtag_info, status_buf);
+
 	/* Cleanup. */
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Execute queue. */
 	CHECK_RETVAL(jtag_execute_queue());
+	CHECK_STATUS_FL(jtag_info, status_buf);
 
 	return ERROR_OK;
 }
@@ -299,6 +315,10 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
 	}
 
+	uint8_t status_buf[4];
+	if (jtag_info->check_status_fl)
+		arc_jtag_enque_status_read(jtag_info, status_buf);
+
 	/* Clean up */
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -311,6 +331,9 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	free(data_buf);
 	free(fields);
 	LOG_DEBUG("Read from register: buf[0]=0x%" PRIx32, buffer[0]);
+
+	/* Check only after allocated memory is freed. */
+	CHECK_STATUS_FL(jtag_info, status_buf);
 
 	return ERROR_OK;
 }
@@ -385,8 +408,16 @@ static int arc_wait_until_jtag_ready(struct arc_jtag * const jtag_info)
 
 int arc_jtag_startup(struct arc_jtag *jtag_info)
 {
+	assert(jtag_info);
+	uint8_t status_buf[4];
+
 	arc_jtag_reset_transaction(jtag_info);
+	if (jtag_info->check_status_fl)
+		arc_jtag_enque_status_read(jtag_info, status_buf);
+
 	CHECK_RETVAL(jtag_execute_queue());
+	CHECK_STATUS_FL(jtag_info, status_buf);
+
 	return ERROR_OK;
 }
 
@@ -493,11 +524,16 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 		arc_jtag_write_dr(jtag_info, *(buffer + i), TAP_IDLE);
 	}
 
+	uint8_t status_buf[4];
+	if (jtag_info->check_status_fl)
+		arc_jtag_enque_status_read(jtag_info, status_buf);
+
 	/* Cleanup. */
 	arc_jtag_reset_transaction(jtag_info);
 
 	/* Run queue. */
 	CHECK_RETVAL(jtag_execute_queue());
+	CHECK_STATUS_FL(jtag_info, status_buf);
 
 	return ERROR_OK;
 }
@@ -560,6 +596,10 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
 	}
 
+	uint8_t status_buf[4];
+	if (jtag_info->check_status_fl)
+		arc_jtag_enque_status_read(jtag_info, status_buf);
+
 	/* Clean up */
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -571,6 +611,8 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	}
 
 	free(data_buf);
+
+	CHECK_STATUS_FL(jtag_info, status_buf);
 
 	return ERROR_OK;
 }
