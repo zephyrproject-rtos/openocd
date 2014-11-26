@@ -143,6 +143,9 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			if (current_instr == ARC32_SDBBP) {
 				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
 					breakpoint->length, breakpoint->orig_instr));
+			} else {
+				LOG_WARNING("Software breakpoint @%" PRIx32
+					" has been overwritten outside of debugger.", breakpoint->address);
 			}
 		} else {
 			uint16_t current_instr;
@@ -154,6 +157,9 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			if (current_instr == ARC16_SDBBP) {
 				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
 					breakpoint->length, breakpoint->orig_instr));
+			} else {
+				LOG_WARNING("Software breakpoint @%" PRIx32
+					" has been overwritten outside of debugger.", breakpoint->address);
 			}
 		}
 	}
