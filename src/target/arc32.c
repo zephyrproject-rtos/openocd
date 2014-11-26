@@ -45,6 +45,7 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->jtag_info.tap = tap;
 	arc32->jtag_info.scann_size = 4;
 	arc32->jtag_info.always_check_status_rd = false;
+	arc32->jtag_info.check_status_fl = false;
 
 	/* has breakpoint/watchpoint unit been scanned */
 	arc32->bp_scanned = 0;

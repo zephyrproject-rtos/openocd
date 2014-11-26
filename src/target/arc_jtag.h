@@ -73,6 +73,7 @@ struct arc_jtag {
 
 	int fast_access_save;
 	bool always_check_status_rd;
+	bool check_status_fl;
 };
 
 /* ----- Exported JTAG functions ------------------------------------------- */
