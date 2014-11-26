@@ -167,7 +167,7 @@ int arc32_save_context(struct target *target)
 			buf_set_u32(reg->value, 0, 32, arc_reg->value);
 			reg->valid = true;
 			reg->dirty = false;
-			LOG_DEBUG("Get aux register regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
+			LOG_DEBUG("Get aux register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
 				i , arc_reg->desc->name, arc_reg->value);
 		}
 	}
