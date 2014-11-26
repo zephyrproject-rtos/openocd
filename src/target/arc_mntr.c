@@ -311,6 +311,30 @@ COMMAND_HANDLER(arc_handle_gdb_compatibility_mode)
 		&arc32->gdb_compatibility_mode, "GDB compatibility mode");
 }
 
+/* JTAG layer commands */
+COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->jtag_info.always_check_status_rd, "Always check JTAG Status RD bit");
+
+}
+
+static const struct command_registration arc_jtag_command_group[] = {
+	{
+		.name = "always-check-status-rd",
+		.handler = arc_cmd_handle_jtag_check_status_rd,
+		.mode = COMMAND_ANY,
+		.usage = "on|off",
+		.help = "If true we will check for JTAG status register and " \
+			"whether 'ready' bit is set each time before doing any " \
+			"JTAG operations. By default that is off.",
+	},
+
+	COMMAND_REGISTRATION_DONE
+};
+
 /* ----- Exported target commands ------------------------------------------ */
 
 static const struct command_registration arc_core_command_handlers[] = {
@@ -392,6 +416,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.help = "GDB compatibility mode: if true OpenOCD will use register "\
 			"specification compatible with old GDB for ARC that doesn't support "\
 			"XML target descriptions.",
+	},
+	{
+		.name = "jtag",
+		.mode = COMMAND_ANY,
+		.help = "ARC JTAG specific commands",
+		.usage = "",
+		.chain = arc_jtag_command_group,
 	},
 	COMMAND_REGISTRATION_DONE
 };
