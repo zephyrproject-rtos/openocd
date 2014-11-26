@@ -27,6 +27,16 @@
 #include "arc.h"
 
 /* ----- Supporting functions ---------------------------------------------- */
+static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
+	int size, int count)
+{
+	uint32_t addr_end = addr + size * count;
+	assert(addr_end >= addr);
+
+	return	!((addr >= arc32->dccm_start && addr_end < arc32->dccm_end) ||
+		(addr >= arc32->iccm0_start && addr_end < arc32->iccm0_end) ||
+		(addr >= arc32->iccm1_start && addr_end < arc32->iccm1_end));
+}
 
 static int arc_mem_read_block(struct target *target, uint32_t addr,
 	int size, int count, void *buf)
@@ -38,10 +48,13 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 	assert(!(addr & 3));
 	assert(size == 4);
 
+	/* Is this a slow memory (DDR) or fast (CCM)? */
+
 	/* Always call D$ flush, it will decide whether to perform actual
 	 * flush. */
 	CHECK_RETVAL(arc32_dcache_flush(target));
-	CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf));
+	CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf,
+		    arc_mem_is_slow_memory(arc32, addr, size, count)));
 
 	return ERROR_OK;
 }
@@ -58,7 +71,6 @@ static int arc_mem_write_block32(struct target *target, uint32_t addr, int count
 
 	/* No need to flush cache, because we don't read values from memory. */
 	CHECK_RETVAL(arc_jtag_write_memory( &arc32->jtag_info, addr, count, (uint32_t *)buf));
-
 	/* Invalidate caches. */
 	CHECK_RETVAL(arc32_cache_invalidate(target));
 
@@ -98,8 +110,11 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 		 *   4) convert back to host endianness
 		 *   5) write word back to target.
 		 */
+		bool is_slow_memory = arc_mem_is_slow_memory(arc32,
+			(addr + i * sizeof(uint16_t)) & ~3u, 4, 1);
 		CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info,
-				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he));
+				(addr + i * sizeof(uint16_t)) & ~3u, 1, &buffer_he,
+				is_slow_memory));
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		/* buf is in host endianness, convert to target */
 		target_buffer_set_u16(target, halfword_te, ((uint16_t *)buf)[i]);
@@ -135,7 +150,8 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
 		/* See comment in arc_mem_write_block16 for details. Since it is a byte
 		 * there is not need to convert write buffer to target endianness, but
 		 * we still have to convert read buffer. */
-		CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he));
+		CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, (addr + i) & ~3, 1, &buffer_he,
+			    arc_mem_is_slow_memory(arc32, (addr + i) & ~3, 4, 1)));
 		target_buffer_set_u32(target, buffer_te, buffer_he);
 		memcpy(buffer_te  + ((addr + i) & 3), (uint8_t*)buf + i, 1);
 		buffer_he = target_buffer_get_u32(target, buffer_te);
