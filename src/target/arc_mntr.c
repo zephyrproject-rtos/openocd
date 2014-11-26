@@ -321,6 +321,15 @@ COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
 
 }
 
+COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_fl)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->jtag_info.check_status_fl, "Check JTAG Status FL bit after transaction");
+
+}
+
 static const struct command_registration arc_jtag_command_group[] = {
 	{
 		.name = "always-check-status-rd",
@@ -331,7 +340,15 @@ static const struct command_registration arc_jtag_command_group[] = {
 			"whether 'ready' bit is set each time before doing any " \
 			"JTAG operations. By default that is off.",
 	},
-
+	{
+		.name = "check-status-fl",
+		.handler = arc_cmd_handle_jtag_check_status_fl,
+		.mode = COMMAND_ANY,
+		.usage = "on|off",
+		.help = "If true we will check for JTAG status FL bit after all JTAG " \
+			 "transaction. This is disabled by default because it is " \
+			 "known to break JTAG module in the core.",
+	},
 	COMMAND_REGISTRATION_DONE
 };
 
