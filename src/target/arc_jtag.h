@@ -72,6 +72,7 @@ struct arc_jtag {
 	uint32_t dpc; /* Debug PC value */
 
 	int fast_access_save;
+	bool always_check_status_rd;
 };
 
 /* ----- Exported JTAG functions ------------------------------------------- */
