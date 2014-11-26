@@ -12,6 +12,7 @@ Content:
 7. Find your way in the source code
 8. Digilent cable installation instructions
 9. How to program a bit-file into FPGA with the Digilent HS cable
+10. Running internal testsuite
 
 Important notes:
 
@@ -370,3 +371,13 @@ JTAG scan chain.
     > djtgcfg -d JtagHs2 prog -i 4 -f <fpga bit file to progam>.bit
     Programming device. Do not touch your board. This may take a few minutes...
     Programming succeeded.
+
+10. Running internal testsuite
+------------------------------
+
+There is a set of internal test for ARC and OpenOCD (consisting of just a
+single test at the moment of this writing, though...). This testsuite aim is to
+catch some issues with OpenOCD, JTAG or hardware. To run test suite: source
+`tcl/test/arc.cfg` then run arc_test_run_all procedure, or run tests
+individually.
+
