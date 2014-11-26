@@ -232,7 +232,7 @@ COMMAND_HANDLER(handle_read_mem_word_command)
 		if (CMD_ARGC >= 1) {
 			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
 			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
-			CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, mem_addr, 1, &value));
+			CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, mem_addr, 1, &value, true));
 			LOG_ERROR("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
 		} else
 			LOG_ERROR(" > missing memory address to read.");

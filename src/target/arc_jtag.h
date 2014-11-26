@@ -84,7 +84,7 @@ int arc_jtag_idcode(struct arc_jtag *const jtag_info, uint32_t *const value);
 int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	uint32_t count, const uint32_t *buffer);
 int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t count, uint32_t *buffer);
+	uint32_t count, uint32_t *buffer, bool slow_memory);
 
 int arc_jtag_write_core_reg(struct arc_jtag *jtag_info, uint32_t *addr,
 	uint32_t count, const uint32_t *buffer);

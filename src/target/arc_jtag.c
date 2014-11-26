@@ -420,14 +420,16 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
  * @param addr		Address of first word to read from.
  * @param count		Amount of words to read.
  * @param buffer	Array of words to read into.
+ * @param slow_memory	Whether this is a slow memory (DDR) or fast (CCM).
  */
 int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
-	uint32_t count, uint32_t *buffer )
+	uint32_t count, uint32_t *buffer, bool slow_memory)
 {
 	assert(jtag_info != NULL);
 	assert(jtag_info->tap != NULL);
 
-	LOG_DEBUG("Reading memory: addr=0x%" PRIx32 ";count=%" PRIu32, addr, count);
+	LOG_DEBUG("Reading memory: addr=0x%" PRIx32 ";count=%" PRIu32 ";slow=%c",
+		addr, count, slow_memory?'Y':'N');
 
 	if (count == 0)
 		return ERROR_OK;
@@ -437,15 +439,25 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	/* We are reading from memory. */
 	arc_jtag_set_transaction(jtag_info, ARC_JTAG_READ_FROM_MEMORY, TAP_DRPAUSE);
 
-	/* Set address of the first word */
-	arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
-	arc_jtag_write_dr(jtag_info, addr, TAP_IDLE);
-
 	/* Read data */
-	arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
 	uint8_t *data_buf = calloc(sizeof(uint8_t), count * 4);
 	uint32_t i;
 	for (i = 0; i < count; i++) {
+		/* When several words are read at consequent addresses we can
+		 * rely on ARC JTAG auto-incrementing address. That means that
+		 * address can be set only once, for a first word. However it
+		 * has been noted that at least in some cases when reading from
+		 * DDR, JTAG returns 0 instead of a real value. To workaround
+		 * this issue we need to do totally non-required address
+		 * writes, which however resolve a problem by introducing
+		 * delay. See STAR 9000832538... */
+		if (slow_memory || i == 0) {
+		    /* Set address */
+		    arc_jtag_write_ir(jtag_info, ARC_ADDRESS_REG);
+		    arc_jtag_write_dr(jtag_info, addr + i * 4, TAP_IDLE);
+
+		    arc_jtag_write_ir(jtag_info, ARC_DATA_REG);
+		}
 		arc_jtag_read_dr(jtag_info, data_buf + i * 4, TAP_IDLE);
 	}
 
