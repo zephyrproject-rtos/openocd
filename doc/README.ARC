@@ -261,13 +261,23 @@ for ftdi/libusb combination.
 With the GDB "monitor" command, you have "direct" access to the core without
 any interference from GDB anymore! With other words, GDB has no notion of
 changes in core state when using the so called  monitor commands (but it is
-very powerful). In GDB, connect to the OpenOCD target and type following command to get a list of available monitor commands:
+very powerful). In GDB, connect to the OpenOCD target and type following
+command to get a list of available monitor commands:
 
     (gdb) monitor help
 
 To get a list of some ARC-specific commands, run:
 
     (gdb) monitor help arc
+
+Those are actually internal OpenOCD commands which are also available in
+configuration scripts and can be passed in OpeOCD command line with `-c ...`
+options. Those command allow to enabled some extra features of OpenOCD
+(disabled by default for one or another reason) or perform some low-level
+actions bypassing GDB or even OpenOCD. For example it is possible to write/read
+core and aux registers. However some command for register access will be
+removed in future, when ARC OpenOCD will fully support flexible register
+configurations.
 
 
 6. Some useful ARC development commands
