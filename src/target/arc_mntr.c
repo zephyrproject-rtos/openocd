@@ -33,62 +33,10 @@
  *
  * ------------------------------------------------------------------------- */
 
-COMMAND_HANDLER(handle_set_pc_command)
-{
-	uint32_t value;
-
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
-			CMD_NAME);
-		return ERROR_OK;
-	}
-
-	if (head == (struct target_list *)NULL) {
-
-		if (CMD_ARGC >= 1) {
-			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], value);
-			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value));
-			LOG_INFO("Core PC @: 0x%08" PRIx32, value);
-		} else
-			LOG_ERROR(" > missing address to set.");
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(handle_set_core_into_halted_command)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
-			CMD_NAME);
-		return ERROR_OK;
-	}
-
-	if (head == (struct target_list *)NULL) {
-		uint32_t value;
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
-		value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
-		CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value));
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return ERROR_OK;
-}
-
+/* TODO Use generic "reg" command to access registers where possible. This
+ * command is deprecated and is left only to access extension registers. After
+ * we will support flexible target configuration this command shall be removed.
+ * */
 COMMAND_HANDLER(handle_read_core_reg_command)
 {
 	uint32_t reg_nbr, value;
@@ -120,6 +68,10 @@ COMMAND_HANDLER(handle_read_core_reg_command)
 	return ERROR_OK;
 }
 
+/* TODO Use generic "reg" command to access registers where possible. This
+ * command is deprecated and is left only to access extension registers. After
+ * we will support flexible target configuration this command shall be removed.
+ * */
 COMMAND_HANDLER(handle_write_core_reg_command)
 {
 	uint32_t reg_nbr, value;
@@ -153,6 +105,10 @@ COMMAND_HANDLER(handle_write_core_reg_command)
 	return ERROR_OK;
 }
 
+/* TODO Use generic "reg" command to access registers where possible. This
+ * command is deprecated and is left only to access extension registers. After
+ * we will support flexible target configuration this command shall be removed.
+ * */
 COMMAND_HANDLER(handle_read_aux_reg_command)
 {
 	uint32_t reg_nbr, value;
@@ -184,6 +140,10 @@ COMMAND_HANDLER(handle_read_aux_reg_command)
 	return ERROR_OK;
 }
 
+/* TODO Use generic "reg" command to access registers where possible. This
+ * command is deprecated and is left only to access extension registers. After
+ * we will support flexible target configuration this command shall be removed.
+ * */
 COMMAND_HANDLER(handle_write_aux_reg_command)
 {
 	uint32_t reg_nbr, value;
@@ -211,84 +171,6 @@ COMMAND_HANDLER(handle_write_aux_reg_command)
 			LOG_DEBUG("AUX reg: 0x%x contains: 0x%x", reg_nbr, value);
 		} else
 			LOG_ERROR(" > missing reg nbr or value to write.");
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(handle_read_mem_word_command)
-{
-	uint32_t mem_addr, value;
-
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (head == (struct target_list *)NULL) {
-
-		if (CMD_ARGC >= 1) {
-			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
-			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
-			CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, mem_addr, 1, &value, true));
-			LOG_ERROR("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
-		} else
-			LOG_ERROR(" > missing memory address to read.");
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(handle_write_mem_word_command)
-{
-	uint32_t mem_addr, value;
-
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (head == (struct target_list *)NULL) {
-
-		if (CMD_ARGC >= 2) {
-			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mem_addr);
-			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, mem_addr);
-			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], value);
-			LOG_DEBUG("CMD_ARGC:%u  CMD_ARGV: 0x%08" PRIx32, CMD_ARGC, value);
-			CHECK_RETVAL(arc_jtag_write_memory(&arc32->jtag_info, mem_addr, 1, &value));
-			LOG_DEBUG("mem addr: 0x%08" PRIx32 " contains: 0x%08" PRIx32, mem_addr, value);
-		} else
-			LOG_ERROR(" > missing memory address or value to write.");
-	} else
-		LOG_ERROR(" > head list is not NULL !");
-
-	return ERROR_OK;
-}
-
-COMMAND_HANDLER(handle_print_core_status_command)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	struct target_list *head;
-	head = target->head;
-
-	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
-			CMD_NAME);
-		return ERROR_OK;
-	}
-
-	if (head == (struct target_list *)NULL) {
-		uint32_t value;
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
-		LOG_INFO(" AUX REG    [DEBUG]: 0x%08" PRIx32, value);
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
-		LOG_INFO("         [STATUS32]: 0x%08" PRIx32, value);
 	} else
 		LOG_ERROR(" > head list is not NULL !");
 
@@ -356,20 +238,6 @@ static const struct command_registration arc_jtag_command_group[] = {
 
 static const struct command_registration arc_core_command_handlers[] = {
 	{
-		.name = "set-pc",
-		.handler = handle_set_pc_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has one argument: <value>",
-		.help = "modify the ARC core program counter (PC) register",
-	},
-	{
-		.name = "set-core-into-halted",
-		.handler = handle_set_core_into_halted_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has no arguments",
-		.help = "set the ARC core into HALTED state",
-	},
-	{
 		.name = "read-core-reg",
 		.handler = handle_read_core_reg_command,
 		.mode = COMMAND_EXEC,
@@ -396,27 +264,6 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has two argument: <reg-nbr> <value to write>",
 		.help = "write value to a particular aux registers",
-	},
-	{
-		.name = "read-mem-word",
-		.handler = handle_read_mem_word_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has one argument: <mem-addr>",
-		.help = "list the content (1 word) of a particular memory location",
-	},
-	{
-		.name = "write-mem-word",
-		.handler = handle_write_mem_word_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has two argument: <mem-addr> <value to write>",
-		.help = "write value (1 word) to a particular memory location",
-	},
-	{
-		.name = "print-core-status",
-		.handler = handle_print_core_status_command,
-		.mode = COMMAND_EXEC,
-		.usage = "has no arguments",
-		.help = "list the content of core aux debug & status32 register",
 	},
 	{
 		.name = "has-dcache",
