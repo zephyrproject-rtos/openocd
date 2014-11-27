@@ -50,7 +50,8 @@ struct target_type arc32_target = {
 	.assert_reset = arc_ocd_assert_reset,
 	.deassert_reset = arc_ocd_deassert_reset,
 
-	.soft_reset_halt = arc_core_soft_reset_halt,
+	/* TODO Implement soft_reset_halt */
+	.soft_reset_halt = NULL,
 
 	.get_gdb_reg_list = arc_regs_get_gdb_reg_list,
 
