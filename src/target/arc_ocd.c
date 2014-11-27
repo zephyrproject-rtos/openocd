@@ -175,7 +175,21 @@ int arc_ocd_examine(struct target *target)
 		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
 
 		/* read ARC core info */
-		arc_core_type_info(target);
+		if (strncmp(target_name(target), ARCEM_STR, 6) == 0) {
+			arc32->processor_type = ARCEM_NUM;
+			LOG_USER("Processor type: %s", ARCEM_STR);
+
+		} else if (strncmp(target_name(target), ARC600_STR, 6) == 0) {
+			arc32->processor_type = ARC600_NUM;
+			LOG_USER("Processor type: %s", ARC600_STR);
+
+		} else if (strncmp(target_name(target), ARC700_STR, 6) == 0) {
+			arc32->processor_type = ARC700_NUM;
+			LOG_USER("Processor type: %s", ARC700_STR);
+
+		} else {
+			LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
+		}
 
 		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
 		LOG_DEBUG("CPU ID: 0x%08" PRIx32, value);
