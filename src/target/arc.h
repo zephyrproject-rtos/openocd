@@ -34,7 +34,6 @@
 #include "target_type.h"
 
 #include "arc32.h"
-#include "arc_core.h"
 #include "arc_dbg.h"
 #include "arc_jtag.h"
 #include "arc_mem.h"
