@@ -24,7 +24,7 @@
 #include "config.h"
 #endif
 
-#include "arc.h"
+#include "arc32.h"
 
 /* TODO: Register definitions are a bit inconsistent in that some properties
  * are set statically in a description table, while some properties are set at
