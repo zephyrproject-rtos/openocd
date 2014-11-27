@@ -156,8 +156,7 @@ ARC32_SRC = \
 	%D%/arc_mem.c \
 	%D%/arc_mntr.c \
 	%D%/arc_ocd.c \
-	%D%/arc_regs.c \
-	%D%/arc_trgt.c
+	%D%/arc_regs.c
 
 %C%_libtarget_la_SOURCES += \
 	%D%/algorithm.h \
