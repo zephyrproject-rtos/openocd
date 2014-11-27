@@ -39,7 +39,9 @@ struct target_type arc32_target = {
 
 	.arch_state = arc32_arch_state,
 
-	.target_request_data = arc_trgt_request_data,
+	/* TODO That seems like something similiar to metaware hostlink, so perhaps
+	 * we can exploit this in the future. */
+	.target_request_data = NULL,
 
 	.halt = arc_dbg_halt,
 	.resume = arc_dbg_resume,
