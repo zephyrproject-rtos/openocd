@@ -22,8 +22,28 @@
 #ifndef ARC32_H
 #define ARC32_H
 
+#include <helper/time_support.h>
+#include <jtag/jtag.h>
+
+#include "algorithm.h"
+#include "breakpoints.h"
+#include "jtag/interface.h"
+#include "register.h"
+#include "target.h"
+#include "target_request.h"
+#include "target_type.h"
+
+#include "arc_dbg.h"
 #include "arc_jtag.h"
+#include "arc_mem.h"
+#include "arc_mntr.h"
+#include "arc_ocd.h"
 #include "arc_regs.h"
+
+#if defined _WIN32 || defined __CYGWIN__
+#include <windows.h>
+#define sleep(x) Sleep(x)
+#endif
 
 
 #define ARC32_COMMON_MAGIC	0xB32EB324  /* just a unique number */
@@ -109,6 +129,26 @@ struct arc32_common {
 
 /* ARC 16bits Compact v2 opcodes */
 #define ARC16_SDBBP 0x7FFF      /* BRK_S */
+
+/* Borrowed from nds32.h */
+#define CHECK_RETVAL(action)			\
+	do {					\
+		int __retval = (action);	\
+		if (__retval != ERROR_OK) {	\
+			LOG_DEBUG("error while calling \"%s\"",	\
+				# action);     \
+			return __retval;	\
+		}				\
+	} while (0)
+
+
+#define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
+
+struct arc_common {
+	int common_magic;
+	bool is_4wire;
+	struct arc32_common arc32;
+};
 
 /* ----- Inlined functions ------------------------------------------------- */
 
