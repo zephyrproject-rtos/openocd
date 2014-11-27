@@ -158,7 +158,6 @@ ESIRISC_SRC = \
 	%D%/esirisc_trace.c
 
 ARC32_SRC = \
-	%D%/arc.c \
 	%D%/arc32.c \
 	%D%/arc_dbg.c \
 	%D%/arc_jtag.c \

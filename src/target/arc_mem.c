@@ -24,7 +24,7 @@
 #include "config.h"
 #endif
 
-#include "arc.h"
+#include "arc32.h"
 
 /* ----- Supporting functions ---------------------------------------------- */
 static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
