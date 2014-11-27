@@ -41,7 +41,6 @@
 #include "arc_mntr.h"
 #include "arc_ocd.h"
 #include "arc_regs.h"
-#include "arc_trgt.h"
 
 #if defined _WIN32 || defined __CYGWIN__
 #include <windows.h>
