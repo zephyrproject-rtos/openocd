@@ -193,6 +193,7 @@ COMMAND_HANDLER(arc_handle_gdb_compatibility_mode)
 		&arc32->gdb_compatibility_mode, "GDB compatibility mode");
 }
 
+
 /* JTAG layer commands */
 COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
 {
@@ -210,6 +211,115 @@ COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_fl)
 	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
 		&arc32->jtag_info.check_status_fl, "Check JTAG Status FL bit after transaction");
 
+}
+
+static int arc_cmd_jim_get_uint32(Jim_GetOptInfo *goi, uint32_t *value)
+{
+	jim_wide value_wide;
+	JIM_CHECK_RETVAL(Jim_GetOpt_Wide(goi, &value_wide));
+	*value = (uint32_t)value_wide;
+	return JIM_OK;
+}
+
+static int jim_arc_aux_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc-1, argv+1);
+
+	if (goi.argc == 0 || goi.argc > 2) {
+		Jim_SetResultFormatted(goi.interp,
+			"usage: %s <aux_reg_num>", Jim_GetString(argv[0], NULL));
+		return JIM_ERR;
+	}
+
+	struct command_context *context;
+	struct target *target;
+
+	context = current_command_context(interp);
+	assert(context);
+
+	target = get_current_target(context);
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	/* Register number */
+	uint32_t regnum;
+	JIM_CHECK_RETVAL(arc_cmd_jim_get_uint32(&goi, &regnum));
+
+	/* Register value */
+	bool do_write = false;
+	uint32_t value;
+	if (goi.argc == 1) {
+		do_write = true;
+		JIM_CHECK_RETVAL(arc_cmd_jim_get_uint32(&goi, &value));
+	}
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	assert(arc32);
+
+	if (do_write) {
+		CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, regnum, value));
+	} else {
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, regnum, &value));
+		Jim_SetResultInt(interp, value);
+	}
+
+	return ERROR_OK;
+}
+
+static int jim_arc_core_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc-1, argv+1);
+
+	if (goi.argc == 0 || goi.argc > 2) {
+		Jim_SetResultFormatted(goi.interp,
+			"usage: %s <core_reg_num>", Jim_GetString(argv[0], NULL));
+		return JIM_ERR;
+	}
+
+	struct command_context *context;
+	struct target *target;
+
+	context = current_command_context(interp);
+	assert(context);
+
+	target = get_current_target(context);
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	/* Register number */
+	uint32_t regnum;
+	JIM_CHECK_RETVAL(arc_cmd_jim_get_uint32(&goi, &regnum));
+	if (regnum > 63 || regnum == 61 || regnum == 62) {
+		Jim_SetResultFormatted(goi.interp, "Core register number %i " \
+			"is invalid. Must less then 64 and not 61 and 62.", regnum);
+		return JIM_ERR;
+	}
+
+	/* Register value */
+	bool do_write = false;
+	uint32_t value;
+	if (goi.argc == 1) {
+		do_write = true;
+		JIM_CHECK_RETVAL(arc_cmd_jim_get_uint32(&goi, &value));
+	}
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	assert(arc32);
+
+	if (do_write) {
+		CHECK_RETVAL(arc_jtag_write_core_reg_one(&arc32->jtag_info, regnum, value));
+	} else {
+		CHECK_RETVAL(arc_jtag_read_core_reg_one(&arc32->jtag_info, regnum, &value));
+		Jim_SetResultInt(interp, value);
+	}
+
+	return ERROR_OK;
 }
 
 static const struct command_registration arc_jtag_command_group[] = {
@@ -230,6 +340,26 @@ static const struct command_registration arc_jtag_command_group[] = {
 		.help = "If true we will check for JTAG status FL bit after all JTAG " \
 			 "transaction. This is disabled by default because it is " \
 			 "known to break JTAG module in the core.",
+	},
+	{
+		.name = "aux-reg",
+		.jim_handler = jim_arc_aux_reg,
+		.mode = COMMAND_EXEC,
+		.help = "Get/Set AUX register by number. This command does a " \
+			"raw JTAG request that bypasses OpenOCD register cache "\
+			"and thus is unsafe and can have unexpected consequences. "\
+			"Use at your own risk.",
+		.usage = "<regnum> [<value>]"
+	},
+	{
+		.name = "core-reg",
+		.jim_handler = jim_arc_core_reg,
+		.mode = COMMAND_EXEC,
+		.help = "Get/Set core register by number. This command does a " \
+			"raw JTAG request that bypasses OpenOCD register cache "\
+			"and thus is unsafe and can have unexpected consequences. "\
+			"Use at your own risk.",
+		.usage = "<regnum> [<value>]"
 	},
 	COMMAND_REGISTRATION_DONE
 };
