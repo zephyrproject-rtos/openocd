@@ -91,6 +91,16 @@ int arc_ocd_assert_reset(struct target *target)
 
 	enum reset_types jtag_reset_config = jtag_get_reset_config();
 
+	if (target_has_event_action(target, TARGET_EVENT_RESET_ASSERT)) {
+		/* allow scripts to override the reset event */
+
+		target_handle_event(target, TARGET_EVENT_RESET_ASSERT);
+		register_cache_invalidate(arc32->core_cache);
+		target->state = TARGET_RESET;
+
+		return ERROR_OK;
+	}
+
 	/* some cores support connecting while srst is asserted
 	 * use that mode is it has been configured */
 
