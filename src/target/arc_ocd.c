@@ -160,23 +160,13 @@ int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
 
 int arc_ocd_examine(struct target *target)
 {
-	uint32_t value, status;
+	uint32_t status;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	LOG_DEBUG("-");
 	CHECK_RETVAL(arc_jtag_startup(&arc32->jtag_info));
 
 	if (!target_was_examined(target)) {
-
-		/* read JTAG info */
-		arc_jtag_idcode(&arc32->jtag_info, &value);
-		LOG_DEBUG("JTAG ID: 0x%08" PRIx32, value);
-		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
-
-		arc_jtag_status(&arc32->jtag_info, &status);
-		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
-
 		/* read ARC core info */
 		if (strncmp(target_name(target), ARCEM_STR, 6) == 0) {
 			arc32->processor_type = ARCEM_NUM;
@@ -193,11 +183,6 @@ int arc_ocd_examine(struct target *target)
 		} else {
 			LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
 		}
-
-		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_IDENTITY_REG, &value);
-		LOG_DEBUG("CPU ID: 0x%08" PRIx32, value);
-		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &value);
-		LOG_DEBUG("current PC: 0x%08" PRIx32, value);
 
 		arc_jtag_status(&arc32->jtag_info, &status);
 		if (status & ARC_JTAG_STAT_RU) {
