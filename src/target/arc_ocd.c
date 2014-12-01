@@ -174,13 +174,6 @@ int arc_ocd_examine(struct target *target)
 		arc_jtag_status(&arc32->jtag_info, &status);
 		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
 
-		/* bring processor into HALT */
-		LOG_DEBUG("bring ARC core into HALT state");
-		arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		value |= SET_CORE_FORCE_HALT;
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value);
-		sleep(1); /* just give us once some time to come to rest ;-) */
-
 		arc_jtag_status(&arc32->jtag_info, &status);
 		LOG_DEBUG("JTAG status: 0x%08" PRIx32, status);
 
@@ -208,10 +201,8 @@ int arc_ocd_examine(struct target *target)
 
 		arc_jtag_status(&arc32->jtag_info, &status);
 		if (status & ARC_JTAG_STAT_RU) {
-			LOG_WARNING("target is still running !!");
 			target->state = TARGET_RUNNING;
 		} else {
-			LOG_DEBUG("target is halted.");
 			target->state = TARGET_RESET; /* means HALTED after restart */
 		}
 
