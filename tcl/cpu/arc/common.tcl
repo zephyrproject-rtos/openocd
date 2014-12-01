@@ -2,6 +2,20 @@
 
 # It is assumed that target is already halted.
 proc arc_common_reset { } {
+    # This proc makes several operations and they should be transactional, so
+    # we have to halt CPU, otherwise it is possible that we will, say, disable
+    # interrupts, but then running CPU will enable them before we will move PC
+    # to reset vector. So in theory we would need to halt and resume, then if
+    # command was "reset halt" OpenOCD will halt the core. However that is
+    # undesired because semantically "reset halt" should be halted on first
+    # instruction after reset, and that will not happen if we will resume core
+    # form this function. This event also doesn't have any arguments so we
+    # cannot know if it was "reset halt" or not, so we cannot make "resume"
+    # conditional. As a result this proc will always halt and user will always
+    # have to resume... Not very user-friendly, sigh. But at least that seems
+    # to work reliably though.
+    halt
+
     # 1. Interrupts are disabled (STATUS32.IE)
     # 2. The status register flags are cleared.
     # All fields, except the H bit, are set to 0 when the processor is Reset.
