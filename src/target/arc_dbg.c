@@ -409,13 +409,7 @@ int arc_dbg_halt(struct target *target)
 			LOG_ERROR("can't request a halt while in reset if nSRST pulls nTRST");
 			return ERROR_TARGET_FAILURE;
 		} else {
-			/*
-			 * we came here in a reset_halt or reset_init sequence
-			 * debug entry was already prepared in arc700_assert_reset()
-			 */
 			target->debug_reason = DBG_REASON_DBGRQ;
-
-			return ERROR_OK;
 		}
 	}
 
