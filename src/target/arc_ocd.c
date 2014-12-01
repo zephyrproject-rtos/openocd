@@ -184,11 +184,17 @@ int arc_ocd_examine(struct target *target)
 			LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
 		}
 
-		arc_jtag_status(&arc32->jtag_info, &status);
+		CHECK_RETVAL(arc_jtag_status(&arc32->jtag_info, &status));
 		if (status & ARC_JTAG_STAT_RU) {
 			target->state = TARGET_RUNNING;
 		} else {
-			target->state = TARGET_RESET; /* means HALTED after restart */
+			/* It is first time we examine the target, it is halted
+			 * and we don't know why. Let's set debug reason,
+			 * otherwise OpenOCD will complain that reason is
+			 * unknown. */
+			if (target->state == TARGET_UNKNOWN)
+				target->debug_reason = DBG_REASON_DBGRQ;
+			target->state = TARGET_HALTED;
 		}
 
 		/* Read BCRs and configure optinal registers. */
