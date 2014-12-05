@@ -501,7 +501,7 @@ void arc_regs_build_reg_list(struct target *target)
 				break;
 			/* ICCM regs */
 			case ARC_REG_AUX_ICCM:
-				if (bcrs->dccm_build.version >= 4)
+				if (bcrs->iccm_build.version >= 4)
 					reg_list[regnum].exist = true;
 				break;
 			/* Enable MPU registers. */
