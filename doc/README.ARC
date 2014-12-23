@@ -33,7 +33,7 @@ host:
 
 Command to install prerequisites on RHEL 6:
 
-    $ sudo yum install libtool gcc autoconf automake texinfo libusbx-devel
+    $ sudo yum install libtool gcc autoconf automake texinfo libusb1-devel
 
 Optional dependencies required to build documentation are: asciidoc and
 texinfo-tex.
