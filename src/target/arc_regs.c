@@ -113,7 +113,7 @@ static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] =
 	{ ARC_REG_LP_START,     "lp_start",     0x2,   REG_TYPE_CODE_PTR, false, 65, },
 	{ ARC_REG_LP_END,       "lp_end",       0x3,   REG_TYPE_CODE_PTR, false, 66, },
 	{ ARC_REG_STATUS32,     "status32",     0xA,   REG_TYPE_UINT32,   false, 67, },
-	{ ARC_REG_IDENTITY,     "idenity",      0x4,   REG_TYPE_UINT32,    true, ARC_INVALID_REGNUM, },
+	{ ARC_REG_IDENTITY,     "identity",     0x4,   REG_TYPE_UINT32,    true, ARC_INVALID_REGNUM, },
 	{ ARC_REG_DEBUG,        "debug",        0x5,   REG_TYPE_UINT32,   false, ARC_INVALID_REGNUM, },
 	{ ARC_REG_STATUS32_P0,  "status32_p0",  0xB,   REG_TYPE_UINT32,   false, 68, },
 	{ ARC_REG_STATUS32_L2,  "status32_l2",  0xC,   REG_TYPE_UINT32,    true, 69, },
