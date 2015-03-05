@@ -77,7 +77,7 @@ required rules are already provided to udev. Otherwise create file
     # Digilent HS2
     SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", MODE="0664", GROUP="plugdev"
 
-You also can use file `contrib/openocd.udev` supplied with OpenOCD sources,
+You also can use file `contrib/99-openocd.udev` supplied with OpenOCD sources,
 however this file doesn't work with Digilent HS2, though on the other hand it
 mentions many other FTDI-based devices.
 
