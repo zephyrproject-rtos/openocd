@@ -31,6 +31,8 @@ host:
     $ sudo apt-get install libtool git-core build-essential autoconf automake
     texinfo libusb-1.0-dev pkg-config
 
+Some Ubuntu versions might have libusb package with name `libusb-1.0.0`.
+
 Command to install prerequisites on RHEL 6:
 
     $ sudo yum install libtool gcc autoconf automake texinfo libusb1-devel
