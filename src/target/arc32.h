@@ -106,9 +106,6 @@ struct arc32_common {
 	 * halted. */
 	bool cache_invalidated;
 
-	/* Whether to support old ARC GDB that doesn't understand XML target
-	 * descriptions. */
-	bool gdb_compatibility_mode;
 	/* Store values of BCR permanently. */
 	struct bcr_set_t bcr_set;
 

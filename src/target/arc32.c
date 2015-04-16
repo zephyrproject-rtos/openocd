@@ -57,8 +57,6 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->has_dcache = true;
 	arc32_reset_caches_states(target);
 
-	arc32->gdb_compatibility_mode = true;
-
 	return ERROR_OK;
 }
 
@@ -81,8 +79,7 @@ int arc32_save_context(struct target *target)
 	/* It is assumed that there is at least one AUX register in the list, for
 	 * example PC. */
 	const uint32_t core_regs_size = ARC_REG_FIRST_AUX * sizeof(uint32_t);
-	const uint32_t regs_to_scan = (arc32->gdb_compatibility_mode ?
-			ARC_TOTAL_NUM_REGS : ARC_REG_AFTER_GDB_GENERAL);
+	const uint32_t regs_to_scan = ARC_REG_AFTER_GDB_GENERAL;
 	const uint32_t aux_regs_size = (regs_to_scan - ARC_REG_FIRST_AUX) *
 		sizeof(uint32_t);
 	uint32_t *core_values = malloc(core_regs_size);
