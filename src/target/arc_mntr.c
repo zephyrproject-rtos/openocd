@@ -41,15 +41,6 @@ COMMAND_HANDLER(arc_handle_has_dcache)
 		&arc32->has_dcache, "target has data-cache");
 }
 
-COMMAND_HANDLER(arc_handle_gdb_compatibility_mode)
-{
-	struct target *target = get_current_target(CMD_CTX);
-	struct arc32_common *arc32 = target_to_arc32(target);
-	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
-		&arc32->gdb_compatibility_mode, "GDB compatibility mode");
-}
-
-
 /* JTAG layer commands */
 COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
 {
@@ -229,15 +220,6 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.usage = "True or false",
 		.help = "Does target has D$? If yes it will be flushed before memory reads.",
-	},
-	{
-		.name = "gdb-compatibility-mode",
-		.handler = arc_handle_gdb_compatibility_mode,
-		.mode = COMMAND_CONFIG,
-		.usage = "true or false",
-		.help = "GDB compatibility mode: if true OpenOCD will use register "\
-			"specification compatible with old GDB for ARC that doesn't support "\
-			"XML target descriptions.",
 	},
 	{
 		.name = "jtag",
