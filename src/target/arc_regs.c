@@ -34,12 +34,9 @@
 /* XML feature names */
 static const char * const general_group_name = "general";
 static const char * const float_group_name = "float";
-static const char * const feature_core_basecase_name = "org.gnu.gdb.arc.core-basecase";
-static const char * const feature_core_extension_name = "org.gnu.gdb.arc.core-extension";
-static const char * const feature_core_pointers_name = "org.gnu.gdb.arc.core-pointers";
-static const char * const feature_core_link_name = "org.gnu.gdb.arc.core-linkregs.v2";
-static const char * const feature_core_other_name = "org.gnu.gdb.arc.core-other";
-static const char * const feature_aux_baseline_name = "org.gnu.gdb.arc.aux-baseline.v2";
+static const char * const feature_core_v2_name = "org.gnu.gdb.arc.core.v2";
+static const char * const feature_aux_minimal_name = "org.gnu.gdb.arc.aux-minimal";
+static const char * const feature_aux_other_name = "org.gnu.gdb.arc.aux-other";
 
 /* Describe all possible registers. */
 static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] = {
@@ -421,6 +418,7 @@ void arc_regs_build_reg_list(struct target *target)
 
 		switch (regnum) {
 			/* Enable zero-delay loop registers. */
+			case ARC_REG_LP_COUNT:
 			case ARC_REG_LP_START:
 			case ARC_REG_LP_END:
 				if (bcrs->isa_config.lpc_size)
@@ -569,18 +567,12 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 	arc32->core_cache = cache;
 
 	// XML features
-	struct reg_feature *core_basecase = calloc(1, sizeof(struct reg_feature));
-	core_basecase->name = feature_core_basecase_name;
-	struct reg_feature *core_extension = calloc(1, sizeof(struct reg_feature));
-	core_extension->name = feature_core_extension_name;
-	struct reg_feature *core_pointers = calloc(1, sizeof(struct reg_feature));
-	core_pointers->name = feature_core_pointers_name;
-	struct reg_feature *core_link = calloc(1, sizeof(struct reg_feature));
-	core_link->name = feature_core_link_name;
-	struct reg_feature *core_other = calloc(1, sizeof(struct reg_feature));
-	core_other->name = feature_core_other_name;
-	struct reg_feature *aux_baseline = calloc(1, sizeof(struct reg_feature));
-	aux_baseline->name = feature_aux_baseline_name;
+	struct reg_feature *core_feature = calloc(1, sizeof(struct reg_feature));
+	core_feature->name = feature_core_v2_name;
+	struct reg_feature *aux_minimal_feature = calloc(1, sizeof(struct reg_feature));
+	aux_minimal_feature->name = feature_aux_minimal_name;
+	struct reg_feature *aux_other_feature = calloc(1, sizeof(struct reg_feature));
+	aux_other_feature->name = feature_aux_other_name;
 
 	/* Data types */
 	struct reg_data_type *uint32_data_type = calloc(sizeof(struct reg_data_type), 1);
@@ -630,22 +622,12 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 		reg_list[i].caller_save = true;
 		reg_list[i].reg_data_type = data_types[ arch_info[i].desc->gdb_type ];
 
-		if (i < ARC_REG_GP) {
-			reg_list[i].feature = core_basecase;
-		} else if (ARC_REG_GP <= i && i < ARC_REG_ILINK) {
-			reg_list[i].feature = core_pointers;
-		} else if (ARC_REG_ILINK <= i && i < ARC_REG_AFTER_CORE) {
-			reg_list[i].feature = core_link;
-		} else if ((ARC_REG_FIRST_CORE_EXT <= i && i < ARC_REG_AFTER_CORE_EXT) ||
-					i == ARC_REG_LIMM || i == ARC_REG_RESERVED) {
-			reg_list[i].feature = core_extension;
-		} else if (ARC_REG_AFTER_CORE_EXT <= i && i < ARC_REG_FIRST_AUX) {
-			reg_list[i].feature = core_other;
-		} else if (ARC_REG_PC <= i) {
-			reg_list[i].feature = aux_baseline;
+		if (i <= ARC_REG_PCL) {
+			reg_list[i].feature = core_feature;
+		} else if (i > ARC_REG_PCL && i <= ARC_REG_STATUS32) {
+			reg_list[i].feature = aux_minimal_feature;
 		} else {
-			LOG_WARNING("Unknown register with number %" PRIu32, i);
-			reg_list[i].feature = NULL;
+			reg_list[i].feature = aux_other_feature;
 		}
 
 		LOG_DEBUG("reg n=%3i name=%3s group=%s feature=%s", i,
