@@ -122,12 +122,6 @@ struct arc32_reg_desc {
 	uint32_t addr;
 	enum reg_type gdb_type;
 	bool readonly;
-	/* Previously GDB for ARC didn't supported XML target descriptions and used
-	 * one format of g/G-packet to fit all needs. Since we need to maintain
-	 * compatibility (at least for some time) this regnum will be used if
-	 * compatibility mode is on. Value ARC_INVALID_REGNUM means that register is
-	 * not present in old packet. */
-	uint32_t old_regnum;
 };
 
 #define ARC_INVALID_REGNUM (0xFFFFFFFF)
