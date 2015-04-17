@@ -57,6 +57,8 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->has_dcache = true;
 	arc32_reset_caches_states(target);
 
+	INIT_LIST_HEAD(&arc32->reg_data_types.list);
+
 	return ERROR_OK;
 }
 
@@ -590,6 +592,16 @@ int arc32_configure(struct target *target)
 	}
 
 	return ERROR_OK;
+}
+
+void arc32_add_reg_data_type(struct target *target,
+		struct arc_reg_data_type *data_type)
+{
+	LOG_DEBUG("-");
+	struct arc32_common *arc = target_to_arc32(target);
+	assert(arc);
+
+	list_add_tail(&data_type->list, &arc->reg_data_types.list);
 }
 
 /* ARC target */
