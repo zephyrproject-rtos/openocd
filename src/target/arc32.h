@@ -67,6 +67,17 @@ enum arc32_isa_mode {
 	ARC32_ISA_ARC16 = 1,
 };
 
+/* Register data type */
+struct arc_reg_data_type {
+	struct list_head list;
+	struct reg_data_type data_type;
+};
+
+/* List of register data types. */
+struct arc_reg_data_type_list {
+	struct list_head list;
+};
+
 /* offsets into arc32 core register cache */
 struct arc32_comparator {
 	int used;
@@ -116,6 +127,9 @@ struct arc32_common {
 	arc32_address_t iccm1_end;
 	arc32_address_t dccm_start;
 	arc32_address_t dccm_end;
+
+	/* Register descriptions */
+	struct arc_reg_data_type_list reg_data_types;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */
@@ -218,5 +232,9 @@ int arc32_read_instruction_u32(struct target *target, uint32_t address,
 		uint32_t *value);
 
 int arc32_configure(struct target *target);
+
+/* Configurable registers functions */
+void arc32_add_reg_data_type(struct target *target,
+		struct arc_reg_data_type *data_type);
 
 #endif /* ARC32_H */
