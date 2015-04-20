@@ -210,6 +210,240 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 	return JIM_OK;
 }
 
+enum opts_add_reg {
+	CFG_ADD_REG_NAME,
+	CFG_ADD_REG_GDB_NUM,
+	CFG_ADD_REG_ARCH_NUM,
+	CFG_ADD_REG_IS_CORE,
+	CFG_ADD_REG_GDB_FEATURE,
+	CFG_ADD_REG_TYPE,
+};
+
+static Jim_Nvp opts_nvp_add_reg[] = {
+	{ .name = "-name",   .value = CFG_ADD_REG_NAME },
+	{ .name = "-gdbnum", .value = CFG_ADD_REG_GDB_NUM },
+	{ .name = "-num",    .value = CFG_ADD_REG_ARCH_NUM },
+	{ .name = "-core",   .value = CFG_ADD_REG_IS_CORE },
+	{ .name = "-feature",.value = CFG_ADD_REG_GDB_FEATURE },
+	{ .name = "-type",   .value = CFG_ADD_REG_TYPE },
+	{ .name = NULL,      .value = -1 }
+};
+
+static void free_reg_desc(struct arc_reg_desc *r) {
+	if (r) {
+		if (r->name)
+			free(r->name);
+		if (r->gdb_xml_feature)
+			free(r->gdb_xml_feature);
+		free(r);
+	}
+}
+
+int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc-1, argv+1);
+
+	LOG_DEBUG("-");
+
+	struct arc_reg_desc *reg = calloc(1, sizeof(struct arc_reg_desc));
+	if (!reg) {
+		Jim_SetResultFormatted(goi.interp, "Failed to allocate memory.");
+		return JIM_ERR;
+	}
+
+	/* Initialize */
+	reg->name = NULL;
+	reg->is_core = false;
+	reg->arch_num = 0;
+	reg->gdb_num = ARC_GDB_NUM_INVALID;
+	reg->gdb_xml_feature = NULL;
+
+	/* There is no architecture number that we could treat as invalid, so
+	 * separate variable requried to ensure that arch num has been set. */
+	bool arch_num_set = false;
+	char *type_name = NULL;
+	int type_name_len = 0;
+
+
+	/* Parse options. */
+	while (goi.argc > 0) {
+		int e;
+		Jim_Nvp *n;
+		e = Jim_GetOpt_Nvp(&goi, opts_nvp_add_reg, &n);
+		if (e != JIM_OK) {
+			Jim_GetOpt_NvpUnknown(&goi, opts_nvp_add_reg, 0);
+			free_reg_desc(reg);
+			return e;
+		}
+
+		switch (n->value) {
+			case CFG_ADD_REG_NAME:
+			{
+				char *reg_name;
+				int reg_name_len;
+
+				if (goi.argc == 0) {
+					free_reg_desc(reg);
+					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-name ?name? ...");
+					return JIM_ERR;
+				}
+
+				e = Jim_GetOpt_String(&goi, &reg_name, &reg_name_len);
+				if (e != JIM_OK) {
+					free_reg_desc(reg);
+					return e;
+				}
+
+				reg->name = strndup(reg_name, reg_name_len);
+				break;
+			}
+			case CFG_ADD_REG_IS_CORE:
+			{
+				reg->is_core = true;
+				break;
+			}
+			case CFG_ADD_REG_ARCH_NUM:
+			{
+				jim_wide archnum;
+
+				if (goi.argc == 0) {
+					free_reg_desc(reg);
+					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-num ?int? ...");
+					return JIM_ERR;
+				}
+
+				e = Jim_GetOpt_Wide(&goi, &archnum);
+				if (e != JIM_OK) {
+					free_reg_desc(reg);
+					return e;
+				}
+
+				reg->arch_num = archnum;
+				arch_num_set = true;
+				break;
+			}
+			case CFG_ADD_REG_GDB_NUM:
+			{
+				jim_wide gdbnum;
+
+				if (goi.argc == 0) {
+					free_reg_desc(reg);
+					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-gdbnum ?int? ...");
+					return JIM_ERR;
+				}
+
+				e = Jim_GetOpt_Wide(&goi, &gdbnum);
+				if (e != JIM_OK) {
+					free_reg_desc(reg);
+					return e;
+				}
+
+				reg->gdb_num = gdbnum;
+				break;
+			}
+			case CFG_ADD_REG_GDB_FEATURE:
+			{
+				char *feature;
+				int feature_len;
+
+				if (goi.argc == 0) {
+					free_reg_desc(reg);
+					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-feature ?name? ...");
+					return JIM_ERR;
+				}
+
+				e = Jim_GetOpt_String(&goi, &feature, &feature_len);
+				if (e != JIM_OK) {
+					free_reg_desc(reg);
+					return e;
+				}
+
+				reg->gdb_xml_feature = strndup(feature, feature_len);
+				break;
+			}
+			case CFG_ADD_REG_TYPE:
+			{
+				if (goi.argc == 0) {
+					free_reg_desc(reg);
+					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-type ?type? ...");
+					return JIM_ERR;
+				}
+
+				e = Jim_GetOpt_String(&goi, &type_name, &type_name_len);
+				if (e != JIM_OK) {
+					free_reg_desc(reg);
+					return e;
+				}
+
+				break;
+			}
+		}
+	}
+
+	/* Check that required fields are set */
+	if (!reg->name) {
+		Jim_SetResultFormatted(goi.interp, "-name option is required");
+		free_reg_desc(reg);
+		return JIM_ERR;
+	}
+	if (!reg->gdb_xml_feature) {
+		Jim_SetResultFormatted(goi.interp, "-feature option is required");
+		free_reg_desc(reg);
+		return JIM_ERR;
+	}
+	if (!arch_num_set) {
+		Jim_SetResultFormatted(goi.interp, "-num option is required");
+		free_reg_desc(reg);
+		return JIM_ERR;
+	}
+
+	/* Add new register */
+	struct command_context *ctx;
+	struct target *target;
+
+	ctx = current_command_context(interp);
+	assert(ctx);
+	target = get_current_target(ctx);
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	assert(arc32);
+
+	/* Find register type */
+	{
+		struct arc_reg_data_type *type;
+		list_for_each_entry(type, &arc32->reg_data_types.list, list) {
+			if (strncmp(type->data_type.id, type_name, type_name_len) == 0) {
+				reg->data_type = &(type->data_type);
+				break;
+			}
+		}
+	}
+
+	if (reg->is_core) {
+		list_add_tail(&reg->list, &arc32->core_reg_descriptions.list);
+		arc32->num_core_regs += 1;
+	} else {
+		list_add_tail(&reg->list, &arc32->aux_reg_descriptions.list);
+		arc32->num_aux_regs += 1;
+	}
+	arc32->num_regs += 1;
+
+	/* Set gdb regnum if not set */
+	if (reg->gdb_num == ARC_GDB_NUM_INVALID) {
+		reg->gdb_num = list_entry(reg->list.prev, struct arc_reg_desc, list)->gdb_num;
+	}
+
+	LOG_DEBUG("added reg {name=%s, num=0x%x, gdbnum=%u, is_core=%i, type=%s}",
+			reg->name, reg->arch_num, reg->gdb_num, reg->is_core, reg->data_type->id);
+
+	return JIM_OK;
+}
+
 
 /* JTAG layer commands */
 COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
@@ -399,6 +633,17 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.help = "Add new 'flags' register data type. Only single bit flags "
 			"are supported. Type name is global. Bitsize of register is fixed "
 			"at 32 bits.",
+	},
+	{
+		.name = "add-reg",
+		.jim_handler = jim_arc_add_reg,
+		.mode = COMMAND_CONFIG,
+		.usage = "-name ?string? -num ?int? [-gdbnum ?int?] [-core] "
+			"-feature ?string? [-type ?type_name?]",
+		.help = "Add new register. Name, architectural number and feature name "
+			"are requried options. GDB regnum will default to previous register "
+			"(gdbnum + 1) and shouldn't be specified in most cases. Type "
+			"defaults to default GDB 'int'.",
 	},
 	{
 		.name = "jtag",
