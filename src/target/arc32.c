@@ -32,6 +32,26 @@ static const char *arc_isa_strings[] = {
 	"ARC32", "ARC16"
 };
 
+/* Standard GDB register types */
+static const struct reg_data_type standard_gdb_types[] = {
+	{ .type = REG_TYPE_INT,         .id = "int" },
+	{ .type = REG_TYPE_INT8,        .id = "int8" },
+	{ .type = REG_TYPE_INT16,       .id = "int16" },
+	{ .type = REG_TYPE_INT32,       .id = "int32" },
+	{ .type = REG_TYPE_INT64,       .id = "int64" },
+	{ .type = REG_TYPE_INT128,      .id = "int128" },
+	{ .type = REG_TYPE_UINT8,       .id = "uint8" },
+	{ .type = REG_TYPE_UINT16,      .id = "uint16" },
+	{ .type = REG_TYPE_UINT32,      .id = "uint32" },
+	{ .type = REG_TYPE_UINT64,      .id = "uint64" },
+	{ .type = REG_TYPE_UINT128,     .id = "uint128" },
+	{ .type = REG_TYPE_CODE_PTR,    .id = "code_ptr" },
+	{ .type = REG_TYPE_DATA_PTR,    .id = "data_ptr" },
+	{ .type = REG_TYPE_FLOAT,       .id = "float" },
+	{ .type = REG_TYPE_IEEE_SINGLE, .id = "ieee_single" },
+	{ .type = REG_TYPE_IEEE_DOUBLE, .id = "ieee_double" },
+};
+
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
@@ -57,7 +77,19 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->has_dcache = true;
 	arc32_reset_caches_states(target);
 
+	/* Add standard GDB data types */
 	INIT_LIST_HEAD(&arc32->reg_data_types.list);
+	struct arc_reg_data_type *std_types = calloc(ARRAY_SIZE(standard_gdb_types),
+			sizeof(struct arc_reg_data_type));
+	if (!std_types) {
+		LOG_ERROR("Cannot allocate memory");
+		return ERROR_FAIL;
+	}
+	for (unsigned int i = 0; i < ARRAY_SIZE(standard_gdb_types); i++) {
+		std_types[i].data_type.type = standard_gdb_types[i].type;
+		std_types[i].data_type.id = standard_gdb_types[i].id;
+		arc32_add_reg_data_type(target, &(std_types[i]));
+	}
 
 	return ERROR_OK;
 }
