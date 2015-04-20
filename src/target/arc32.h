@@ -78,6 +78,37 @@ struct arc_reg_data_type_list {
 	struct list_head list;
 };
 
+/* ARC Register description */
+struct arc_reg_desc {
+	/* Register name */
+	char *name;
+
+	/* GDB regnum (register number). */
+	uint32_t gdb_num;
+
+	/* GDB XML feature */
+	char *gdb_xml_feature;
+
+	/* Architectural number: core reg num or AUX reg num */
+	uint32_t arch_num;
+
+	/* Core or AUX register? */
+	bool is_core;
+
+	/* Data type */
+	struct reg_data_type *data_type;
+
+	struct list_head list;
+};
+
+struct arc_reg_desc_list {
+	struct list_head list;
+};
+
+#define ARC_GDB_NUM_INVALID (UINT32_MAX)
+
+extern int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv);
+
 /* offsets into arc32 core register cache */
 struct arc32_comparator {
 	int used;
@@ -130,6 +161,12 @@ struct arc32_common {
 
 	/* Register descriptions */
 	struct arc_reg_data_type_list reg_data_types;
+	struct arc_reg_desc_list core_reg_descriptions;
+	struct arc_reg_desc_list aux_reg_descriptions;
+	unsigned long num_regs;
+	unsigned long num_core_regs;
+	unsigned long num_aux_regs;
+	unsigned long last_general_reg;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */
