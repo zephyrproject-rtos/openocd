@@ -91,6 +91,14 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 		arc32_add_reg_data_type(target, &(std_types[i]));
 	}
 
+	/* Fields related to target descriptions */
+	INIT_LIST_HEAD(&arc32->core_reg_descriptions.list);
+	INIT_LIST_HEAD(&arc32->aux_reg_descriptions.list);
+	arc32->num_regs = 0;
+	arc32->num_core_regs = 0;
+	arc32->num_aux_regs = 0;
+	arc32->last_general_reg = ULONG_MAX;
+
 	return ERROR_OK;
 }
 
