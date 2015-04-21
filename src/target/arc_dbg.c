@@ -331,6 +331,8 @@ int arc_dbg_enter_debug(struct target *target)
 
 int arc_dbg_examine_debug_reason(struct target *target)
 {
+	struct arc32_common *arc = target_to_arc32(target);
+
 	/* Only check for reason if don't know it already. */
 	/* BTW After singlestep at this point core is not marked as halted, so
 	 * reading from memory to get current instruction won't work anyways. */
@@ -340,7 +342,8 @@ int arc_dbg_examine_debug_reason(struct target *target)
 	}
 
 	/* Ensure that DEBUG register value is in cache */
-	struct reg *debug_reg = &(target->reg_cache->reg_list[ARC_REG_DEBUG]);
+	struct reg *debug_reg =
+		&(target->reg_cache->reg_list[arc->debug_index_in_cache]);
 	if (!debug_reg->valid) {
 		CHECK_RETVAL(debug_reg->type->get(debug_reg));
 	}
@@ -427,6 +430,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
 	uint32_t resume_pc = 0;
+	struct reg *pc = &arc32->core_cache->reg_list[arc32->pc_index_in_cache];
 
 	LOG_DEBUG("current:%i, address:0x%08" PRIx32 ", handle_breakpoints:%i, debug_execution:%i",
 		current, address, handle_breakpoints, debug_execution);
@@ -446,32 +450,27 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 
 	/* current = 1: continue on current PC, otherwise continue at <address> */
 	if (!current) {
-		buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, address);
-		arc32->core_cache->reg_list[ARC_REG_PC].dirty = 1;
-		arc32->core_cache->reg_list[ARC_REG_PC].valid = 1;
+		buf_set_u32(pc->value, 0, 32, address);
+		pc->dirty = 1;
+		pc->valid = 1;
 		LOG_DEBUG("Changing the value of current PC to 0x%08" PRIx32, address);
 	}
 
 	if (!current)
 		resume_pc = address;
 	else
-		resume_pc = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value,
+		resume_pc = buf_get_u32(pc->value,
 			0, 32);
 
 	arc32_restore_context(target);
 
 	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
-		resume_pc,
-		arc32->core_cache->reg_list[ARC_REG_PC].dirty,
-		arc32->core_cache->reg_list[ARC_REG_PC].valid);
+		resume_pc, pc->dirty, pc->valid);
 
 	/* check if GDB tells to set our PC where to continue from */
-	if ((arc32->core_cache->reg_list[ARC_REG_PC].valid == 1) &&
-		(resume_pc == buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value,
-			0, 32))) {
-
+	if ((pc->valid == 1) && (resume_pc == buf_get_u32(pc->value, 0, 32))) {
 		uint32_t value;
-		value = buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32);
+		value = buf_get_u32(pc->value, 0, 32);
 		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
 		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
 	}
@@ -521,6 +520,7 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
+	struct reg *pc = &(arc32->core_cache->reg_list[arc32->pc_index_in_cache]);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -529,18 +529,17 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 
 	/* current = 1: continue on current pc, otherwise continue at <address> */
 	if (!current) {
-		buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, address);
-		arc32->core_cache->reg_list[ARC_REG_PC].dirty = 1;
-		arc32->core_cache->reg_list[ARC_REG_PC].valid = 1;
+		buf_set_u32(pc->value, 0, 32, address);
+		pc->dirty = 1;
+		pc->valid = 1;
 	}
 
 	LOG_DEBUG("Target steps one instruction from PC=0x%" PRIx32,
-		buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
+		buf_get_u32(pc->value, 0, 32));
 
 	/* the front-end may request us not to handle breakpoints */
 	if (handle_breakpoints) {
-		breakpoint = breakpoint_find(target,
-			buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
+		breakpoint = breakpoint_find(target, buf_get_u32(pc->value, 0, 32));
 		if (breakpoint)
 			arc_dbg_unset_breakpoint(target, breakpoint);
 	}
