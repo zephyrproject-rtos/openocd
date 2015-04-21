@@ -154,7 +154,7 @@ int arc_ocd_target_create(struct target *target, Jim_Interp *interp)
 
 int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
 {
-	arc_regs_build_reg_cache(target);
+	CHECK_RETVAL(arc32_build_reg_cache(target));
 	return ERROR_OK;
 }
 

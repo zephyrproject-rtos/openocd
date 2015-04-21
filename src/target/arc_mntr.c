@@ -91,7 +91,8 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 	/* Initialize type */
 	type->data_type.type = REG_TYPE_ARCH_DEFINED;
 	type->data_type.type_class = REG_TYPE_CLASS_FLAGS;
-	flags->size = 32; /* For now ARC has only 32-bit registers */
+	type->data_type.reg_type_flags = flags;
+	flags->size = 4; /* For now ARC has only 32-bit registers */
 
 	while (goi.argc > 0 && e == JIM_OK) {
 		Jim_Nvp *n;
@@ -262,8 +263,8 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	/* There is no architecture number that we could treat as invalid, so
 	 * separate variable requried to ensure that arch num has been set. */
 	bool arch_num_set = false;
-	char *type_name = NULL;
-	int type_name_len = 0;
+	char *type_name = "int"; /* Default type */
+	int type_name_len = strlen(type_name);
 
 
 	/* Parse options. */
@@ -422,6 +423,13 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 				break;
 			}
 		}
+		if (!reg->data_type) {
+			Jim_SetResultFormatted(goi.interp,
+				"Cannot find type `%s' for register `%s'.",
+				type_name, reg->name);
+			free_reg_desc(reg);
+			return JIM_ERR;
+		}
 	}
 
 	if (reg->is_core) {
@@ -435,7 +443,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 
 	/* Set gdb regnum if not set */
 	if (reg->gdb_num == ARC_GDB_NUM_INVALID) {
-		reg->gdb_num = list_entry(reg->list.prev, struct arc_reg_desc, list)->gdb_num;
+		reg->gdb_num = list_entry(reg->list.prev, struct arc_reg_desc, list)->gdb_num + 1;
 	}
 
 	LOG_DEBUG("added reg {name=%s, num=0x%x, gdbnum=%u, is_core=%i, type=%s}",

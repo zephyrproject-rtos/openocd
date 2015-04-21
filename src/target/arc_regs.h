@@ -127,13 +127,14 @@ struct arc32_reg_desc {
 #define ARC_INVALID_REGNUM (0xFFFFFFFF)
 
 struct arc_reg_t {
-	const struct arc32_reg_desc *desc;
+	/*const struct arc32_reg_desc *desc;*/
+	const struct arc_reg_desc *desc2;
 	struct target *target;
 	struct arc32_common *arc32_common;
 	uint32_t value;
 	bool dummy;
 };
-
+#if 0
 enum arc32_reg_number {
 	/* Core registers */
 	ARC_REG_R0 = 0,
@@ -375,7 +376,7 @@ enum arc32_reg_number {
 
 	ARC_TOTAL_NUM_REGS = ARC_REG_AFTER_BCR,
 };
-
+#endif
 struct bcr_set_t {
 	union {
 		uint32_t raw;
@@ -581,10 +582,12 @@ struct bcr_set_t {
 	} smart_build;
 };
 
+extern const struct reg_arch_type arc32_reg_type;
+extern const char * const general_group_name;
 
 /* ----- Exported functions ------------------------------------------------ */
 
-struct reg_cache *arc_regs_build_reg_cache(struct target *target);
+//int arc_regs_build_reg_cache(struct target *target);
 
 int arc_regs_read_core_reg(struct target *target, int num);
 int arc_regs_write_core_reg(struct target *target, int num);
