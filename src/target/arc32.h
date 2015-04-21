@@ -167,6 +167,11 @@ struct arc32_common {
 	unsigned long num_core_regs;
 	unsigned long num_aux_regs;
 	unsigned long last_general_reg;
+
+	/* PC register location in register cache. */
+	unsigned long pc_index_in_cache;
+	/* DEBUG register location in register cache. */
+	unsigned long debug_index_in_cache;
 };
 
 //#define ARC32_FASTDATA_HANDLER_SIZE	0x8000 /* haps51 */
@@ -241,7 +246,7 @@ static inline struct arc32_common * target_to_arc32(struct target *target)
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	struct jtag_tap *tap);
 
-struct reg_cache *arc32_build_reg_cache(struct target *target);
+int arc32_build_reg_cache(struct target *target);
 
 int arc32_save_context(struct target *target);
 int arc32_restore_context(struct target *target);
