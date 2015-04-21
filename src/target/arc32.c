@@ -98,6 +98,8 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	arc32->num_core_regs = 0;
 	arc32->num_aux_regs = 0;
 	arc32->last_general_reg = ULONG_MAX;
+	arc32->pc_index_in_cache = ULONG_MAX;
+	arc32->debug_index_in_cache = ULONG_MAX;
 
 	return ERROR_OK;
 }
@@ -120,10 +122,9 @@ int arc32_save_context(struct target *target)
 
 	/* It is assumed that there is at least one AUX register in the list, for
 	 * example PC. */
-	const uint32_t core_regs_size = ARC_REG_FIRST_AUX * sizeof(uint32_t);
-	const uint32_t regs_to_scan = ARC_REG_AFTER_GDB_GENERAL;
-	const uint32_t aux_regs_size = (regs_to_scan - ARC_REG_FIRST_AUX) *
-		sizeof(uint32_t);
+	const uint32_t core_regs_size = arc32->num_core_regs * sizeof(uint32_t);
+	const uint32_t regs_to_scan = MIN(arc32->last_general_reg, arc32->num_regs);
+	const uint32_t aux_regs_size = arc32->num_aux_regs * sizeof(uint32_t);
 	uint32_t *core_values = malloc(core_regs_size);
 	uint32_t *aux_values = malloc(aux_regs_size);
 	uint32_t *core_addrs = malloc(core_regs_size);
@@ -142,19 +143,21 @@ int arc32_save_context(struct target *target)
 	memset(aux_values, 0xdeadbeef, aux_regs_size);
 	memset(aux_addrs, 0xdeadbeef, aux_regs_size);
 
-	for (i = 0; i < regs_to_scan; i++) {
+	for (i = 0; i < MIN(arc32->num_core_regs, regs_to_scan); i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist && !arc_reg->dummy) {
-			if (arc_reg->desc->regnum < ARC_REG_FIRST_AUX) {
-				/* core reg */
-				core_addrs[core_cnt] = arc_reg->desc->addr;
-				core_cnt += 1;
-			} else {
-				/* aux reg */
-				aux_addrs[aux_cnt] = arc_reg->desc->addr;
-				aux_cnt += 1;
-			}
+			core_addrs[core_cnt] = arc_reg->desc2->arch_num;
+			core_cnt += 1;
+		}
+	}
+
+	for (i = arc32->num_core_regs; i < regs_to_scan; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (!reg->valid && reg->exist && !arc_reg->dummy) {
+			aux_addrs[aux_cnt] = arc_reg->desc2->arch_num;
+			aux_cnt += 1;
 		}
 	}
 
@@ -174,7 +177,7 @@ int arc32_save_context(struct target *target)
 
 	/* Parse core regs */
 	core_cnt = 0;
-	for (i = 0; i < ARC_REG_FIRST_AUX; i++) {
+	for (i = 0; i < arc32->num_core_regs; i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist) {
@@ -188,13 +191,13 @@ int arc32_save_context(struct target *target)
 			reg->valid = true;
 			reg->dirty = false;
 			LOG_DEBUG("Get core register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-				i , arc_reg->desc->name, arc_reg->value);
+				i , arc_reg->desc2->name, arc_reg->value);
 		}
 	}
 
 	/* Parse aux regs */
 	aux_cnt = 0;
-	for (i = ARC_REG_FIRST_AUX; i < regs_to_scan; i++) {
+	for (i = arc32->num_core_regs; i < arc32->num_regs; i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist) {
@@ -208,7 +211,7 @@ int arc32_save_context(struct target *target)
 			reg->valid = true;
 			reg->dirty = false;
 			LOG_DEBUG("Get aux register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-				i , arc_reg->desc->name, arc_reg->value);
+				i , arc_reg->desc2->name, arc_reg->value);
 		}
 	}
 
@@ -237,9 +240,8 @@ int arc32_restore_context(struct target *target)
 	assert(reg_list);
 
 	/* It is assumed that there is at least one AUX register in the list. */
-	const uint32_t core_regs_size = ARC_REG_AFTER_CORE_EXT * sizeof(uint32_t);
-	const uint32_t aux_regs_size = (ARC_REG_AFTER_AUX - ARC_REG_FIRST_AUX) *
-		sizeof(uint32_t);
+	const uint32_t core_regs_size = arc32->num_core_regs  * sizeof(uint32_t);
+	const uint32_t aux_regs_size =  arc32->num_aux_regs * sizeof(uint32_t);
 	uint32_t *core_values = malloc(core_regs_size);
 	uint32_t *aux_values = malloc(aux_regs_size);
 	uint32_t *core_addrs = malloc(core_regs_size);
@@ -258,22 +260,25 @@ int arc32_restore_context(struct target *target)
 	memset(aux_values, 0xdeadbeef, aux_regs_size);
 	memset(aux_addrs, 0xdeadbeef, aux_regs_size);
 
-	for (i = 0; i < ARC_REG_AFTER_AUX; i++) {
+	for (i = 0; i < arc32->num_core_regs; i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (reg->valid && reg->exist && reg->dirty) {
 			LOG_DEBUG("Will write regnum=%u", i);
-			if (arc_reg->desc->regnum < ARC_REG_FIRST_AUX) {
-				/* core reg */
-				core_addrs[core_cnt] = arc_reg->desc->addr;
-				core_values[core_cnt] = arc_reg->value;
-				core_cnt += 1;
-			} else {
-				/* aux reg */
-				aux_addrs[aux_cnt] = arc_reg->desc->addr;
-				aux_values[aux_cnt] = arc_reg->value;
-				aux_cnt += 1;
-			}
+			core_addrs[core_cnt] = arc_reg->desc2->arch_num;
+			core_values[core_cnt] = arc_reg->value;
+			core_cnt += 1;
+		}
+	}
+
+	for (i = arc32->num_core_regs; i < arc32->num_regs; i++) {
+		struct reg *reg = &(reg_list[i]);
+		struct arc_reg_t *arc_reg = reg->arch_info;
+		if (reg->valid && reg->exist && reg->dirty) {
+			LOG_DEBUG("Will write regnum=%u", i);
+			aux_addrs[aux_cnt] = arc_reg->desc2->arch_num;
+			aux_values[aux_cnt] = arc_reg->value;
+			aux_cnt += 1;
 		}
 	}
 
@@ -483,7 +488,8 @@ int arc32_arch_state(struct target *target)
 	LOG_DEBUG("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
 		target_state_name(target),
 		arc_isa_strings[arc32->isa_mode],
-		buf_get_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32));
+		buf_get_u32(arc32->core_cache->reg_list[arc32->pc_index_in_cache].value,
+			0, 32));
 
 
 	return ERROR_OK;
@@ -498,7 +504,8 @@ int arc32_get_current_pc(struct target *target)
 	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &dpc));
 
 	/* save current PC */
-	buf_set_u32(arc32->core_cache->reg_list[ARC_REG_PC].value, 0, 32, dpc);
+	buf_set_u32(arc32->core_cache->reg_list[arc32->pc_index_in_cache].value,
+			0, 32, dpc);
 
 	return ERROR_OK;
 }
@@ -642,6 +649,111 @@ void arc32_add_reg_data_type(struct target *target,
 	assert(arc);
 
 	list_add_tail(&data_type->list, &arc->reg_data_types.list);
+}
+
+int arc32_build_reg_cache(struct target *target)
+{
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+	const unsigned long num_regs = arc32->num_regs;
+	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
+	struct reg_cache *cache = calloc(1, sizeof(struct reg_cache));
+	struct reg *reg_list = calloc(num_regs, sizeof(struct reg));
+	struct arc_reg_t *arch_info = calloc(num_regs, sizeof(struct arc_reg_t));
+
+	/* Build the process context cache */
+	cache->name = "arc32 registers";
+	cache->next = NULL;
+	cache->reg_list = reg_list;
+	cache->num_regs = num_regs;
+	(*cache_p) = cache;
+	arc32->core_cache = cache;
+
+	struct arc_reg_desc *reg_desc;
+	unsigned long i = 0;
+	list_for_each_entry(reg_desc, &arc32->core_reg_descriptions.list, list) {
+		/* Initialize struct arc_reg_t */
+		arch_info[i].desc2 = reg_desc;
+		arch_info[i].target = target;
+		arch_info[i].arc32_common = arc32;
+		arch_info[i].dummy = false; /* @todo deprecated. */
+
+		/* Initialize struct reg */
+		reg_list[i].name = reg_desc->name;
+		reg_list[i].size = 32; /* All register in ARC are 32-bit */
+		reg_list[i].value = calloc(1, 4);
+		reg_list[i].dirty = 0;
+		reg_list[i].valid = 0;
+		reg_list[i].type = &arc32_reg_type;
+		reg_list[i].arch_info = &arch_info[i];
+
+		reg_list[i].number = reg_desc->gdb_num;
+		/* By default only core regs and BCRs are enabled. */
+		if (i != 62 && i != 61)
+			reg_list[i].exist = true;
+		else
+			reg_list[i].exist = false;
+
+		reg_list[i].group = general_group_name;
+		reg_list[i].caller_save = true;
+		reg_list[i].reg_data_type = reg_desc->data_type;
+		reg_list[i].feature = malloc(sizeof(struct reg_feature));
+		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
+
+		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
+			reg_list[i].name, reg_list[i].group,
+			reg_list[i].feature->name);
+
+		i += 1;
+	}
+
+	list_for_each_entry(reg_desc, &arc32->aux_reg_descriptions.list, list) {
+		/* Initialize struct arc_reg_t */
+		arch_info[i].desc2 = reg_desc;
+		arch_info[i].target = target;
+		arch_info[i].arc32_common = arc32;
+		arch_info[i].dummy = false; /* @todo deprecated. */
+
+		/* Initialize struct reg */
+		reg_list[i].name = reg_desc->name;
+		reg_list[i].size = 32; /* All register in ARC are 32-bit */
+		reg_list[i].value = calloc(1, 4);
+		reg_list[i].dirty = 0;
+		reg_list[i].valid = 0;
+		reg_list[i].type = &arc32_reg_type;
+		reg_list[i].arch_info = &arch_info[i];
+
+		reg_list[i].number = reg_desc->gdb_num;
+		/* By default only core regs and BCRs are enabled. */
+		reg_list[i].exist = true;
+
+		reg_list[i].group = general_group_name;
+		reg_list[i].caller_save = true;
+		reg_list[i].reg_data_type = reg_desc->data_type;
+		reg_list[i].feature = malloc(sizeof(struct reg_feature));
+		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
+
+		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
+			reg_list[i].name, reg_list[i].group,
+			reg_list[i].feature->name);
+
+		/* PC and DEBUG are essential so we searcg for them. */
+		if (arc32->pc_index_in_cache == ULONG_MAX && strcmp("pc", reg_desc->name) == 0)
+			arc32->pc_index_in_cache = i;
+		else if (arc32->debug_index_in_cache == ULONG_MAX
+				&& strcmp("debug", reg_desc->name) == 0)
+			arc32->debug_index_in_cache = i;
+
+		i += 1;
+	}
+
+	if (arc32->pc_index_in_cache == ULONG_MAX
+			|| arc32->debug_index_in_cache == ULONG_MAX) {
+		LOG_ERROR("`pc' and `debug' registers must be present in target description.");
+		return ERROR_FAIL;
+	}
+
+	return ERROR_OK;
 }
 
 /* ARC target */
