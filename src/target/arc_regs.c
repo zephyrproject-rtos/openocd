@@ -32,13 +32,14 @@
  * allow. */
 
 /* XML feature names */
-static const char * const general_group_name = "general";
+const char * const general_group_name = "general";
 static const char * const float_group_name = "float";
 static const char * const feature_core_v2_name = "org.gnu.gdb.arc.core.v2";
 static const char * const feature_aux_minimal_name = "org.gnu.gdb.arc.aux-minimal";
 static const char * const feature_aux_other_name = "org.gnu.gdb.arc.aux-other";
 
 /* Describe all possible registers. */
+#if 0
 static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] = {
 	/* regnum, name, address, gdb_type, readonly */
 	{ ARC_REG_R0,       "r0",        0, REG_TYPE_UINT32,   false },
@@ -231,6 +232,7 @@ static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] =
 	{ ARC_REG_IFQUEUE_BUILD,    "ifqueue_build",    0xFE, REG_TYPE_UINT32, true },
 	{ ARC_REG_SMART_BUILD,      "smart_build",      0xFF, REG_TYPE_UINT32, true },
 };
+#endif
 
 static int arc_regs_get_core_reg(struct reg *reg)
 {
@@ -239,33 +241,33 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	struct arc_reg_t *arc_reg = reg->arch_info;
 	struct target *target = arc_reg->target;
 	struct arc32_common *arc32 = target_to_arc32(target);
-	const uint32_t regnum = arc_reg->desc->regnum;
 
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
 
-	if (regnum >= ARC_TOTAL_NUM_REGS)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
 	if (reg->valid) {
-		LOG_DEBUG("Get register (cached) regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
-				regnum, arc_reg->desc->name, arc_reg->value);
+		LOG_DEBUG("Get register (cached) gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
+				arc_reg->desc2->gdb_num, arc_reg->desc2->name, arc_reg->value);
 		return ERROR_OK;
 	}
 
-	if (regnum == ARC_REG_LIMM || regnum == ARC_REG_RESERVED) {
-		arc_reg->value = 0;
-	} else if (regnum < ARC_REG_FIRST_AUX) {
-		arc_jtag_read_core_reg_one(&arc32->jtag_info, arc_reg->desc->addr, &arc_reg->value);
+	if (arc_reg->desc2->is_core) {
+		if (arc_reg->desc2->arch_num == 61 || arc_reg->desc2->arch_num == 62) {
+			LOG_ERROR("It is forbidden to read core registers 61 and 62.");
+			return ERROR_FAIL;
+		}
+		arc_jtag_read_core_reg_one(&arc32->jtag_info, arc_reg->desc2->arch_num,
+			&arc_reg->value);
 	} else {
-		arc_jtag_read_aux_reg_one(&arc32->jtag_info, arc_reg->desc->addr, &arc_reg->value);
+		arc_jtag_read_aux_reg_one(&arc32->jtag_info, arc_reg->desc2->arch_num,
+			&arc_reg->value);
 	}
 
-	buf_set_u32(arc32->core_cache->reg_list[regnum].value, 0, 32, arc_reg->value);
-	arc32->core_cache->reg_list[regnum].valid = true;
-	arc32->core_cache->reg_list[regnum].dirty = false;
-	LOG_DEBUG("Get register regnum=%" PRIu32 ", name=%s, value=0x%" PRIx32,
-			regnum , arc_reg->desc->name, arc_reg->value);
+	buf_set_u32(reg->value, 0, 32, arc_reg->value);
+	reg->valid = true;
+	reg->dirty = false;
+	LOG_DEBUG("Get register gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
+			arc_reg->desc2->gdb_num , arc_reg->desc2->name, arc_reg->value);
 
 	return ERROR_OK;
 }
@@ -275,18 +277,21 @@ static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 	LOG_DEBUG("-");
 	struct arc_reg_t *arc_reg = reg->arch_info;
 	struct target *target = arc_reg->target;
-	struct arc32_common *arc32 = target_to_arc32(target);
+	//struct arc32_common *arc32 = target_to_arc32(target);
 	uint32_t value = buf_get_u32(buf, 0, 32);
-	uint32_t regnum = arc_reg->desc->regnum;
 
 	if (target->state != TARGET_HALTED)
 		return ERROR_TARGET_NOT_HALTED;
-
-	if (regnum >= ARC_TOTAL_NUM_REGS)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
+#if 0
 	if (arc_reg->desc->readonly) {
-		LOG_ERROR("Cannot set value to a read-only register %s.", arc_reg->desc->name);
+		LOG_ERROR("Cannot set value to a read-only register %s.", arc_reg->desc2->name);
+		return ERROR_FAIL;
+	}
+#endif
+
+	if (arc_reg->desc2->is_core && (arc_reg->desc2->arch_num == 61 ||
+			arc_reg->desc2->arch_num == 62)) {
+		LOG_ERROR("It is forbidden to write core registers 61 and 62.");
 		return ERROR_FAIL;
 	}
 
@@ -294,15 +299,15 @@ static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 
 	arc_reg->value = value;
 
-	LOG_DEBUG("Set register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-			regnum, arc_reg->desc->name, value);
-	arc32->core_cache->reg_list[regnum].valid = true;
-	arc32->core_cache->reg_list[regnum].dirty = true;
+	LOG_DEBUG("Set register gdb_num=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
+			arc_reg->desc2->gdb_num, arc_reg->desc2->name, value);
+	reg->valid = true;
+	reg->dirty = true;
 
 	return ERROR_OK;
 }
 
-static const struct reg_arch_type arc32_reg_type = {
+const struct reg_arch_type arc32_reg_type = {
 	.get = arc_regs_get_core_reg,
 	.set = arc_regs_set_core_reg,
 };
@@ -313,7 +318,7 @@ static const struct reg_arch_type arc32_reg_type = {
 int arc_regs_read_bcrs(struct target *target)
 {
 	LOG_DEBUG("-");
-
+#if 0
 	struct arc32_common *arc32 = target_to_arc32(target);
 	uint32_t numregs = ARC_REG_AFTER_BCR - ARC_REG_FIRST_BCR;
 	uint32_t *addrs = calloc(numregs, sizeof(uint32_t));
@@ -357,7 +362,7 @@ int arc_regs_read_bcrs(struct target *target)
 
 	free(addrs);
 	free(values);
-
+#endif
 	return ERROR_OK;
 }
 
@@ -365,6 +370,7 @@ int arc_regs_read_bcrs(struct target *target)
 void arc_regs_build_reg_list(struct target *target)
 {
 	LOG_DEBUG("-");
+#if 0
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct reg *reg_list = arc32->core_cache->reg_list;
@@ -541,9 +547,10 @@ void arc_regs_build_reg_list(struct target *target)
 				break;
 		}
 	}
+#endif
 }
-
-struct reg_cache *arc_regs_build_reg_cache(struct target *target)
+#if 0
+struct reg_cache *arc_regs_build_reg_cache_deprecated(struct target *target)
 {
 	uint32_t i;
 
@@ -622,17 +629,17 @@ struct reg_cache *arc_regs_build_reg_cache(struct target *target)
 
 	return cache;
 }
-
+#endif
 
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size, enum target_register_class reg_class)
 {
-	int i;
+	unsigned int i;
 
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* get pointers to arch-specific information storage */
-	*reg_list_size = ARC_TOTAL_NUM_REGS;
+	*reg_list_size = arc32->num_regs;
 	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
 
 	/* OpenOCD gdb_server API seems to be inconsistent here: when it generates
@@ -643,14 +650,14 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	 * !exist for "all" as well will cause a failed check in OpenOCD GDB
 	 * server. */
 	if (reg_class == REG_CLASS_ALL) {
-		for (i = 0; i < ARC_TOTAL_NUM_REGS; i++) {
+		for (i = 0; i < arc32->num_regs; i++) {
 			(*reg_list)[i] = &arc32->core_cache->reg_list[i];
 		}
 		LOG_DEBUG("REG_CLASS_ALL: number of regs=%i", *reg_list_size);
 	} else {
 		int cur_index = 0;
-		for (i = 0; i < ARC_TOTAL_NUM_REGS; i++) {
-			if (i < ARC_REG_AFTER_GDB_GENERAL &&
+		for (i = 0; i < arc32->num_regs; i++) {
+			if (/*i < ARC_REG_AFTER_GDB_GENERAL &&*/
 					arc32->core_cache->reg_list[i].exist) {
 				(*reg_list)[cur_index] = &arc32->core_cache->reg_list[i];
 				cur_index += 1;
