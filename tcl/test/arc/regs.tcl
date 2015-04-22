@@ -1,4 +1,5 @@
 proc init_ocd { } {
+    global _TARGETNAME
     source [find interface/ftdi/digilent-hs1.cfg]
     adapter_khz 10000
 
@@ -109,6 +110,7 @@ proc arc_test_regs_params { } {
 }
 
 proc arc_test_regs_full { } {
+    global _TARGETNAME
     init_ocd
 
     # Describe types
@@ -206,6 +208,12 @@ proc arc_test_regs_full { } {
         arc add-reg -name $reg -num $num -gdbnum $gdbnum -type $type -feature $aux_min_feat
     }
     arc add-reg -name debug    -num 0x5 -feature $aux_other_feat
+
+    $_TARGETNAME configure -event examine-end  {
+        arc set-reg-exists r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 \
+          r15 r16 r17 r18 r19 r20 r21 r22 r23 r24 r25 gp fp sp ilink r30 blink \
+          lp_count pcl pc lp_start lp_end status32 debug
+    }
 
     # Initialize
     init
