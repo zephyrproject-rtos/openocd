@@ -688,11 +688,7 @@ int arc32_build_reg_cache(struct target *target)
 		reg_list[i].arch_info = &arch_info[i];
 
 		reg_list[i].number = reg_desc->gdb_num;
-		/* By default only core regs and BCRs are enabled. */
-		if (i != 62 && i != 61)
-			reg_list[i].exist = true;
-		else
-			reg_list[i].exist = false;
+		reg_list[i].exist = false;
 
 		reg_list[i].group = general_group_name;
 		reg_list[i].caller_save = true;
