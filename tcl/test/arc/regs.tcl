@@ -66,6 +66,35 @@ proc arc_test_regs_unknown_type { } {
     arc add-reg -name debug -num 0x5 -feature $feat
 }
 
+proc arc_test_regs_struct { } {
+    global _TARGETNAME
+    init_ocd
+
+    # Describe types
+    arc add-reg-type-struct -name identity_t \
+        -bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
+
+    # Describe registers
+    set f "org.gnu.gdb.arc.aux-other"
+    set aux_min {
+        pc       0x6 0 code_ptr
+        status32 0xA 1 uint32
+        identity 0x4 2 identity_t
+        debug    0x5 3 uint32
+    }
+    foreach {reg num gdbnum type} $aux_min {
+        arc add-reg -name $reg -num $num -gdbnum $gdbnum -type $type -feature $f
+    }
+
+    $_TARGETNAME configure -event examine-end  {
+        arc set-reg-exists pc status32 identity debug
+    }
+
+    # Initialize
+    init
+    gdb_save_tdesc
+}
+
 
 # Check that OpenOCD complains about invalid parameters
 proc arc_test_regs_params { } {
@@ -114,13 +143,15 @@ proc arc_test_regs_full { } {
     init_ocd
 
     # Describe types
-    arc add-reg-type-flags -name status32_type \
+    arc add-reg-type-flags -name status32_t \
         -flag   H  0 -flag E0   1 -flag E1   2 -flag E2  3 \
         -flag  E3  4 -flag AE   5 -flag DE   6 -flag  U  7 \
         -flag   V  8 -flag  C   9 -flag  N  10 -flag  Z 11 \
         -flag   L 12 -flag DZ  13 -flag SC  14 -flag ES 15 \
         -flag RB0 16 -flag RB1 17 -flag RB2 18 \
         -flag  AD 19 -flag US  20 -flag IE  31
+    arc add-reg-type-struct -name identity_t \
+        -bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
     # Describe registers
     set core_feat "org.gnu.gdb.arc.core.v2"
     set aux_min_feat "org.gnu.gdb.arc.aux-minimal"
@@ -202,12 +233,13 @@ proc arc_test_regs_full { } {
         pc       6   64 code_ptr
         lp_start 2   65 code_ptr
         lp_end   3   66 code_ptr
-        status32 0xA 66 status32_type
+        status32 0xA 66 status32_t
     }
     foreach {reg num gdbnum type} $aux_min {
         arc add-reg -name $reg -num $num -gdbnum $gdbnum -type $type -feature $aux_min_feat
     }
     arc add-reg -name debug    -num 0x5 -feature $aux_other_feat
+    arc add-reg -name identity -num 0x4 -feature $aux_other_feat -type identity_t
 
     $_TARGETNAME configure -event examine-end  {
         arc set-reg-exists r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 \
