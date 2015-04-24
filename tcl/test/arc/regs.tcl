@@ -138,6 +138,61 @@ proc arc_test_regs_params { } {
     arc add-reg -name debug -num 0x5 -feature $f
 }
 
+proc arc_test_regs_get_field { } {
+    global _TARGETNAME
+    init_ocd
+
+    arc add-reg-type-struct -name identity_t \
+        -bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
+    set f "feature"
+    arc add-reg -name identity -num 4 -feature $f -type identity_t
+    arc add-reg -name debug    -num 5 -feature $f
+    arc add-reg -name pc       -num 6 -feature $f
+
+    init
+    set id [arc jtag aux-reg 4]
+    puts "IDENTITY: [format 0x%x $id]"
+    puts "IDENTITY(ARCVER): [format 0x%x [arc reg-field identity arcver]]"
+    puts "IDENTITY(ARCNUM): [format 0x%x [arc reg-field identity arcnum]]"
+    puts "IDENTITY(CHIPID): [format 0x%x [arc reg-field identity chipid]]"
+    if { [expr $id & 0xFF] != [arc reg-field identity arcver] } {
+        fail_test arcver
+    }
+    if { [expr ($id >> 8) & 0xFF] != [arc reg-field identity arcnum] } {
+        fail_test arcnum
+    }
+    if { [expr ($id >> 16) & 0xFFFF] != [arc reg-field identity chipid] } {
+        fail_test chipid
+    }
+}
+
+proc arc_test_regs_get_field_invalid_args { } {
+    global _TARGETNAME
+    init_ocd
+
+    arc add-reg-type-struct -name identity_t \
+        -bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
+    set f "feature"
+    arc add-reg -name identity -num 4 -feature $f -type identity_t
+    arc add-reg -name debug    -num 5 -feature $f
+    arc add-reg -name pc       -num 6 -feature $f
+
+    run_test { arc reg-field } {wrong # args: should be "?regname? ?fieldname?"}
+    run_test { arc reg-field identity } \
+        {wrong # args: should be "identity ?fieldname?"}
+    run_test { arc reg-field identity arcver arcnum } \
+        {wrong # args: should be "identity arcver arcnum ?regname? ?fieldname?"}
+
+    init
+    # unexisting register
+    run_test { arc reg-field identity2 arcver } "Register `identity2' has not been found."
+    # unexisting field
+    run_test { arc reg-field identity arcver2 } \
+        "Field `arcver2' has not been found in register `identity'."
+    # Not a struct register
+    run_test { arc reg-field pc value } "Register `pc' must have 'struct' type."
+}
+
 proc arc_test_regs_full { } {
     global _TARGETNAME
     init_ocd
