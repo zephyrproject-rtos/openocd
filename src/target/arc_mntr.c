@@ -653,6 +653,71 @@ COMMAND_HANDLER(arc_set_reg_exists)
 	return JIM_OK;
 }
 
+int jim_arc_reg_field(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc-1, argv+1);
+
+	LOG_DEBUG("-");
+	if (goi.argc != 2) {
+		if (goi.argc == 0)
+			Jim_WrongNumArgs(interp, goi.argc, goi.argv, "?regname? ?fieldname?");
+		else if (goi.argc == 1)
+			Jim_WrongNumArgs(interp, goi.argc, goi.argv, "?fieldname?");
+		else
+			Jim_WrongNumArgs(interp, goi.argc, goi.argv, "?regname? ?fieldname?");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	char *reg_name, *field_name;
+	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &reg_name, NULL));
+	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &field_name, NULL));
+	assert(reg_name);
+	assert(field_name);
+
+	struct command_context * const ctx = current_command_context(interp);
+	assert(ctx);
+	struct target * const target = get_current_target(ctx);
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	uint32_t value;
+	int retval;
+	retval = arc32_get_register_field(target, reg_name, field_name, &value);
+
+	switch (retval) {
+		case ERROR_OK:
+			break;
+		case ERROR_ARC_REGISTER_NOT_FOUND:
+			Jim_SetResultFormatted(goi.interp,
+				"Register `%s' has not been found.", reg_name);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		case ERROR_ARC_REGISTER_IS_NOT_STRUCT:
+			Jim_SetResultFormatted(goi.interp,
+				"Register `%s' must have 'struct' type.", reg_name);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		case ERROR_ARC_REGISTER_FIELD_NOT_FOUND:
+			Jim_SetResultFormatted(goi.interp,
+				"Field `%s' has not been found in register `%s'.",
+				field_name, reg_name);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		case ERROR_ARC_FIELD_IS_NOT_BITFIELD:
+			Jim_SetResultFormatted(goi.interp,
+				"Field `%s' is not a 'bitfield' field in a structure.",
+				field_name);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		default:
+			/* Pass through other errors. */
+			return retval;
+	}
+
+	Jim_SetResultInt(interp, value);
+
+	return JIM_OK;
+}
+
 
 /* JTAG layer commands */
 COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
@@ -872,6 +937,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.usage = "arc set-reg-exists ?register-name?+",
 		.help = "Set that register exists. Accepts multiple register names as "
 			"arguments.",
+	},
+	{
+		.name = "reg-field",
+		.jim_handler = jim_arc_reg_field,
+		.mode = COMMAND_ANY,
+		.usage = "?regname? ?field_name?",
+		.help = "Returns value of field in a register with 'struct' type.",
 	},
 	{
 		.name = "jtag",
