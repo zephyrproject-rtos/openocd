@@ -768,6 +768,62 @@ int arc32_get_register_value_u32(struct reg * r, uint32_t *value_ptr)
 	return ERROR_OK;
 }
 
+int arc32_get_register_field(struct target *target, const char *reg_name,
+		const char *field_name, uint32_t *value_ptr)
+{
+	LOG_DEBUG("getting register field (reg_name=%s, field_name=%s)", reg_name, field_name);
+
+	if (!(reg_name && field_name && value_ptr)) {
+		LOG_ERROR("Arguments cannot be NULL.");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	/* Get register */
+	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
+
+	if (!reg)
+		return ERROR_ARC_REGISTER_NOT_FOUND;
+
+	if (reg->reg_data_type->type != REG_TYPE_ARCH_DEFINED
+	    || reg->reg_data_type->type_class != REG_TYPE_CLASS_STRUCT)
+		return ERROR_ARC_REGISTER_IS_NOT_STRUCT;
+
+	/* Get field in a register */
+	struct reg_data_type_struct *reg_struct =
+		reg->reg_data_type->reg_type_struct;
+	struct reg_data_type_struct_field *field;
+	for (field = reg_struct->fields;
+	     field != NULL;
+	     field = field->next) {
+		if (strcmp(field->name, field_name) == 0)
+			break;
+	}
+
+	if (!field)
+		return ERROR_ARC_REGISTER_FIELD_NOT_FOUND;
+
+	if (!field->use_bitfields)
+		return ERROR_ARC_FIELD_IS_NOT_BITFIELD;
+
+	/* Get register value */
+	uint32_t value;
+	JIM_CHECK_RETVAL(arc32_get_register_value_u32(reg, &value));
+
+	/* Get field value by masking and shifting */
+	/* All ARC regs are 32-bit. This code will have to be modified to allow
+	 * registers of another size. */
+	uint32_t mask = UINT32_MAX;
+	mask = mask >> (31 - field->bitfield->end);
+	value = value & mask;
+	value = value >> field->bitfield->start;
+
+	*value_ptr = value;
+
+	LOG_DEBUG("return (value=0x%" PRIx32 ")", *value_ptr);
+
+	return ERROR_OK;
+}
+
 /* ARC target */
 struct target_type arc32_target = {
 	.name = "arc32",

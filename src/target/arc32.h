@@ -207,6 +207,12 @@ struct arc32_common {
 
 #define ARC_COMMON_MAGIC 0x1A471AC5  /* just a unique number */
 
+/* Error codes */
+#define ERROR_ARC_REGISTER_NOT_FOUND       (-700)
+#define ERROR_ARC_REGISTER_FIELD_NOT_FOUND (-701)
+#define ERROR_ARC_REGISTER_IS_NOT_STRUCT   (-702)
+#define ERROR_ARC_FIELD_IS_NOT_BITFIELD    (-703)
+
 struct arc_common {
 	int common_magic;
 	bool is_4wire;
@@ -281,5 +287,8 @@ void arc32_add_reg_data_type(struct target *target,
 
 /* Get value of 32-bit register. */
 int arc32_get_register_value_u32(struct reg * r, uint32_t * value_ptr);
+/* Get value of field in struct register */
+int arc32_get_register_field(struct target *target, const char *reg_name,
+		const char *field_name, uint32_t *value_ptr);
 
 #endif /* ARC32_H */
