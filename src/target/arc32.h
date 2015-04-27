@@ -163,9 +163,11 @@ struct arc32_common {
 	struct arc_reg_data_type_list reg_data_types;
 	struct arc_reg_desc_list core_reg_descriptions;
 	struct arc_reg_desc_list aux_reg_descriptions;
+	struct arc_reg_desc_list bcr_reg_descriptions;
 	unsigned long num_regs;
 	unsigned long num_core_regs;
 	unsigned long num_aux_regs;
+	unsigned long num_bcr_regs;
 	unsigned long last_general_reg;
 
 	/* PC register location in register cache. */
@@ -253,6 +255,7 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	struct jtag_tap *tap);
 
 int arc32_build_reg_cache(struct target *target);
+int arc32_build_bcr_reg_cache(struct target *target);
 
 int arc32_save_context(struct target *target);
 int arc32_restore_context(struct target *target);

@@ -55,9 +55,9 @@ proc arc_test_regs_unknown_type { } {
     # Describe registers
     set feat "org.gnu.gdb.arc.core.v2"
     # Core registers
-    arc add-reg -name r0 -num 0 -gdbnum 0 -core -feature $feat
-    arc add-reg -name r1 -num 1 -gdbnum 1 -core -type int -feature $feat
-    if {![catch {arc add-reg -name r2 -num 2 -gdbnum 2 -core -type ptr -feature $feat }]} {
+    arc add-reg -name r0 -num 0 -core -feature $feat
+    arc add-reg -name r1 -num 1 -core -type int -feature $feat
+    if {![catch {arc add-reg -name r2 -num 2 -core -type ptr -feature $feat }]} {
         fail_test
     } else {
         pass_test
@@ -77,13 +77,13 @@ proc arc_test_regs_struct { } {
     # Describe registers
     set f "org.gnu.gdb.arc.aux-other"
     set aux_min {
-        pc       0x6 0 code_ptr
-        status32 0xA 1 uint32
-        identity 0x4 2 identity_t
-        debug    0x5 3 uint32
+        pc       0x6 code_ptr
+        status32 0xA uint32
+        identity 0x4 identity_t
+        debug    0x5 uint32
     }
-    foreach {reg num gdbnum type} $aux_min {
-        arc add-reg -name $reg -num $num -gdbnum $gdbnum -type $type -feature $f
+    foreach {reg num type} $aux_min {
+        arc add-reg -name $reg -num $num -type $type -feature $f
     }
 
     $_TARGETNAME configure -event examine-end  {
@@ -101,37 +101,38 @@ proc arc_test_regs_params { } {
     init_ocd
     set f "org.gnu.gdb.arc.core.v2"
     # No -name
-    run_test "arc add-reg -num 0 -gdbnum 0 -core -feature $f" "-name option is required"
+    run_test "arc add-reg -num 0 -core -feature $f" "-name option is required"
     # -name without argument
-    run_test "arc add-reg -name -num 0 -gdbnum 0 -core -feature $f" \
-        "Unknown param: 0, try one of: -name, -gdbnum, -num, -core, -feature, or -type"
-    run_test "arc add-reg -num 0 -gdbnum 0 -core -feature $f -name" \
+    run_test "arc add-reg -name -num 0 -core -feature $f" \
+        "Unknown param: 0, try one of: -name, -num, -core, -bcr, -feature, or -type"
+    run_test "arc add-reg -num 0 -core -feature $f -name" \
         "wrong # args: should be \"-name ?name? ...\""
     # No num
-    run_test "arc add-reg -name r0 -gdbnum 0 -core -feature $f" "-num option is required"
+    run_test "arc add-reg -name r0 -core -feature $f" "-num option is required"
     # Num without argument
-    run_test "arc add-reg -name r0 -num -gdbnum 0 -core -feature $f" \
-        "expected integer but got \"-gdbnum\""
-    run_test "arc add-reg -name r0 -gdbnum 0 -core -feature $f -num" \
-        "wrong # args: should be \"-num ?int? ...\""
-    # gdbnum without argument
-    run_test "arc add-reg -name r0 -gdbnum -core -feature $f" \
+    run_test "arc add-reg -name r0 -num -core -feature $f" \
         "expected integer but got \"-core\""
-    run_test "arc add-reg -name r0 -core -feature $f -gdbnum" \
-        "wrong # args: should be \"-gdbnum ?int? ...\""
+    run_test "arc add-reg -name r0 -core -feature $f -num" \
+        "wrong # args: should be \"-num ?int? ...\""
     # Check that core doesn't take arguments
-    run_test "arc add-reg -name r0 -core is_core -feature $f" \
-        "Unknown param: is_core, try one of: -name, -gdbnum, -num, -core, -feature, or -type"
+    run_test "arc add-reg -name r0 -num 0 -core is_core -feature $f" \
+        "Unknown param: is_core, try one of: -name, -num, -core, -bcr, -feature, or -type"
+    # Check that -bcr doesn't take arguments
+    run_test "arc add-reg -name r0 -num 0 -bcr is_bcr -feature $f" \
+        "Unknown param: is_bcr, try one of: -name, -num, -core, -bcr, -feature, or -type"
+    # Check that -bcr and -core are exclusive
+    run_test "arc add-reg -num 0 -name r0 -bcr -core -feature $f" \
+        "Register cannot be both -core and -bcr."
     # No -feature
     run_test "arc add-reg -name r0 -num 0" "-feature option is required"
     # -feature without argument
     run_test "arc add-reg -name r0 -feature -num 0" \
-        "Unknown param: 0, try one of: -name, -gdbnum, -num, -core, -feature, or -type"
+        "Unknown param: 0, try one of: -name, -num, -core, -bcr, -feature, or -type"
     run_test "arc add-reg -name r0 -num 0 -feature" \
         "wrong # args: should be \"-feature ?name? ...\""
     # -type without argument
     run_test "arc add-reg -name r0 -type -feature F -num 0" \
-        "Unknown param: F, try one of: -name, -gdbnum, -num, -core, -feature, or -type"
+        "Unknown param: F, try one of: -name, -num, -core, -bcr, -feature, or -type"
     run_test "arc add-reg -name r0 -num 0 -feature F -type" \
         "wrong # args: should be \"-type ?type? ...\""
     arc add-reg -name pc    -num 0x6 -feature $f
@@ -157,12 +158,18 @@ proc arc_test_regs_get_field { } {
     puts "IDENTITY(CHIPID): [format 0x%x [arc reg-field identity chipid]]"
     if { [expr $id & 0xFF] != [arc reg-field identity arcver] } {
         fail_test arcver
+    } else {
+        pass_test arcver
     }
     if { [expr ($id >> 8) & 0xFF] != [arc reg-field identity arcnum] } {
         fail_test arcnum
+    } else {
+        pass_test arcnum
     }
     if { [expr ($id >> 16) & 0xFFFF] != [arc reg-field identity chipid] } {
         fail_test chipid
+    } else {
+        pass_test chipid
     }
 }
 
@@ -207,6 +214,9 @@ proc arc_test_regs_full { } {
         -flag  AD 19 -flag US  20 -flag IE  31
     arc add-reg-type-struct -name identity_t \
         -bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
+    arc add-reg-type-struct -name bcr_ver_t \
+        -bitfield version 0 7
+
     # Describe registers
     set core_feat "org.gnu.gdb.arc.core.v2"
     set aux_min_feat "org.gnu.gdb.arc.aux-minimal"
@@ -279,27 +289,28 @@ proc arc_test_regs_full { } {
         pcl   63 code_ptr
     }
     foreach {reg count type} $core_regs {
-        arc add-reg -name $reg -num $count -gdbnum $count -core -type $type \
+        arc add-reg -name $reg -num $count -core -type $type \
             -feature $core_feat
     }
 
     # AUX
     set aux_min {
-        pc       6   64 code_ptr
-        lp_start 2   65 code_ptr
-        lp_end   3   66 code_ptr
-        status32 0xA 66 status32_t
+        pc       6   code_ptr
+        lp_start 2   code_ptr
+        lp_end   3   code_ptr
+        status32 0xA status32_t
     }
-    foreach {reg num gdbnum type} $aux_min {
-        arc add-reg -name $reg -num $num -gdbnum $gdbnum -type $type -feature $aux_min_feat
+    foreach {reg num type} $aux_min {
+        arc add-reg -name $reg -num $num -type $type -feature $aux_min_feat
     }
     arc add-reg -name debug    -num 0x5 -feature $aux_other_feat
     arc add-reg -name identity -num 0x4 -feature $aux_other_feat -type identity_t
+    arc add-reg -name bcr_ver  -num 0x60 -feature $aux_other_feat -type bcr_ver_t -bcr
 
     $_TARGETNAME configure -event examine-end  {
         arc set-reg-exists r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 \
           r15 r16 r17 r18 r19 r20 r21 r22 r23 r24 r25 gp fp sp ilink r30 blink \
-          lp_count pcl pc lp_start lp_end status32 debug
+          lp_count pcl pc lp_start lp_end status32 debug 
     }
 
     # Initialize

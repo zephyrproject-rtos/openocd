@@ -94,9 +94,11 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	/* Fields related to target descriptions */
 	INIT_LIST_HEAD(&arc32->core_reg_descriptions.list);
 	INIT_LIST_HEAD(&arc32->aux_reg_descriptions.list);
+	INIT_LIST_HEAD(&arc32->bcr_reg_descriptions.list);
 	arc32->num_regs = 0;
 	arc32->num_core_regs = 0;
 	arc32->num_aux_regs = 0;
+	arc32->num_bcr_regs = 0;
 	arc32->last_general_reg = ULONG_MAX;
 	arc32->pc_index_in_cache = ULONG_MAX;
 	arc32->debug_index_in_cache = ULONG_MAX;
@@ -655,7 +657,7 @@ int arc32_build_reg_cache(struct target *target)
 {
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
-	const unsigned long num_regs = arc32->num_regs;
+	const unsigned long num_regs = arc32->num_core_regs + arc32->num_aux_regs;
 	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
 	struct reg_cache *cache = calloc(1, sizeof(struct reg_cache));
 	struct reg *reg_list = calloc(num_regs, sizeof(struct reg));
@@ -721,7 +723,7 @@ int arc32_build_reg_cache(struct target *target)
 
 		reg_list[i].number = reg_desc->gdb_num;
 		/* By default only core regs and BCRs are enabled. */
-		reg_list[i].exist = true;
+		reg_list[i].exist = false;
 
 		reg_list[i].group = general_group_name;
 		reg_list[i].caller_save = true;
@@ -748,6 +750,71 @@ int arc32_build_reg_cache(struct target *target)
 		LOG_ERROR("`pc' and `debug' registers must be present in target description.");
 		return ERROR_FAIL;
 	}
+
+	assert(i == (arc32->num_core_regs + arc32->num_aux_regs));
+
+	return ERROR_OK;
+}
+
+int arc32_build_bcr_reg_cache(struct target *target)
+{
+	/* get pointers to arch-specific information */
+	struct arc32_common *arc32 = target_to_arc32(target);
+	const unsigned long num_regs = arc32->num_bcr_regs;
+	struct reg_cache **cache_p = register_get_last_cache_p(&target->reg_cache);
+	struct reg_cache *cache = malloc(sizeof(struct reg_cache));
+	struct reg *reg_list = calloc(num_regs, sizeof(struct reg));
+	struct arc_reg_t *arch_info = calloc(num_regs, sizeof(struct arc_reg_t));
+
+	/* Build the process context cache */
+	cache->name = "arc.bcr";
+	cache->next = NULL;
+	cache->reg_list = reg_list;
+	cache->num_regs = num_regs;
+	(*cache_p) = cache;
+
+	struct arc_reg_desc *reg_desc;
+	unsigned long i = 0;
+
+	list_for_each_entry(reg_desc, &arc32->bcr_reg_descriptions.list, list) {
+		/* Initialize struct arc_reg_t */
+		arch_info[i].desc2 = reg_desc;
+		arch_info[i].target = target;
+		arch_info[i].arc32_common = arc32;
+		arch_info[i].dummy = false; /* @todo deprecated. */
+
+		/* Initialize struct reg */
+		reg_list[i].name = reg_desc->name;
+		reg_list[i].size = 32; /* All register in ARC are 32-bit */
+		reg_list[i].value = calloc(1, 4);
+		reg_list[i].dirty = 0;
+		reg_list[i].valid = 0;
+		reg_list[i].type = &arc32_reg_type;
+		reg_list[i].arch_info = &arch_info[i];
+
+		reg_list[i].number = reg_desc->gdb_num;
+		/* By default only core regs and BCRs are enabled. */
+		reg_list[i].exist = true;
+
+		reg_list[i].group = general_group_name;
+		reg_list[i].caller_save = true;
+		reg_list[i].reg_data_type = reg_desc->data_type;
+		reg_list[i].feature = malloc(sizeof(struct reg_feature));
+		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
+
+		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
+			reg_list[i].name, reg_list[i].group,
+			reg_list[i].feature->name);
+		i += 1;
+	}
+
+	if (arc32->pc_index_in_cache == ULONG_MAX
+			|| arc32->debug_index_in_cache == ULONG_MAX) {
+		LOG_ERROR("`pc' and `debug' registers must be present in target description.");
+		return ERROR_FAIL;
+	}
+
+	assert(i == arc32->num_bcr_regs);
 
 	return ERROR_OK;
 }
