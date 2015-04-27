@@ -752,6 +752,22 @@ int arc32_build_reg_cache(struct target *target)
 	return ERROR_OK;
 }
 
+int arc32_get_register_value_u32(struct reg * r, uint32_t *value_ptr)
+{
+	if (!r || !value_ptr) {
+		LOG_ERROR("Arguments cannot be NULL.");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	if (!r->valid)
+		CHECK_RETVAL(r->type->get(r));
+
+	const struct arc_reg_t * const arc_r = r->arch_info;
+	*value_ptr = arc_r->value;
+
+	return ERROR_OK;
+}
+
 /* ARC target */
 struct target_type arc32_target = {
 	.name = "arc32",

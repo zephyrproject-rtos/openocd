@@ -279,4 +279,7 @@ int arc32_configure(struct target *target);
 void arc32_add_reg_data_type(struct target *target,
 		struct arc_reg_data_type *data_type);
 
+/* Get value of 32-bit register. */
+int arc32_get_register_value_u32(struct reg * r, uint32_t * value_ptr);
+
 #endif /* ARC32_H */
