@@ -388,18 +388,18 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 /* Add register */
 enum opts_add_reg {
 	CFG_ADD_REG_NAME,
-	CFG_ADD_REG_GDB_NUM,
 	CFG_ADD_REG_ARCH_NUM,
 	CFG_ADD_REG_IS_CORE,
+	CFG_ADD_REG_IS_BCR,
 	CFG_ADD_REG_GDB_FEATURE,
 	CFG_ADD_REG_TYPE,
 };
 
 static Jim_Nvp opts_nvp_add_reg[] = {
 	{ .name = "-name",   .value = CFG_ADD_REG_NAME },
-	{ .name = "-gdbnum", .value = CFG_ADD_REG_GDB_NUM },
 	{ .name = "-num",    .value = CFG_ADD_REG_ARCH_NUM },
 	{ .name = "-core",   .value = CFG_ADD_REG_IS_CORE },
+	{ .name = "-bcr",    .value = CFG_ADD_REG_IS_BCR },
 	{ .name = "-feature",.value = CFG_ADD_REG_GDB_FEATURE },
 	{ .name = "-type",   .value = CFG_ADD_REG_TYPE },
 	{ .name = NULL,      .value = -1 }
@@ -440,7 +440,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	bool arch_num_set = false;
 	char *type_name = "int"; /* Default type */
 	int type_name_len = strlen(type_name);
-
+	bool is_bcr = false;
 
 	/* Parse options. */
 	while (goi.argc > 0) {
@@ -479,6 +479,11 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 				reg->is_core = true;
 				break;
 			}
+			case CFG_ADD_REG_IS_BCR:
+			{
+				is_bcr = true;
+				break;
+			}
 			case CFG_ADD_REG_ARCH_NUM:
 			{
 				jim_wide archnum;
@@ -497,25 +502,6 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 
 				reg->arch_num = archnum;
 				arch_num_set = true;
-				break;
-			}
-			case CFG_ADD_REG_GDB_NUM:
-			{
-				jim_wide gdbnum;
-
-				if (goi.argc == 0) {
-					free_reg_desc(reg);
-					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-gdbnum ?int? ...");
-					return JIM_ERR;
-				}
-
-				e = Jim_GetOpt_Wide(&goi, &gdbnum);
-				if (e != JIM_OK) {
-					free_reg_desc(reg);
-					return e;
-				}
-
-				reg->gdb_num = gdbnum;
 				break;
 			}
 			case CFG_ADD_REG_GDB_FEATURE:
@@ -573,6 +559,12 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		free_reg_desc(reg);
 		return JIM_ERR;
 	}
+	if (is_bcr && reg->is_core) {
+		Jim_SetResultFormatted(goi.interp,
+				"Register cannot be both -core and -bcr.");
+		free_reg_desc(reg);
+		return JIM_ERR;
+	}
 
 	/* Add new register */
 	struct command_context *ctx;
@@ -607,22 +599,28 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		}
 	}
 
+	/* Set GDB regnum. Due to how OpenOCD gdbserver is implemented it is
+	 * required that gdbnums are continuous, there cannot be holes. So to
+	 * ensure this, it is forbidden to set them explicitly from TCL, instead
+	 * they are set in the order of register addition. */
+	reg->gdb_num = arc32->num_regs;
+
 	if (reg->is_core) {
 		list_add_tail(&reg->list, &arc32->core_reg_descriptions.list);
 		arc32->num_core_regs += 1;
+	} else if (is_bcr) {
+		list_add_tail(&reg->list, &arc32->bcr_reg_descriptions.list);
+		arc32->num_bcr_regs += 1;
 	} else {
 		list_add_tail(&reg->list, &arc32->aux_reg_descriptions.list);
 		arc32->num_aux_regs += 1;
 	}
 	arc32->num_regs += 1;
 
-	/* Set gdb regnum if not set */
-	if (reg->gdb_num == ARC_GDB_NUM_INVALID) {
-		reg->gdb_num = list_entry(reg->list.prev, struct arc_reg_desc, list)->gdb_num + 1;
-	}
-
-	LOG_DEBUG("added reg {name=%s, num=0x%x, gdbnum=%u, is_core=%i, type=%s}",
-			reg->name, reg->arch_num, reg->gdb_num, reg->is_core, reg->data_type->id);
+	LOG_DEBUG(
+			"added reg {name=%s, num=0x%x, gdbnum=%u, is_core=%i, is_bcr=%i, type=%s}",
+			reg->name, reg->arch_num, reg->gdb_num, reg->is_core, is_bcr,
+			reg->data_type->id);
 
 	return JIM_OK;
 }
