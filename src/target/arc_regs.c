@@ -634,13 +634,12 @@ struct reg_cache *arc_regs_build_reg_cache_deprecated(struct target *target)
 int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	int *reg_list_size, enum target_register_class reg_class)
 {
-	unsigned int i;
-
+	assert(target->reg_cache);
 	struct arc32_common *arc32 = target_to_arc32(target);
 
 	/* get pointers to arch-specific information storage */
 	*reg_list_size = arc32->num_regs;
-	*reg_list = malloc(sizeof(struct reg *) * (*reg_list_size));
+	*reg_list = calloc(*reg_list_size, sizeof(struct reg *));
 
 	/* OpenOCD gdb_server API seems to be inconsistent here: when it generates
 	 * XML tdesc it filters out !exist registers, however when creating a
@@ -650,20 +649,30 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 	 * !exist for "all" as well will cause a failed check in OpenOCD GDB
 	 * server. */
 	if (reg_class == REG_CLASS_ALL) {
-		for (i = 0; i < arc32->num_regs; i++) {
-			(*reg_list)[i] = &arc32->core_cache->reg_list[i];
+		unsigned long i = 0;
+		struct reg_cache *reg_cache = target->reg_cache;
+		while (reg_cache != NULL) {
+			for (unsigned j = 0; j < reg_cache->num_regs; j++, i++) {
+				(*reg_list)[i] =  &reg_cache->reg_list[j];
+			}
+			reg_cache = reg_cache->next;
 		}
+		assert(i == arc32->num_regs);
 		LOG_DEBUG("REG_CLASS_ALL: number of regs=%i", *reg_list_size);
 	} else {
-		int cur_index = 0;
-		for (i = 0; i < arc32->num_regs; i++) {
-			if (/*i < ARC_REG_AFTER_GDB_GENERAL &&*/
-					arc32->core_cache->reg_list[i].exist) {
-				(*reg_list)[cur_index] = &arc32->core_cache->reg_list[i];
-				cur_index += 1;
+		unsigned long i = 0;
+		struct reg_cache *reg_cache = target->reg_cache;
+		while (reg_cache != NULL) {
+			for (unsigned j = 0; j < reg_cache->num_regs; j++) {
+				if (/*i < ARC_REG_AFTER_GDB_GENERAL &&*/
+						reg_cache->reg_list[i].exist) {
+					(*reg_list)[i] =  &reg_cache->reg_list[j];
+					i++;
+				}
 			}
+			reg_cache = reg_cache->next;
 		}
-		*reg_list_size = cur_index;
+		*reg_list_size = i;
 		LOG_DEBUG("REG_CLASS_GENERAL: number of regs=%i", *reg_list_size);
 	}
 
