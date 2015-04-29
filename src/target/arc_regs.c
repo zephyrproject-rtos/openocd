@@ -31,6 +31,7 @@
  * runtime with `if` and `switch`. Would be good to rething this when time will
  * allow. */
 
+#if 0
 /* XML feature names */
 const char * const general_group_name = "general";
 static const char * const float_group_name = "float";
@@ -39,7 +40,6 @@ static const char * const feature_aux_minimal_name = "org.gnu.gdb.arc.aux-minima
 static const char * const feature_aux_other_name = "org.gnu.gdb.arc.aux-other";
 
 /* Describe all possible registers. */
-#if 0
 static const struct arc32_reg_desc arc32_regs_descriptions[ARC_TOTAL_NUM_REGS] = {
 	/* regnum, name, address, gdb_type, readonly */
 	{ ARC_REG_R0,       "r0",        0, REG_TYPE_UINT32,   false },
@@ -247,7 +247,7 @@ static int arc_regs_get_core_reg(struct reg *reg)
 
 	if (reg->valid) {
 		LOG_DEBUG("Get register (cached) gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
-				arc_reg->desc2->gdb_num, arc_reg->desc2->name, arc_reg->value);
+				reg->number, arc_reg->desc2->name, arc_reg->value);
 		return ERROR_OK;
 	}
 
@@ -267,7 +267,7 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	reg->valid = true;
 	reg->dirty = false;
 	LOG_DEBUG("Get register gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
-			arc_reg->desc2->gdb_num , arc_reg->desc2->name, arc_reg->value);
+			reg->number , arc_reg->desc2->name, arc_reg->value);
 
 	return ERROR_OK;
 }
@@ -300,7 +300,7 @@ static int arc_regs_set_core_reg(struct reg *reg, uint8_t *buf)
 	arc_reg->value = value;
 
 	LOG_DEBUG("Set register gdb_num=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-			arc_reg->desc2->gdb_num, arc_reg->desc2->name, value);
+			reg->number, arc_reg->desc2->name, value);
 	reg->valid = true;
 	reg->dirty = true;
 
@@ -661,14 +661,17 @@ int arc_regs_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 		LOG_DEBUG("REG_CLASS_ALL: number of regs=%i", *reg_list_size);
 	} else {
 		unsigned long i = 0;
+		unsigned long gdb_reg_number = 0;
 		struct reg_cache *reg_cache = target->reg_cache;
 		while (reg_cache != NULL) {
-			for (unsigned j = 0; j < reg_cache->num_regs; j++) {
-				if (/*i < ARC_REG_AFTER_GDB_GENERAL &&*/
-						reg_cache->reg_list[i].exist) {
+			for (unsigned j = 0;
+				 j < reg_cache->num_regs && gdb_reg_number <= arc32->last_general_reg;
+				 j++) {
+				if (reg_cache->reg_list[j].exist) {
 					(*reg_list)[i] =  &reg_cache->reg_list[j];
 					i++;
 				}
+				gdb_reg_number += 1;
 			}
 			reg_cache = reg_cache->next;
 		}
