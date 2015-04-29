@@ -83,11 +83,11 @@ struct arc_reg_desc {
 	/* Register name */
 	char *name;
 
-	/* GDB regnum (register number). */
-	uint32_t gdb_num;
-
 	/* GDB XML feature */
 	char *gdb_xml_feature;
+
+	/* Is this a register in g/G-packet? */
+	bool is_general;
 
 	/* Architectural number: core reg num or AUX reg num */
 	uint32_t arch_num;

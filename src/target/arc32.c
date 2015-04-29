@@ -52,6 +52,10 @@ static const struct reg_data_type standard_gdb_types[] = {
 	{ .type = REG_TYPE_IEEE_DOUBLE, .id = "ieee_double" },
 };
 
+/* GDB register groups. For now we suport only general and "empty" */
+static const char * const reg_group_general = "general";
+static const char * const reg_group_other = "";
+
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
@@ -125,7 +129,10 @@ int arc32_save_context(struct target *target)
 	/* It is assumed that there is at least one AUX register in the list, for
 	 * example PC. */
 	const uint32_t core_regs_size = arc32->num_core_regs * sizeof(uint32_t);
-	const uint32_t regs_to_scan = MIN(arc32->last_general_reg, arc32->num_regs);
+	/* last_general_reg is inclusive number. To get count of registers it is
+	 * required to do +1. */
+	const uint32_t regs_to_scan =
+		MIN(arc32->last_general_reg + 1, arc32->num_regs);
 	const uint32_t aux_regs_size = arc32->num_aux_regs * sizeof(uint32_t);
 	uint32_t *core_values = malloc(core_regs_size);
 	uint32_t *aux_values = malloc(aux_regs_size);
@@ -179,7 +186,7 @@ int arc32_save_context(struct target *target)
 
 	/* Parse core regs */
 	core_cnt = 0;
-	for (i = 0; i < arc32->num_core_regs; i++) {
+	for (i = 0; i < MIN(arc32->num_core_regs, regs_to_scan); i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist) {
@@ -199,7 +206,7 @@ int arc32_save_context(struct target *target)
 
 	/* Parse aux regs */
 	aux_cnt = 0;
-	for (i = arc32->num_core_regs; i < arc32->num_regs; i++) {
+	for (i = arc32->num_core_regs; i < regs_to_scan; i++) {
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist) {
@@ -273,11 +280,11 @@ int arc32_restore_context(struct target *target)
 		}
 	}
 
-	for (i = arc32->num_core_regs; i < arc32->num_regs; i++) {
-		struct reg *reg = &(reg_list[i]);
+	for (i = 0; i < arc32->num_aux_regs; i++) {
+		struct reg *reg = &(reg_list[arc32->num_core_regs + i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (reg->valid && reg->exist && reg->dirty) {
-			LOG_DEBUG("Will write regnum=%u", i);
+			LOG_DEBUG("Will write regnum=%lu", arc32->num_core_regs + i);
 			aux_addrs[aux_cnt] = arc_reg->desc2->arch_num;
 			aux_values[aux_cnt] = arc_reg->value;
 			aux_cnt += 1;
@@ -689,14 +696,29 @@ int arc32_build_reg_cache(struct target *target)
 		reg_list[i].type = &arc32_reg_type;
 		reg_list[i].arch_info = &arch_info[i];
 
-		reg_list[i].number = reg_desc->gdb_num;
+		/* .number is used by OpenOCD as value for @regnum. Thus when setting
+		 * value of a register GDB will use it as a number of register in
+		 * P-packet. OpenOCD gdbserver will then use number of register in
+		 * P-packet as an array index in the reg_list returned by
+		 * arc_regs_get_gdb_reg_list. So to ensure that registers are assigned
+		 * correctly it would be required to either sort registers in
+		 * arc_regs_get_gdb_reg_list or to assign numbers sequentially here and
+		 * according to how registers will be sorted in
+		 * arc_regs_get_gdb_reg_list. Second options is much more simpler. */
+		reg_list[i].number = i;
 		reg_list[i].exist = false;
 
-		reg_list[i].group = general_group_name;
 		reg_list[i].caller_save = true;
 		reg_list[i].reg_data_type = reg_desc->data_type;
 		reg_list[i].feature = malloc(sizeof(struct reg_feature));
 		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
+
+		if (reg_desc->is_general) {
+			arc32->last_general_reg = reg_list[i].number;
+			reg_list[i].group = reg_group_general;
+		} else {
+			reg_list[i].group = reg_group_other;
+		}
 
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
@@ -721,21 +743,27 @@ int arc32_build_reg_cache(struct target *target)
 		reg_list[i].type = &arc32_reg_type;
 		reg_list[i].arch_info = &arch_info[i];
 
-		reg_list[i].number = reg_desc->gdb_num;
-		/* By default only core regs and BCRs are enabled. */
+		/* See note for core registers .number */
+		reg_list[i].number = i;
 		reg_list[i].exist = false;
 
-		reg_list[i].group = general_group_name;
 		reg_list[i].caller_save = true;
 		reg_list[i].reg_data_type = reg_desc->data_type;
 		reg_list[i].feature = malloc(sizeof(struct reg_feature));
 		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
 
+		if (reg_desc->is_general) {
+			arc32->last_general_reg = reg_list[i].number;
+			reg_list[i].group = reg_group_general;
+		} else {
+			reg_list[i].group = reg_group_other;
+		}
+
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
 			reg_list[i].feature->name);
 
-		/* PC and DEBUG are essential so we searcg for them. */
+		/* PC and DEBUG are essential so we search for them. */
 		if (arc32->pc_index_in_cache == ULONG_MAX && strcmp("pc", reg_desc->name) == 0)
 			arc32->pc_index_in_cache = i;
 		else if (arc32->debug_index_in_cache == ULONG_MAX
@@ -775,6 +803,7 @@ int arc32_build_bcr_reg_cache(struct target *target)
 
 	struct arc_reg_desc *reg_desc;
 	unsigned long i = 0;
+	unsigned long gdb_regnum = arc32->core_cache->num_regs;
 
 	list_for_each_entry(reg_desc, &arc32->bcr_reg_descriptions.list, list) {
 		/* Initialize struct arc_reg_t */
@@ -792,26 +821,29 @@ int arc32_build_bcr_reg_cache(struct target *target)
 		reg_list[i].type = &arc32_reg_type;
 		reg_list[i].arch_info = &arch_info[i];
 
-		reg_list[i].number = reg_desc->gdb_num;
-		/* By default only core regs and BCRs are enabled. */
+		/* See note for core registers .number */
+		reg_list[i].number = gdb_regnum;
+		/* BCRs always semantically, they are just read-as-zero, if there is
+		 * not real register. */
 		reg_list[i].exist = true;
 
-		reg_list[i].group = general_group_name;
 		reg_list[i].caller_save = true;
 		reg_list[i].reg_data_type = reg_desc->data_type;
 		reg_list[i].feature = malloc(sizeof(struct reg_feature));
 		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
 
+		if (reg_desc->is_general) {
+			arc32->last_general_reg = reg_list[i].number;
+			reg_list[i].group = reg_group_general;
+		} else {
+			reg_list[i].group = reg_group_other;
+		}
+
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
 			reg_list[i].feature->name);
 		i += 1;
-	}
-
-	if (arc32->pc_index_in_cache == ULONG_MAX
-			|| arc32->debug_index_in_cache == ULONG_MAX) {
-		LOG_ERROR("`pc' and `debug' registers must be present in target description.");
-		return ERROR_FAIL;
+		gdb_regnum += 1;
 	}
 
 	assert(i == arc32->num_bcr_regs);
