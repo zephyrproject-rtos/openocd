@@ -393,6 +393,7 @@ enum opts_add_reg {
 	CFG_ADD_REG_IS_BCR,
 	CFG_ADD_REG_GDB_FEATURE,
 	CFG_ADD_REG_TYPE,
+	CFG_ADD_REG_GENERAL,
 };
 
 static Jim_Nvp opts_nvp_add_reg[] = {
@@ -402,6 +403,7 @@ static Jim_Nvp opts_nvp_add_reg[] = {
 	{ .name = "-bcr",    .value = CFG_ADD_REG_IS_BCR },
 	{ .name = "-feature",.value = CFG_ADD_REG_GDB_FEATURE },
 	{ .name = "-type",   .value = CFG_ADD_REG_TYPE },
+	{ .name = "-g",      .value = CFG_ADD_REG_GENERAL },
 	{ .name = NULL,      .value = -1 }
 };
 
@@ -432,8 +434,8 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	reg->name = NULL;
 	reg->is_core = false;
 	reg->arch_num = 0;
-	reg->gdb_num = ARC_GDB_NUM_INVALID;
 	reg->gdb_xml_feature = NULL;
+	reg->is_general = false;
 
 	/* There is no architecture number that we could treat as invalid, so
 	 * separate variable requried to ensure that arch num has been set. */
@@ -540,6 +542,11 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 
 				break;
 			}
+			case CFG_ADD_REG_GENERAL:
+			{
+				reg->is_general = true;
+				break;
+			}
 		}
 	}
 
@@ -599,12 +606,6 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		}
 	}
 
-	/* Set GDB regnum. Due to how OpenOCD gdbserver is implemented it is
-	 * required that gdbnums are continuous, there cannot be holes. So to
-	 * ensure this, it is forbidden to set them explicitly from TCL, instead
-	 * they are set in the order of register addition. */
-	reg->gdb_num = arc32->num_regs;
-
 	if (reg->is_core) {
 		list_add_tail(&reg->list, &arc32->core_reg_descriptions.list);
 		arc32->num_core_regs += 1;
@@ -618,9 +619,11 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	arc32->num_regs += 1;
 
 	LOG_DEBUG(
-			"added reg {name=%s, num=0x%x, gdbnum=%u, is_core=%i, is_bcr=%i, type=%s}",
-			reg->name, reg->arch_num, reg->gdb_num, reg->is_core, is_bcr,
-			reg->data_type->id);
+			"added reg {name=%s, num=0x%x, type=%s%s%s%s}",
+			reg->name, reg->arch_num, reg->data_type->id,
+			reg->is_core ? ", core" : "",  is_bcr ? ", bcr" : "",
+			reg->is_general ? ", general" : ""
+		);
 
 	return JIM_OK;
 }
