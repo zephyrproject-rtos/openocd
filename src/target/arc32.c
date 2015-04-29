@@ -904,19 +904,11 @@ int arc32_get_register_field(struct target *target, const char *reg_name,
 	if (!field->use_bitfields)
 		return ERROR_ARC_FIELD_IS_NOT_BITFIELD;
 
-	/* Get register value */
-	uint32_t value;
-	JIM_CHECK_RETVAL(arc32_get_register_value_u32(reg, &value));
+	if (!reg->valid)
+		CHECK_RETVAL(reg->type->get(reg));
 
-	/* Get field value by masking and shifting */
-	/* All ARC regs are 32-bit. This code will have to be modified to allow
-	 * registers of another size. */
-	uint32_t mask = UINT32_MAX;
-	mask = mask >> (31 - field->bitfield->end);
-	value = value & mask;
-	value = value >> field->bitfield->start;
-
-	*value_ptr = value;
+	*value_ptr = buf_get_u32(reg->value, field->bitfield->start,
+			field->bitfield->end - field->bitfield->start + 1);
 
 	LOG_DEBUG("return (value=0x%" PRIx32 ")", *value_ptr);
 
