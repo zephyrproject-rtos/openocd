@@ -128,14 +128,6 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 				int field_name_len;
 				jim_wide position;
 
-				if (cur_field == fields_sz) {
-					/* If there are more fields than estimated, then -name
-					 * hasn't been specified, but this options is required. */
-					Jim_SetResultFormatted(goi.interp, "-name is a required option");
-					e = JIM_ERR;
-					break;
-				}
-
 				if (goi.argc < 2) {
 					Jim_WrongNumArgs(interp, goi.argc, goi.argv,
 						"-flag ?name? ?position? ...");
@@ -206,7 +198,7 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 		return e;
 	}
 
-	LOG_INFO("added flags type {name=%s}", type->data_type.id);
+	LOG_DEBUG("added flags type {name=%s}", type->data_type.id);
 
 	return JIM_OK;
 }
@@ -296,14 +288,6 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 				int field_name_len;
 				jim_wide start, end;
 
-				if (cur_field == fields_sz) {
-					/* If there are more fields than estimated, then -name
-					 * hasn't been specified, but this options is required. */
-					Jim_SetResultFormatted(goi.interp, "-name is a required option");
-					e = JIM_ERR;
-					break;
-				}
-
 				if (goi.argc < 3) {
 					Jim_WrongNumArgs(interp, goi.argc, goi.argv,
 						"-bitfield ?name? ?start? ?end? ...");
@@ -380,7 +364,7 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 		return e;
 	}
 
-	LOG_INFO("added struct type {name=%s}", type->data_type.id);
+	LOG_DEBUG("added struct type {name=%s}", type->data_type.id);
 
 	return JIM_OK;
 }
