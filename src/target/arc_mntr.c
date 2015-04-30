@@ -638,6 +638,44 @@ COMMAND_HANDLER(arc_set_reg_exists)
 	return JIM_OK;
 }
 
+/* arc set-reg-feature $reg_name $feature
+ *
+ * Rather simplistic command to update "feature" name of the register. This is
+ * required for core registers, because feature name depends on whether this is
+ * 32-one config or 16-reg one. Registers are created before we can decide
+ * whether core is full or reduced, so as a result feature name has to be
+ * updated post-factum. It would be much better to have a generic "update-reg"
+ * command to support update of other registers properties, however because
+ * that is not strictly require I stick with solution that will take less time
+ * to implement. */
+COMMAND_HANDLER(arc_set_reg_feature)
+{
+	struct target * const target = get_current_target(CMD_CTX);
+
+	if (CMD_ARGC != 2) {
+		command_print(CMD_CTX, "arc set-reg-feature $reg_name $feature");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	const char * const reg_name = CMD_ARGV[0];
+	struct reg * const r = register_get_by_name(target->reg_cache, reg_name, true);
+
+	if (!r) {
+		command_print(CMD_CTX, "Register `%s' is not found.", reg_name);
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	/* Deallocate previous feature. reg_feature.name is const, so extra
+	 * movements are required. For ARC feature names are always allocated
+	 * in heap, so can be (and should be) free'd. */
+	struct arc_reg_t * arc_r = r->arch_info;
+	free(arc_r->desc2->gdb_xml_feature);
+	arc_r->desc2->gdb_xml_feature = strdup(CMD_ARGV[1]);
+	r->feature->name = arc_r->desc2->gdb_xml_feature;
+
+	return JIM_OK;
+}
+
 int jim_arc_reg_field(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 {
 	Jim_GetOptInfo goi;
@@ -922,6 +960,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.usage = "arc set-reg-exists ?register-name?+",
 		.help = "Set that register exists. Accepts multiple register names as "
 			"arguments.",
+	},
+	{
+		.name = "set-reg-feature",
+		.handler = arc_set_reg_feature,
+		.mode = COMMAND_ANY,
+		.usage = "arc set-reg-feature ?register-name? ?feature-name?",
+		.help = "Set new feature name for a register.",
 	},
 	{
 		.name = "reg-field",
