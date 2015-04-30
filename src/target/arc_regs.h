@@ -128,7 +128,7 @@ struct arc32_reg_desc {
 
 struct arc_reg_t {
 	/*const struct arc32_reg_desc *desc;*/
-	const struct arc_reg_desc *desc2;
+	struct arc_reg_desc *desc2;
 	struct target *target;
 	struct arc32_common *arc32_common;
 	uint32_t value;
