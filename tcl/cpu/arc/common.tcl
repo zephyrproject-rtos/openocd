@@ -1,7 +1,11 @@
 # Things common to all ARCs
 
 # It is assumed that target is already halted.
-proc arc_common_reset { } {
+proc arc_common_reset { {target ""} } {
+    if { $target != "" } {
+        targets $target
+    }
+
     # This proc makes several operations and they should be transactional, so
     # we have to halt CPU, otherwise it is possible that we will, say, disable
     # interrupts, but then running CPU will enable them before we will move PC
@@ -41,3 +45,4 @@ proc arc_common_reset { } {
     # the reset_assert() function.
 }
 
+# vim:expandtab:
