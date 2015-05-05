@@ -1,6 +1,6 @@
 source [find cpu/arc/common.tcl]
 
-proc arc_v2_examine_target { } {
+proc arc_v2_examine_target { {target ""} } {
 	# Those registers always exist. DEBUG and DEBUGI are formally optional,
 	# however they come with JTAG interface, and so far there is no way
 	# OpenOCD can communicate with target without JTAG interface.
@@ -13,7 +13,7 @@ proc arc_v2_examine_target { } {
 		gp fp sp ilink r30 blink lp_count pcl
 }
 
-proc arc_v2_init_regs { _TARGETNAME } {
+proc arc_v2_init_regs { } {
 	# XML features
 	set core_feature "org.gnu.gdb.arc.core.v2"
 	set aux_min_feature "org.gnu.gdb.arc.aux-minimal"
@@ -123,5 +123,6 @@ proc arc_v2_init_regs { _TARGETNAME } {
 		arc add-reg -name $name -num $num -type $type -feature $aux_other_feature
 	}
 
-    $_TARGETNAME configure -event examine-end arc_v2_examine_target
+    [target current] configure \
+		-event examine-end "arc_v2_examine_target [target current]"
 }
