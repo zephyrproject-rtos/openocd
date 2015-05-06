@@ -669,9 +669,9 @@ COMMAND_HANDLER(arc_set_reg_feature)
 	 * movements are required. For ARC feature names are always allocated
 	 * in heap, so can be (and should be) free'd. */
 	struct arc_reg_t * arc_r = r->arch_info;
-	free(arc_r->desc2->gdb_xml_feature);
-	arc_r->desc2->gdb_xml_feature = strdup(CMD_ARGV[1]);
-	r->feature->name = arc_r->desc2->gdb_xml_feature;
+	free(arc_r->desc->gdb_xml_feature);
+	arc_r->desc->gdb_xml_feature = strdup(CMD_ARGV[1]);
+	r->feature->name = arc_r->desc->gdb_xml_feature;
 
 	return JIM_OK;
 }

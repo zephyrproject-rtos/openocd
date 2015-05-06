@@ -148,9 +148,6 @@ struct arc32_common {
 	 * halted. */
 	bool cache_invalidated;
 
-	/* Store values of BCR permanently. */
-	struct bcr_set_t bcr_set;
-
 	/* CCM memory regions (optional). */
 	arc32_address_t iccm0_start;
 	arc32_address_t iccm0_end;
