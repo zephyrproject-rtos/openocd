@@ -707,6 +707,61 @@ void arc32_add_reg_data_type(struct target *target,
 	list_add_tail(&data_type->list, &arc->reg_data_types.list);
 }
 
+/* Common code to initialize `struct reg` for different registers: core, aux, bcr. */
+static void init_reg(
+		struct target *target,
+		struct reg *reg,
+		struct arc_reg_t *arc_reg,
+		struct arc_reg_desc *reg_desc,
+		unsigned long number)
+{
+	assert(target);
+	assert(reg);
+	assert(arc_reg);
+	assert(reg_desc);
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* Initialize struct arc_reg_t */
+	arc_reg->desc = reg_desc;
+	arc_reg->target = target;
+	arc_reg->arc32_common = arc32;
+	arc_reg->dummy = false; /* @todo deprecated. */
+
+	/* Initialize struct reg */
+	reg->name = reg_desc->name;
+	reg->size = 32; /* All register in ARC are 32-bit */
+	reg->value = calloc(1, 4);
+	reg->dirty = 0;
+	reg->valid = 0;
+	reg->type = &arc32_reg_type;
+	reg->arch_info = arc_reg;
+	reg->exist = false;
+	reg->caller_save = true; /* @todo should be configurable. */
+	reg->reg_data_type = reg_desc->data_type;
+
+	reg->feature = calloc(1, sizeof(struct reg_feature));
+	reg->feature->name = reg_desc->gdb_xml_feature;
+
+	/* reg->number is used by OpenOCD as value for @regnum. Thus when setting
+	 * value of a register GDB will use it as a number of register in
+	 * P-packet. OpenOCD gdbserver will then use number of register in
+	 * P-packet as an array index in the reg_list returned by
+	 * arc_regs_get_gdb_reg_list. So to ensure that registers are assigned
+	 * correctly it would be required to either sort registers in
+	 * arc_regs_get_gdb_reg_list or to assign numbers sequentially here and
+	 * according to how registers will be sorted in
+	 * arc_regs_get_gdb_reg_list. Second options is much more simpler. */
+	reg->number = number;
+
+	if (reg_desc->is_general) {
+		arc32->last_general_reg = reg->number;
+		reg->group = reg_group_general;
+	} else {
+		reg->group = reg_group_other;
+	}
+}
+
 int arc32_build_reg_cache(struct target *target)
 {
 	/* get pointers to arch-specific information */
@@ -728,44 +783,7 @@ int arc32_build_reg_cache(struct target *target)
 	struct arc_reg_desc *reg_desc;
 	unsigned long i = 0;
 	list_for_each_entry(reg_desc, &arc32->core_reg_descriptions.list, list) {
-		/* Initialize struct arc_reg_t */
-		arch_info[i].desc = reg_desc;
-		arch_info[i].target = target;
-		arch_info[i].arc32_common = arc32;
-		arch_info[i].dummy = false; /* @todo deprecated. */
-
-		/* Initialize struct reg */
-		reg_list[i].name = reg_desc->name;
-		reg_list[i].size = 32; /* All register in ARC are 32-bit */
-		reg_list[i].value = calloc(1, 4);
-		reg_list[i].dirty = 0;
-		reg_list[i].valid = 0;
-		reg_list[i].type = &arc32_reg_type;
-		reg_list[i].arch_info = &arch_info[i];
-
-		/* .number is used by OpenOCD as value for @regnum. Thus when setting
-		 * value of a register GDB will use it as a number of register in
-		 * P-packet. OpenOCD gdbserver will then use number of register in
-		 * P-packet as an array index in the reg_list returned by
-		 * arc_regs_get_gdb_reg_list. So to ensure that registers are assigned
-		 * correctly it would be required to either sort registers in
-		 * arc_regs_get_gdb_reg_list or to assign numbers sequentially here and
-		 * according to how registers will be sorted in
-		 * arc_regs_get_gdb_reg_list. Second options is much more simpler. */
-		reg_list[i].number = i;
-		reg_list[i].exist = false;
-
-		reg_list[i].caller_save = true;
-		reg_list[i].reg_data_type = reg_desc->data_type;
-		reg_list[i].feature = malloc(sizeof(struct reg_feature));
-		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
-
-		if (reg_desc->is_general) {
-			arc32->last_general_reg = reg_list[i].number;
-			reg_list[i].group = reg_group_general;
-		} else {
-			reg_list[i].group = reg_group_other;
-		}
+		init_reg(target, &reg_list[i], &arch_info[i], reg_desc, i);
 
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
@@ -775,36 +793,7 @@ int arc32_build_reg_cache(struct target *target)
 	}
 
 	list_for_each_entry(reg_desc, &arc32->aux_reg_descriptions.list, list) {
-		/* Initialize struct arc_reg_t */
-		arch_info[i].desc = reg_desc;
-		arch_info[i].target = target;
-		arch_info[i].arc32_common = arc32;
-		arch_info[i].dummy = false; /* @todo deprecated. */
-
-		/* Initialize struct reg */
-		reg_list[i].name = reg_desc->name;
-		reg_list[i].size = 32; /* All register in ARC are 32-bit */
-		reg_list[i].value = calloc(1, 4);
-		reg_list[i].dirty = 0;
-		reg_list[i].valid = 0;
-		reg_list[i].type = &arc32_reg_type;
-		reg_list[i].arch_info = &arch_info[i];
-
-		/* See note for core registers .number */
-		reg_list[i].number = i;
-		reg_list[i].exist = false;
-
-		reg_list[i].caller_save = true;
-		reg_list[i].reg_data_type = reg_desc->data_type;
-		reg_list[i].feature = malloc(sizeof(struct reg_feature));
-		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
-
-		if (reg_desc->is_general) {
-			arc32->last_general_reg = reg_list[i].number;
-			reg_list[i].group = reg_group_general;
-		} else {
-			reg_list[i].group = reg_group_other;
-		}
+		init_reg(target, &reg_list[i], &arch_info[i], reg_desc, i);
 
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
@@ -831,6 +820,7 @@ int arc32_build_reg_cache(struct target *target)
 	return ERROR_OK;
 }
 
+/* This function must be called only after arc32_build_reg_cache */
 int arc32_build_bcr_reg_cache(struct target *target)
 {
 	/* get pointers to arch-specific information */
@@ -853,38 +843,10 @@ int arc32_build_bcr_reg_cache(struct target *target)
 	unsigned long gdb_regnum = arc32->core_cache->num_regs;
 
 	list_for_each_entry(reg_desc, &arc32->bcr_reg_descriptions.list, list) {
-		/* Initialize struct arc_reg_t */
-		arch_info[i].desc = reg_desc;
-		arch_info[i].target = target;
-		arch_info[i].arc32_common = arc32;
-		arch_info[i].dummy = false; /* @todo deprecated. */
-
-		/* Initialize struct reg */
-		reg_list[i].name = reg_desc->name;
-		reg_list[i].size = 32; /* All register in ARC are 32-bit */
-		reg_list[i].value = calloc(1, 4);
-		reg_list[i].dirty = 0;
-		reg_list[i].valid = 0;
-		reg_list[i].type = &arc32_reg_type;
-		reg_list[i].arch_info = &arch_info[i];
-
-		/* See note for core registers .number */
-		reg_list[i].number = gdb_regnum;
+		init_reg(target, &reg_list[i], &arch_info[i], reg_desc, gdb_regnum);
 		/* BCRs always semantically, they are just read-as-zero, if there is
 		 * not real register. */
 		reg_list[i].exist = true;
-
-		reg_list[i].caller_save = true;
-		reg_list[i].reg_data_type = reg_desc->data_type;
-		reg_list[i].feature = malloc(sizeof(struct reg_feature));
-		reg_list[i].feature->name = reg_desc->gdb_xml_feature;
-
-		if (reg_desc->is_general) {
-			arc32->last_general_reg = reg_list[i].number;
-			reg_list[i].group = reg_group_general;
-		} else {
-			reg_list[i].group = reg_group_other;
-		}
 
 		LOG_DEBUG("reg n=%3li name=%3s group=%s feature=%s", i,
 			reg_list[i].name, reg_list[i].group,
