@@ -95,6 +95,9 @@ struct arc_reg_desc {
 	/* Core or AUX register? */
 	bool is_core;
 
+	/* Build configuration register? */
+	bool is_bcr;
+
 	/* Data type */
 	struct reg_data_type *data_type;
 
@@ -211,6 +214,7 @@ struct arc32_common {
 #define ERROR_ARC_REGISTER_FIELD_NOT_FOUND (-701)
 #define ERROR_ARC_REGISTER_IS_NOT_STRUCT   (-702)
 #define ERROR_ARC_FIELD_IS_NOT_BITFIELD    (-703)
+#define ERROR_ARC_REGTYPE_NOT_FOUND        (-704)
 
 struct arc_common {
 	int common_magic;
@@ -284,6 +288,8 @@ int arc32_configure(struct target *target);
 /* Configurable registers functions */
 void arc32_add_reg_data_type(struct target *target,
 		struct arc_reg_data_type *data_type);
+int arc32_add_reg(struct target *target, struct arc_reg_desc *arc_reg,
+		const char * const type_name, const size_t type_name_len);
 
 /* Get value of 32-bit register. */
 int arc32_get_register_value_u32(struct target *target, const char *reg_name,
