@@ -199,8 +199,6 @@ int arc_ocd_examine(struct target *target)
 		}
 
 		/* Read BCRs and configure optinal registers. */
-		CHECK_RETVAL(arc_regs_read_bcrs(target));
-		arc_regs_build_reg_list(target);
 		CHECK_RETVAL(arc32_configure(target));
 
 		target_set_examined(target);
