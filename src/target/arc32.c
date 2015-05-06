@@ -707,6 +707,51 @@ void arc32_add_reg_data_type(struct target *target,
 	list_add_tail(&data_type->list, &arc->reg_data_types.list);
 }
 
+int arc32_add_reg(struct target *target, struct arc_reg_desc *arc_reg,
+		const char * const type_name, const size_t type_name_len)
+{
+	assert(target);
+	assert(arc_reg);
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	assert(arc32);
+
+	/* Find register type */
+	{
+		struct arc_reg_data_type *type;
+		list_for_each_entry(type, &arc32->reg_data_types.list, list) {
+			if (strncmp(type->data_type.id, type_name, type_name_len) == 0) {
+				arc_reg->data_type = &(type->data_type);
+				break;
+			}
+		}
+		if (!arc_reg->data_type) {
+			return ERROR_ARC_REGTYPE_NOT_FOUND;
+		}
+	}
+
+	if (arc_reg->is_core) {
+		list_add_tail(&arc_reg->list, &arc32->core_reg_descriptions.list);
+		arc32->num_core_regs += 1;
+	} else if (arc_reg->is_bcr) {
+		list_add_tail(&arc_reg->list, &arc32->bcr_reg_descriptions.list);
+		arc32->num_bcr_regs += 1;
+	} else {
+		list_add_tail(&arc_reg->list, &arc32->aux_reg_descriptions.list);
+		arc32->num_aux_regs += 1;
+	}
+	arc32->num_regs += 1;
+
+	LOG_DEBUG(
+			"added register {name=%s, num=0x%x, type=%s%s%s%s}",
+			arc_reg->name, arc_reg->arch_num, arc_reg->data_type->id,
+			arc_reg->is_core ? ", core" : "",  arc_reg->is_bcr ? ", bcr" : "",
+			arc_reg->is_general ? ", general" : ""
+		);
+
+	return ERROR_OK;
+}
+
 /* Common code to initialize `struct reg` for different registers: core, aux, bcr. */
 static void init_reg(
 		struct target *target,
