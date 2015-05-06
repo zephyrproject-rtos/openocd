@@ -417,6 +417,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	/* Initialize */
 	reg->name = NULL;
 	reg->is_core = false;
+	reg->is_bcr = false;
 	reg->arch_num = 0;
 	reg->gdb_xml_feature = NULL;
 	reg->is_general = false;
@@ -426,11 +427,10 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	bool arch_num_set = false;
 	char *type_name = "int"; /* Default type */
 	int type_name_len = strlen(type_name);
-	bool is_bcr = false;
+	int e = ERROR_OK;
 
 	/* Parse options. */
 	while (goi.argc > 0) {
-		int e;
 		Jim_Nvp *n;
 		e = Jim_GetOpt_Nvp(&goi, opts_nvp_add_reg, &n);
 		if (e != JIM_OK) {
@@ -467,7 +467,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 			}
 			case CFG_ADD_REG_IS_BCR:
 			{
-				is_bcr = true;
+				reg->is_bcr = true;
 				break;
 			}
 			case CFG_ADD_REG_ARCH_NUM:
@@ -550,7 +550,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		free_reg_desc(reg);
 		return JIM_ERR;
 	}
-	if (is_bcr && reg->is_core) {
+	if (reg->is_bcr && reg->is_core) {
 		Jim_SetResultFormatted(goi.interp,
 				"Register cannot be both -core and -bcr.");
 		free_reg_desc(reg);
@@ -569,47 +569,16 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		return JIM_ERR;
 	}
 
-	struct arc32_common *arc32 = target_to_arc32(target);
-	assert(arc32);
-
-	/* Find register type */
-	{
-		struct arc_reg_data_type *type;
-		list_for_each_entry(type, &arc32->reg_data_types.list, list) {
-			if (strncmp(type->data_type.id, type_name, type_name_len) == 0) {
-				reg->data_type = &(type->data_type);
-				break;
-			}
-		}
-		if (!reg->data_type) {
-			Jim_SetResultFormatted(goi.interp,
-				"Cannot find type `%s' for register `%s'.",
-				type_name, reg->name);
-			free_reg_desc(reg);
-			return JIM_ERR;
-		}
+	e = arc32_add_reg(target, reg, type_name, type_name_len);
+	if (e == ERROR_ARC_REGTYPE_NOT_FOUND) {
+		Jim_SetResultFormatted(goi.interp,
+			"Cannot find type `%s' for register `%s'.",
+			type_name, reg->name);
+		free_reg_desc(reg);
+		return JIM_ERR;
 	}
 
-	if (reg->is_core) {
-		list_add_tail(&reg->list, &arc32->core_reg_descriptions.list);
-		arc32->num_core_regs += 1;
-	} else if (is_bcr) {
-		list_add_tail(&reg->list, &arc32->bcr_reg_descriptions.list);
-		arc32->num_bcr_regs += 1;
-	} else {
-		list_add_tail(&reg->list, &arc32->aux_reg_descriptions.list);
-		arc32->num_aux_regs += 1;
-	}
-	arc32->num_regs += 1;
-
-	LOG_DEBUG(
-			"added reg {name=%s, num=0x%x, type=%s%s%s%s}",
-			reg->name, reg->arch_num, reg->data_type->id,
-			reg->is_core ? ", core" : "",  is_bcr ? ", bcr" : "",
-			reg->is_general ? ", general" : ""
-		);
-
-	return JIM_OK;
+	return e;
 }
 
 /* arc set-reg-exists ($reg_name)+
