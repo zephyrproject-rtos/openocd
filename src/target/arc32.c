@@ -156,7 +156,7 @@ int arc32_save_context(struct target *target)
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist && !arc_reg->dummy) {
-			core_addrs[core_cnt] = arc_reg->desc2->arch_num;
+			core_addrs[core_cnt] = arc_reg->desc->arch_num;
 			core_cnt += 1;
 		}
 	}
@@ -165,7 +165,7 @@ int arc32_save_context(struct target *target)
 		struct reg *reg = &(reg_list[i]);
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (!reg->valid && reg->exist && !arc_reg->dummy) {
-			aux_addrs[aux_cnt] = arc_reg->desc2->arch_num;
+			aux_addrs[aux_cnt] = arc_reg->desc->arch_num;
 			aux_cnt += 1;
 		}
 	}
@@ -200,7 +200,7 @@ int arc32_save_context(struct target *target)
 			reg->valid = true;
 			reg->dirty = false;
 			LOG_DEBUG("Get core register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-				i , arc_reg->desc2->name, arc_reg->value);
+				i , arc_reg->desc->name, arc_reg->value);
 		}
 	}
 
@@ -220,7 +220,7 @@ int arc32_save_context(struct target *target)
 			reg->valid = true;
 			reg->dirty = false;
 			LOG_DEBUG("Get aux register regnum=%" PRIu32 ", name=%s, value=0x%08" PRIx32,
-				i , arc_reg->desc2->name, arc_reg->value);
+				i , arc_reg->desc->name, arc_reg->value);
 		}
 	}
 
@@ -274,7 +274,7 @@ int arc32_restore_context(struct target *target)
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (reg->valid && reg->exist && reg->dirty) {
 			LOG_DEBUG("Will write regnum=%u", i);
-			core_addrs[core_cnt] = arc_reg->desc2->arch_num;
+			core_addrs[core_cnt] = arc_reg->desc->arch_num;
 			core_values[core_cnt] = arc_reg->value;
 			core_cnt += 1;
 		}
@@ -285,7 +285,7 @@ int arc32_restore_context(struct target *target)
 		struct arc_reg_t *arc_reg = reg->arch_info;
 		if (reg->valid && reg->exist && reg->dirty) {
 			LOG_DEBUG("Will write regnum=%lu", arc32->num_core_regs + i);
-			aux_addrs[aux_cnt] = arc_reg->desc2->arch_num;
+			aux_addrs[aux_cnt] = arc_reg->desc->arch_num;
 			aux_values[aux_cnt] = arc_reg->value;
 			aux_cnt += 1;
 		}
@@ -482,8 +482,6 @@ int arc32_print_core_state(struct target *target)
 	LOG_DEBUG("  AUX REG  [DEBUG]: 0x%08" PRIx32, value);
 	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
 	LOG_DEBUG("        [STATUS32]: 0x%08" PRIx32, value);
-	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS_REG, &value));
-	LOG_DEBUG("          [STATUS]: 0x%08" PRIx32, value);
 	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, &value));
 	LOG_DEBUG("              [PC]: 0x%08" PRIx32, value);
 
@@ -492,14 +490,17 @@ int arc32_print_core_state(struct target *target)
 
 int arc32_arch_state(struct target *target)
 {
+	if (debug_level < LOG_LVL_DEBUG)
+		return ERROR_OK;
+
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	uint32_t pc_value;
+	CHECK_RETVAL(arc32_get_register_value_u32(target, "pc", &pc_value));
 	LOG_DEBUG("target state: %s in: %s mode, PC at: 0x%08" PRIx32,
 		target_state_name(target),
 		arc_isa_strings[arc32->isa_mode],
-		buf_get_u32(arc32->core_cache->reg_list[arc32->pc_index_in_cache].value,
-			0, 32));
-
+		pc_value);
 
 	return ERROR_OK;
 }
@@ -728,7 +729,7 @@ int arc32_build_reg_cache(struct target *target)
 	unsigned long i = 0;
 	list_for_each_entry(reg_desc, &arc32->core_reg_descriptions.list, list) {
 		/* Initialize struct arc_reg_t */
-		arch_info[i].desc2 = reg_desc;
+		arch_info[i].desc = reg_desc;
 		arch_info[i].target = target;
 		arch_info[i].arc32_common = arc32;
 		arch_info[i].dummy = false; /* @todo deprecated. */
@@ -775,7 +776,7 @@ int arc32_build_reg_cache(struct target *target)
 
 	list_for_each_entry(reg_desc, &arc32->aux_reg_descriptions.list, list) {
 		/* Initialize struct arc_reg_t */
-		arch_info[i].desc2 = reg_desc;
+		arch_info[i].desc = reg_desc;
 		arch_info[i].target = target;
 		arch_info[i].arc32_common = arc32;
 		arch_info[i].dummy = false; /* @todo deprecated. */
@@ -853,7 +854,7 @@ int arc32_build_bcr_reg_cache(struct target *target)
 
 	list_for_each_entry(reg_desc, &arc32->bcr_reg_descriptions.list, list) {
 		/* Initialize struct arc_reg_t */
-		arch_info[i].desc2 = reg_desc;
+		arch_info[i].desc = reg_desc;
 		arch_info[i].target = target;
 		arch_info[i].arc32_common = arc32;
 		arch_info[i].dummy = false; /* @todo deprecated. */
