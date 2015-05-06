@@ -592,59 +592,105 @@ int arc32_read_instruction_u32(struct target *target, uint32_t address,
     return ERROR_OK;
 }
 
+static unsigned int arc_regs_addr_size_bits(struct target *target)
+{
+	assert(target);
+	uint32_t addr_size = 32;
+	arc32_get_register_field(target, "isa_config", "addr_size", &addr_size);
+	switch (addr_size) {
+		case 0:
+			return 16;
+		case 1:
+			return 20;
+		case 2:
+			return 24;
+		case 3:
+			return 28;
+		case 4:
+			return 32;
+		default:
+			LOG_ERROR("isa_config.addr_size value %" PRIu32 " is invalid.", addr_size);
+			assert(false);
+			return 32;
+	}
+}
 
 /* Configure some core features, depending on BCRs. */
 int arc32_configure(struct target *target)
 {
 	LOG_DEBUG("-");
 	struct arc32_common *arc32 = target_to_arc32(target);
-	struct bcr_set_t *bcrs = &(arc32->bcr_set);
 
-	/* DCCM */
-	if (bcrs->dccm_build.version >= 3 && bcrs->dccm_build.size0 > 0) {
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DCCM, &(arc32->dccm_start)));
-		arc32_address_t dccm_size = 0x100;
-		dccm_size <<= bcrs->dccm_build.size0;
-		if (bcrs->dccm_build.size0 == 0xF)
-			dccm_size <<= bcrs->dccm_build.size1;
-		arc32->dccm_end = arc32->dccm_start + dccm_size;
-		LOG_DEBUG("DCCM detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->dccm_start, arc32->dccm_end);
-	} else {
-		arc32->dccm_start = 0;
-		arc32->dccm_end = 0;
+	/* DCCM. But only if DCCM_BUILD and AUX_DCCM are known registers. */
+	arc32->dccm_start = 0;
+	arc32->dccm_end = 0;
+	if (register_get_by_name(target->reg_cache, "dccm_build", true) &&
+	    register_get_by_name(target->reg_cache, "aux_dccm", true)) {
+
+		uint32_t dccm_build_version, dccm_build_size0, dccm_build_size1;
+		CHECK_RETVAL(arc32_get_register_field(target, "dccm_build", "version",
+			&dccm_build_version));
+		CHECK_RETVAL(arc32_get_register_field(target, "dccm_build", "size0",
+			&dccm_build_size0));
+		CHECK_RETVAL(arc32_get_register_field(target, "dccm_build", "size1",
+			&dccm_build_size1));
+		if (dccm_build_version == 3 && dccm_build_size0 > 0) {
+			CHECK_RETVAL(arc32_get_register_value_u32(target, "aux_dccm", &(arc32->dccm_start)));
+			arc32_address_t dccm_size = 0x100;
+			dccm_size <<= dccm_build_size0;
+			if (dccm_build_size0 == 0xF)
+				dccm_size <<= dccm_build_size1;
+			arc32->dccm_end = arc32->dccm_start + dccm_size;
+			LOG_DEBUG("DCCM detected start=0x%" PRIx32 " end=0x%" PRIx32,
+					arc32->dccm_start, arc32->dccm_end);
+		}
 	}
 
-	/* ICCM0 */
-	arc32_address_t aux_iccm = 0;
-	if (bcrs->iccm_build.version >= 4 && bcrs->iccm_build.iccm0_size0 > 0) {
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_ICCM, &aux_iccm));
-		arc32_address_t iccm0_size = 0x100;
-		iccm0_size <<= bcrs->iccm_build.iccm0_size0;
-		if (bcrs->iccm_build.iccm0_size0 == 0xF)
-			iccm0_size <<= bcrs->iccm_build.iccm0_size1;
-		arc32->iccm0_start = aux_iccm & (0xF0000000 >> (32 - arc_regs_addr_size_bits(bcrs)));
-		arc32->iccm0_end = arc32->iccm0_start + iccm0_size;
-		LOG_DEBUG("ICCM0 detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->iccm0_start, arc32->iccm0_end);
-	} else {
-		arc32->iccm0_start = 0;
-		arc32->iccm0_end = 0;
-	}
+	/* Only if ICCM_BUILD and AUX_ICCM are known registers. */
+	arc32->iccm0_start = 0;
+	arc32->iccm0_end = 0;
+	if (register_get_by_name(target->reg_cache, "iccm_build", true) &&
+	    register_get_by_name(target->reg_cache, "aux_iccm", true)) {
+		/* ICCM0 */
+		uint32_t iccm_build_version, iccm_build_size00, iccm_build_size01;
+		arc32_address_t aux_iccm = 0;
+		CHECK_RETVAL(arc32_get_register_field(target, "iccm_build", "version",
+			&iccm_build_version));
+		CHECK_RETVAL(arc32_get_register_field(target, "iccm_build", "iccm0_size0",
+			&iccm_build_size00));
+		CHECK_RETVAL(arc32_get_register_field(target, "iccm_build", "iccm0_size1",
+			&iccm_build_size01));
+		if (iccm_build_version == 4 && iccm_build_size00 > 0) {
+			CHECK_RETVAL(arc32_get_register_value_u32(target, "aux_iccm", &aux_iccm));
+			arc32_address_t iccm0_size = 0x100;
+			iccm0_size <<= iccm_build_size00;
+			if (iccm_build_size00 == 0xF)
+				iccm0_size <<= iccm_build_size01;
+			arc32->iccm0_start = aux_iccm & (0xF0000000 >> (32 - arc_regs_addr_size_bits(target)));
+			arc32->iccm0_end = arc32->iccm0_start + iccm0_size;
+			LOG_DEBUG("ICCM0 detected start=0x%" PRIx32 " end=0x%" PRIx32,
+					arc32->iccm0_start, arc32->iccm0_end);
+		}
 
-	/* ICCM1 */
-	if (bcrs->iccm_build.version >= 4 && bcrs->iccm_build.iccm1_size0 > 0) {
-		/* Use value read for ICCM0 */
-		if (!aux_iccm)
-			CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_ICCM, &aux_iccm));
-		arc32_address_t iccm1_size = 0x100;
-		iccm1_size <<= bcrs->iccm_build.iccm1_size0;
-		if (bcrs->iccm_build.iccm1_size0 == 0xF)
-			iccm1_size <<= bcrs->iccm_build.iccm1_size1;
-		arc32->iccm1_start = aux_iccm & (0x0F000000 >> (32 - arc_regs_addr_size_bits(bcrs)));
-		arc32->iccm1_end = arc32->iccm1_start + iccm1_size;
-		LOG_DEBUG("ICCM1 detected start=0x%" PRIx32 " end=0x%" PRIx32, arc32->iccm1_start, arc32->iccm1_end);
-	} else {
-		arc32->iccm1_start = 0;
-		arc32->iccm1_end = 0;
+		/* ICCM1 */
+		uint32_t iccm_build_size10, iccm_build_size11;
+		CHECK_RETVAL(arc32_get_register_field(target, "iccm_build", "iccm1_size0",
+			&iccm_build_size10));
+		CHECK_RETVAL(arc32_get_register_field(target, "iccm_build", "iccm1_size1",
+			&iccm_build_size11));
+		if (iccm_build_version == 4 && iccm_build_size10 > 0) {
+			/* Use value read for ICCM0 */
+			if (!aux_iccm)
+				CHECK_RETVAL(arc32_get_register_value_u32(target, "aux_iccm", &aux_iccm));
+			arc32_address_t iccm1_size = 0x100;
+			iccm1_size <<= iccm_build_size10;
+			if (iccm_build_size10 == 0xF)
+				iccm1_size <<= iccm_build_size11;
+			arc32->iccm1_start = aux_iccm & (0x0F000000 >> (32 - arc_regs_addr_size_bits(target)));
+			arc32->iccm1_end = arc32->iccm1_start + iccm1_size;
+			LOG_DEBUG("ICCM1 detected start=0x%" PRIx32 " end=0x%" PRIx32,
+					arc32->iccm1_start, arc32->iccm1_end);
+		}
 	}
 
 	return ERROR_OK;
@@ -851,17 +897,23 @@ int arc32_build_bcr_reg_cache(struct target *target)
 	return ERROR_OK;
 }
 
-int arc32_get_register_value_u32(struct reg * r, uint32_t *value_ptr)
+int arc32_get_register_value_u32(struct target *target, const char *reg_name,
+		uint32_t *value_ptr)
 {
-	if (!r || !value_ptr) {
+	if (!(target && reg_name && value_ptr)) {
 		LOG_ERROR("Arguments cannot be NULL.");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	if (!r->valid)
-		CHECK_RETVAL(r->type->get(r));
+	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
 
-	const struct arc_reg_t * const arc_r = r->arch_info;
+	if (!reg)
+		return ERROR_ARC_REGISTER_NOT_FOUND;
+
+	if (!reg->valid)
+		CHECK_RETVAL(reg->type->get(reg));
+
+	const struct arc_reg_t * const arc_r = reg->arch_info;
 	*value_ptr = arc_r->value;
 
 	return ERROR_OK;
