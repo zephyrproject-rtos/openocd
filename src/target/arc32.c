@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2013-2014 Synopsys, Inc.                                *
+ *   Copyright (C) 2013-2015 Synopsys, Inc.                                *
  *   Frank Dols <frank.dols@synopsys.com>                                  *
  *   Mischa Jonker <mischa.jonker@synopsys.com>                            *
  *   Anton Kolesov <anton.kolesov@synopsys.com>                            *
