@@ -121,17 +121,16 @@ not need this library's dll file to be copied around:
     $ tar xaf libusbx-1.0.18-rc1.tar.bz2
     $ cd libusbx-1.0.18-rc1
     $ ./configure --host=i686-w64-mingw32 --build=x86_64-linux-gnu \
-      --prefix=</libusbx/install/path> --disable-shared --disable-static
+      --prefix=</libusbx/install/path> --disable-shared --enable-static
     $ make
     $ make install
 
 If you are planing to use FTD2xx drivers, then download them from [FTDI
-site](http://www.ftdichip.com/Drivers/D2XX.htm). Unzip them:
-
-    $ mkdir ftd2xx
-    $ cd ftd2xx
-    $ unzip ../CDM\ 2.08.30\ WHQL\ Certified.zip
-    $ unzip CDM\ v2.08.30\ WHQL\ Certified.zip
+site](http://www.ftdichip.com/Drivers/D2XX.htm). Since year 2014 those drivers
+for Windows are available only as an installer executable, there is no option
+to download zip archive. So use 7-zip to open downloaded .exe file as archive
+and extract contents from it. Further it will be assumed that contents of this
+archive is in `ftd2xx` directory.
 
 Download OpenOCD sources:
 
