@@ -107,7 +107,7 @@ Install the same prerequisites like for Linux build (except for libusb-dev) and
 MinGW on your system:
 
     $ sudo apt-get install libtool git-core build-essential autoconf automake
-    texinfo
+    texinfo pkg-config
 
 Install MinGW cross-compiler to your system:
 
