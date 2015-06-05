@@ -48,17 +48,6 @@
 
 #define ARC32_COMMON_MAGIC	0xB32EB324  /* just a unique number */
 
-/* supported ARC processor types */
-enum arc_processor_type {
-	ARCEM_NUM	= 1,
-	ARC600_NUM,
-	ARC700_NUM
-};
-
-#define ARCEM_STR	"arc-em"
-#define ARC600_STR	"arc600"
-#define ARC700_STR	"arc700"
-
 typedef uint32_t arc32_address_t;
 
 /* ARC core ARCompatISA register set */
@@ -127,7 +116,6 @@ struct arc32_common {
 
 	struct reg_cache *core_cache;
 
-	enum arc_processor_type processor_type;
 	enum arc32_isa_mode     isa_mode;
 
 	/* working area for fastdata access */
