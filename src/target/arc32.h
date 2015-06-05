@@ -151,6 +151,9 @@ struct arc32_common {
 	 * halted. */
 	bool cache_invalidated;
 
+	/* Whether DEBUG.SS bit is present. This is a unique feature of ARC 600. */
+	bool has_debug_ss;
+
 	/* CCM memory regions (optional). */
 	arc32_address_t iccm0_start;
 	arc32_address_t iccm0_end;
