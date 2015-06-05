@@ -152,6 +152,17 @@ int arc_ocd_target_create(struct target *target, Jim_Interp *interp)
 	return ERROR_OK;
 }
 
+int arc_ocd_arc600_target_create(struct target *target, Jim_Interp *interp)
+{
+	struct arc_common *arc = calloc(1, sizeof(struct arc_common));
+
+	arc->arc32.has_debug_ss = true;
+
+	CHECK_RETVAL(arc_ocd_init_arch_info(target, arc, target->tap));
+
+	return ERROR_OK;
+}
+
 int arc_ocd_init_target(struct command_context *cmd_ctx, struct target *target)
 {
 	CHECK_RETVAL(arc32_build_reg_cache(target));
