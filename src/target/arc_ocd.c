@@ -179,23 +179,6 @@ int arc_ocd_examine(struct target *target)
 	CHECK_RETVAL(arc_jtag_startup(&arc32->jtag_info));
 
 	if (!target_was_examined(target)) {
-		/* read ARC core info */
-		if (strncmp(target_name(target), ARCEM_STR, 6) == 0) {
-			arc32->processor_type = ARCEM_NUM;
-			LOG_USER("Processor type: %s", ARCEM_STR);
-
-		} else if (strncmp(target_name(target), ARC600_STR, 6) == 0) {
-			arc32->processor_type = ARC600_NUM;
-			LOG_USER("Processor type: %s", ARC600_STR);
-
-		} else if (strncmp(target_name(target), ARC700_STR, 6) == 0) {
-			arc32->processor_type = ARC700_NUM;
-			LOG_USER("Processor type: %s", ARC700_STR);
-
-		} else {
-			LOG_WARNING(" THIS IS A UNSUPPORTED TARGET: %s", target_name(target));
-		}
-
 		CHECK_RETVAL(arc_jtag_status(&arc32->jtag_info, &status));
 		if (status & ARC_JTAG_STAT_RU) {
 			target->state = TARGET_RUNNING;
