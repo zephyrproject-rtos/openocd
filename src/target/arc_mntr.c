@@ -915,8 +915,8 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.name = "add-reg",
 		.jim_handler = jim_arc_add_reg,
 		.mode = COMMAND_CONFIG,
-		.usage = "-name ?string? -num ?int? [-gdbnum ?int?] [-core] "
-			"-feature ?string? [-type ?type_name?]",
+		.usage = "-name ?string? -num ?int? -feature ?string? [-gdbnum ?int?] "
+			"[-core|-bcr] [-type ?type_name?] [-g]",
 		.help = "Add new register. Name, architectural number and feature name "
 			"are requried options. GDB regnum will default to previous register "
 			"(gdbnum + 1) and shouldn't be specified in most cases. Type "
