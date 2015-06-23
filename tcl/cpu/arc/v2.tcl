@@ -18,6 +18,11 @@
 source [find cpu/arc/common.tcl]
 
 proc arc_v2_examine_target { {target ""} } {
+	# Set current target, because OpenOCD event handlers don't do this for us.
+	if { $target != "" } {
+		targets $target
+	}
+
 	# Those registers always exist. DEBUG and DEBUGI are formally optional,
 	# however they come with JTAG interface, and so far there is no way
 	# OpenOCD can communicate with target without JTAG interface.
