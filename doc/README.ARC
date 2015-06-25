@@ -18,6 +18,7 @@ Important notes:
 
 1. This document uses term "Digilent HS" to refer to both HS1 and HS2 cables.
    Statements that are applicable only to selected cable mention it explicitly.
+   Digilent HS3 hasn't been tested with OpenOCD for ARC.
 2. There is NO Flash support in ARC OpenOCD.
 
 
@@ -35,10 +36,23 @@ Some Ubuntu versions might have libusb package with name `libusb-1.0.0`.
 
 Command to install prerequisites on RHEL 6:
 
-    $ sudo yum install libtool gcc autoconf automake texinfo libusb1-devel
+    $ sudo yum install libtool gcc autoconf automake texinfo libusb1-devel git
 
 Optional dependencies required to build documentation are: asciidoc and
 texinfo-tex.
+
+Also OpenOCD requires autoconf of version at least 2.64 to work, however
+CentOS/RHEL 6 systems have only version 2.63. Version 2.68 can be downloaded
+from EPEL, however it will install autoconf as /usr/bin/autoconf268, so that
+doesn't work for OpenOCD. The easiest solution is to download and build
+autoconf from the source.
+
+	$ wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.64.tar.xz
+	$ tar xaf autoconf-2.64.tar.xz
+	$ cd autoconf-2.64
+	$ ./configure --prefix=/usr/local
+	$ make
+	$ sudo make install
 
 Download OpenOCD sources:
 
