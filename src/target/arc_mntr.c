@@ -721,6 +721,17 @@ COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_rd)
 
 }
 
+COMMAND_HANDLER(arc_cmd_handle_jtag_wait_until_write_finished)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	struct arc32_common *arc32 = target_to_arc32(target);
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->jtag_info.wait_until_write_finished,
+		"Check that current write operation intiated via JTAG has "
+		"finished before resetting JTAG transaction.");
+
+}
+
 COMMAND_HANDLER(arc_cmd_handle_jtag_check_status_fl)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -845,16 +856,34 @@ static const struct command_registration arc_jtag_command_group[] = {
 		.handler = arc_cmd_handle_jtag_check_status_rd,
 		.mode = COMMAND_ANY,
 		.usage = "on|off",
-		.help = "If true we will check for JTAG status register and " \
+		.help = "If true OpenOCD will check for JTAG status register and " \
 			"whether 'ready' bit is set each time before doing any " \
 			"JTAG operations. By default that is off.",
+	},
+	{
+		.name = "wait-until-write-finished",
+		.handler = arc_cmd_handle_jtag_wait_until_write_finished,
+		.mode = COMMAND_ANY,
+		.usage = "on|off",
+		.help = "If true OpenOCD will poll JTAG STATUS register until "
+		        "'ready' bit is set after doing memory and register writes. "
+		        "Without this check there is a chance that OpenOCD will "
+		        "'reset' JTAG transaction command before it is finished and "
+		        "that in some situations might completely hang the core. "
+		        "That is known to happen, for example, in some occasions "
+		        "when D$ is flushed, hence it is essential to wait until "
+		        "cache is flushed and only then finish a transaction. "
+			"Default is 'on'. Switching this off might improve "
+			"performance of debugging, however there would be less "
+			"protection from cases where writes over JTAG take a "
+			"long time to execute.",
 	},
 	{
 		.name = "check-status-fl",
 		.handler = arc_cmd_handle_jtag_check_status_fl,
 		.mode = COMMAND_ANY,
 		.usage = "on|off",
-		.help = "If true we will check for JTAG status FL bit after all JTAG " \
+		.help = "If true OpenOCD will check for JTAG status FL bit after all JTAG " \
 			 "transaction. This is disabled by default because it is " \
 			 "known to break JTAG module in the core.",
 	},
