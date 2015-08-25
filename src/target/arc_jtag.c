@@ -254,12 +254,23 @@ static int arc_jtag_write_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	if (jtag_info->check_status_fl)
 		arc_jtag_enque_status_read(jtag_info, status_buf);
 
-	/* Cleanup. */
-	arc_jtag_reset_transaction(jtag_info);
-
 	/* Execute queue. */
 	CHECK_RETVAL(jtag_execute_queue());
 	CHECK_STATUS_FL(jtag_info, status_buf);
+
+	/* Do not advance until write will be finished. This is important in
+	 * some situations. For example it is known that at least in some cases
+	 * core might hang, if transaction will be reset (via writing NOP to
+	 * transaction command register) while it is still being executed by
+	 * the core (can happen with long operations like flush of data cache).
+	 * */
+	if (jtag_info->wait_until_write_finished) {
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
+	}
+
+	/* Cleanup. */
+	arc_jtag_reset_transaction(jtag_info);
+	CHECK_RETVAL(jtag_execute_queue());
 
 	return ERROR_OK;
 }
@@ -319,9 +330,6 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 	if (jtag_info->check_status_fl)
 		arc_jtag_enque_status_read(jtag_info, status_buf);
 
-	/* Clean up */
-	arc_jtag_reset_transaction(jtag_info);
-
 	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Convert byte-buffers to host presentation. */
@@ -334,6 +342,20 @@ static int arc_jtag_read_registers(struct arc_jtag *jtag_info, reg_type_t type,
 
 	/* Check only after allocated memory is freed. */
 	CHECK_STATUS_FL(jtag_info, status_buf);
+
+	/* Unlike writes, in case of read accesses JTAG STATUS should be polled
+	 * before reading DATA register, and doing this after read has been
+	 * already done is pretty useless - it will not really present
+	 * information that read was a success or failure. We do not poll JTAG
+	 * STATUS this way for performance reasons, hence it is expected that
+	 * reads are always a success. Resetting transaction after reads or
+	 * writes is not really required, it is done more as a sanity check.
+	 * That is however done in a separate JTAG queue flush, since time
+	 * since the previous queue flush should be practically enough to do
+	 * any pending operations, if there were. That seems like not a very
+	 * reliable approach and might be reconsidered in future. */
+	arc_jtag_reset_transaction(jtag_info);
+	CHECK_RETVAL(jtag_execute_queue());
 
 	return ERROR_OK;
 }
@@ -388,16 +410,21 @@ static int arc_wait_until_jtag_ready(struct arc_jtag * const jtag_info)
 	bool ready = 0;
 	do {
 		uint8_t buf[4];
-		arc_jtag_reset_transaction(jtag_info);
+		/* Do not reset transaction here, or that will reset
+		 * JTAG_STATUS as well and we will never know if current
+		 * transaction finished. Even more so - it is known that
+		 * setting IR to NOP command when D$ flush is in process might
+		 * break the core - JTAG interface will be returning only
+		 * zeroes. */
 		arc_jtag_enque_status_read(jtag_info, buf);
-		arc_jtag_reset_transaction(jtag_info);
 		CHECK_RETVAL(jtag_execute_queue());
 
 		uint32_t jtag_status = buf_get_u32(buf, 0, 32);
 		ready = jtag_status & ARC_JTAG_STAT_RD;
 
 		if (!ready) {
-			LOG_DEBUG("JTAG on core is not ready: %s", arc_jtag_decode_status(jtag_status));
+			LOG_DEBUG("JTAG on core is not ready: %s",
+				arc_jtag_decode_status(jtag_status));
 		}
 	} while(!ready);
 
@@ -528,12 +555,18 @@ int arc_jtag_write_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	if (jtag_info->check_status_fl)
 		arc_jtag_enque_status_read(jtag_info, status_buf);
 
-	/* Cleanup. */
-	arc_jtag_reset_transaction(jtag_info);
-
 	/* Run queue. */
 	CHECK_RETVAL(jtag_execute_queue());
 	CHECK_STATUS_FL(jtag_info, status_buf);
+
+	/* Do not advance until write will be finished. */
+	if (jtag_info->wait_until_write_finished) {
+		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
+	}
+
+	/* Cleanup. */
+	arc_jtag_reset_transaction(jtag_info);
+	CHECK_RETVAL(jtag_execute_queue());
 
 	return ERROR_OK;
 }
@@ -565,9 +598,9 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	if (count == 0)
 		return ERROR_OK;
 
-	/* Workaround problems in STAR 9000830091 */
-	if (slow_memory || jtag_info->always_check_status_rd)
+	if (jtag_info->always_check_status_rd) {
 		CHECK_RETVAL(arc_wait_until_jtag_ready(jtag_info));
+	}
 
 	arc_jtag_reset_transaction(jtag_info);
 
@@ -600,9 +633,6 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	if (jtag_info->check_status_fl)
 		arc_jtag_enque_status_read(jtag_info, status_buf);
 
-	/* Clean up */
-	arc_jtag_reset_transaction(jtag_info);
-
 	CHECK_RETVAL(jtag_execute_queue());
 
 	/* Convert byte-buffers to host presentation. */
@@ -613,6 +643,20 @@ int arc_jtag_read_memory(struct arc_jtag *jtag_info, uint32_t addr,
 	free(data_buf);
 
 	CHECK_STATUS_FL(jtag_info, status_buf);
+
+	/* Unlike writes, in case of read accesses JTAG STATUS should be polled
+	 * before reading DATA register, and doing this after read has been
+	 * already done is pretty useless - it will not really present
+	 * information that read was a success or failure. We do not poll JTAG
+	 * STATUS this way for performance reasons, hence it is expected that
+	 * reads are always a success. Resetting transaction after reads or
+	 * writes is not really required, it is done more as a sanity check.
+	 * That is however done in a separate JTAG queue flush, since time
+	 * since the previous queue flush should be practically enough to do
+	 * any pending operations, if there were. That seems like not a very
+	 * reliable approach and might be reconsidered in future. */
+	arc_jtag_reset_transaction(jtag_info);
+	CHECK_RETVAL(jtag_execute_queue());
 
 	return ERROR_OK;
 }
