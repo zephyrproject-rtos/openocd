@@ -27,12 +27,39 @@
 #include "arc32.h"
 
 /* ----- Supporting functions ---------------------------------------------- */
+static int arc_dbg_configure_actionpoint(struct target *target, uint32_t ap_num,
+	uint32_t match_value, uint32_t control_tt, uint32_t control_at)
+{
+	struct arc32_common *arc32 = target_to_arc32(target);
+	uint32_t ap_reg_id = ap_num * AP_STRUCT_LEN;
+
+	if (control_tt != AP_AC_TT_DISABLE) {
+
+		if (arc32->actionpoints_num_avail < 1) {
+			LOG_ERROR("No free actionpoints, maximim amount is %" PRIu32,
+					arc32->actionpoints_num);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+
+		/* TODO: This code ignores register configurability provided by TCL. */
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AMV_BASE + ap_reg_id,
+				match_value);
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AMM_BASE + ap_reg_id, 0x0);
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AC_BASE  + ap_reg_id,
+				control_tt | control_at);
+		arc32->actionpoints_num_avail--;
+	} else {
+		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AC_BASE  + ap_reg_id, AP_AC_TT_DISABLE);
+		arc32->actionpoints_num_avail++;
+	}
+
+	return ERROR_OK;
+}
 
 static int arc_dbg_set_breakpoint(struct target *target,
 		struct breakpoint *breakpoint)
 {
-	struct arc32_common *arc32 = target_to_arc32(target);
-	struct arc32_comparator *comparator_list = arc32->inst_break_list;
+	int retval = ERROR_OK;
 
 	if (breakpoint->set) {
 		LOG_WARNING("breakpoint already set");
@@ -40,28 +67,31 @@ static int arc_dbg_set_breakpoint(struct target *target,
 	}
 
 	if (breakpoint->type == BKPT_HARD) {
-		int bp_num = 0;
+		struct arc32_common *arc32 = target_to_arc32(target);
+		struct arc32_comparator *comparator_list = arc32->actionpoints_list;
+		unsigned int bp_num = 0;
 
-		while (comparator_list[bp_num].used && (bp_num < arc32->num_inst_bpoints))
+		while (comparator_list[bp_num].used)
 			bp_num++;
 
-		if (bp_num >= arc32->num_inst_bpoints) {
-			LOG_ERROR("Can not find free FP Comparator(bpid: %" PRIu32 ")",
-					breakpoint->unique_id);
+		if (bp_num >= arc32->actionpoints_num) {
+			LOG_ERROR("No free actionpoints, maximim amount is %" PRIu32,
+					arc32->actionpoints_num);
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 
-		breakpoint->set = bp_num + 1;
-		comparator_list[bp_num].used = 1;
-		comparator_list[bp_num].bp_value = breakpoint->address;
-		target_write_u32(target, comparator_list[bp_num].reg_address,
-				comparator_list[bp_num].bp_value);
-		target_write_u32(target, comparator_list[bp_num].reg_address + 0x08, 0x00000000);
-		target_write_u32(target, comparator_list[bp_num].reg_address + 0x18, 1);
+		retval = arc_dbg_configure_actionpoint(target, bp_num,
+				breakpoint->address, AP_AC_TT_READWRITE, AP_AC_AT_INST_ADDR);
 
-		LOG_DEBUG("bpid: %" PRIu32 ", bp_num %i bp_value 0x%" PRIx32,
-				  breakpoint->unique_id,
-				  bp_num, comparator_list[bp_num].bp_value);
+		if (retval == ERROR_OK) {
+			breakpoint->set = bp_num + 1;
+			comparator_list[bp_num].used = 1;
+			comparator_list[bp_num].bp_value = breakpoint->address;
+
+			LOG_DEBUG("bpid: %" PRIu32 ", bp_num %u bp_value 0x%" PRIx32,
+					breakpoint->unique_id, bp_num, comparator_list[bp_num].bp_value);
+		}
+
 	} else if (breakpoint->type == BKPT_SOFT) {
 		LOG_DEBUG("bpid: %" PRIu32, breakpoint->unique_id);
 
@@ -113,7 +143,8 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 {
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
-	struct arc32_comparator *comparator_list = arc32->inst_break_list;
+	struct arc32_comparator *comparator_list = arc32->actionpoints_list;
+	int retval;
 
 	if (!breakpoint->set) {
 		LOG_WARNING("breakpoint not set");
@@ -121,18 +152,24 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 	}
 
 	if (breakpoint->type == BKPT_HARD) {
-		int bp_num = breakpoint->set - 1;
-		if ((bp_num < 0) || (bp_num >= arc32->num_inst_bpoints)) {
-			LOG_DEBUG("Invalid FP Comparator number in breakpoint (bpid: %" PRIu32 ")",
-					  breakpoint->unique_id);
+		unsigned int bp_num = breakpoint->set - 1;
+		if ((breakpoint->set == 0) || (bp_num >= arc32->actionpoints_num)) {
+			LOG_DEBUG("Invalid actionpoint ID: %u in breakpoint: %" PRIu32,
+					  bp_num, breakpoint->unique_id);
 			return ERROR_OK;
 		}
-		LOG_DEBUG("bpid: %" PRIu32 " - releasing hw: %i",
-				breakpoint->unique_id,
-				bp_num);
-		comparator_list[bp_num].used = 0;
-		comparator_list[bp_num].bp_value = 0;
-		target_write_u32(target, comparator_list[bp_num].reg_address + 0x18, 0);
+
+		retval =  arc_dbg_configure_actionpoint(target, bp_num,
+						breakpoint->address, AP_AC_TT_DISABLE, AP_AC_AT_INST_ADDR);
+
+		if (retval == ERROR_OK) {
+			breakpoint->set = 0;
+			comparator_list[bp_num].used = 0;
+			comparator_list[bp_num].bp_value = 0;
+
+			LOG_DEBUG("bpid: %" PRIu32 " - released actionpoint ID: %i",
+					breakpoint->unique_id, bp_num);
+		}
 
 	} else {
 		/* restore original instruction (kept in target endianness) */
@@ -144,8 +181,12 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &current_instr));
 
 			if (current_instr == ARC32_SDBBP) {
-				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
-					breakpoint->length, breakpoint->orig_instr));
+				target->running_alg = 1;
+				retval = target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr);
+				target->running_alg = 0;
+				if (retval != ERROR_OK)
+					return retval;
 			} else {
 				LOG_WARNING("Software breakpoint @%" PRIx32
 					" has been overwritten outside of debugger.", breakpoint->address);
@@ -158,8 +199,12 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 					(uint8_t *)&current_instr));
 			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
 			if (current_instr == ARC16_SDBBP) {
-				CHECK_RETVAL(target_write_buffer(target, breakpoint->address,
-					breakpoint->length, breakpoint->orig_instr));
+				target->running_alg = 1;
+				retval = target_write_buffer(target, breakpoint->address,
+					breakpoint->length, breakpoint->orig_instr);
+				target->running_alg = 0;
+				if (retval != ERROR_OK)
+					return retval;
 			} else {
 				LOG_WARNING("Software breakpoint @%" PRIx32
 					" has been overwritten outside of debugger.", breakpoint->address);
@@ -168,14 +213,13 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			LOG_ERROR("Invalid breakpoint length: target supports only 2 or 4");
 			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
+		breakpoint->set = 0;
 	}
 
 	/* core instruction cache is now invalid */
 	CHECK_RETVAL(arc32_cache_invalidate(target));
 
-	breakpoint->set = 0;
-
-	return ERROR_OK;
+	return retval;
 }
 
 static void arc_dbg_enable_breakpoints(struct target *target)
@@ -194,30 +238,24 @@ static int arc_dbg_set_watchpoint(struct target *target,
 		struct watchpoint *watchpoint)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	struct arc32_comparator *comparator_list = arc32->data_break_list;
-
-	int wp_num = 0;
-	/*
-	 * watchpoint enabled, ignore all byte lanes in value register
-	 * and exclude both load and store accesses from  watchpoint
-	 * condition evaluation
-	*/
-	int enable = 1;
-	//int enable = EJTAG_DBCn_NOSB | EJTAG_DBCn_NOLB | EJTAG_DBCn_BE |
-		//	(0xff << EJTAG_DBCn_BLM_SHIFT);
+	struct arc32_comparator *comparator_list = arc32->actionpoints_list;
 
 	if (watchpoint->set) {
 		LOG_WARNING("watchpoint already set");
 		return ERROR_OK;
 	}
 
-	while (comparator_list[wp_num].used && (wp_num < arc32->num_data_bpoints))
+	unsigned int wp_num = 0;
+	while (comparator_list[wp_num].used)
 		wp_num++;
-	if (wp_num >= arc32->num_data_bpoints) {
-		LOG_ERROR("Can not find free FP Comparator");
-		return ERROR_FAIL;
-	}
 
+	if (wp_num >= arc32->actionpoints_num) {
+		LOG_ERROR("No free actionpoints, maximim amount is %u",
+				arc32->actionpoints_num);
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+	/*
+	 * TODO: Verify documentation, just tried and worked fine!!
 	if (watchpoint->length != 4) {
 		LOG_ERROR("Only watchpoints of length 4 are supported");
 		return ERROR_TARGET_UNALIGNED_ACCESS;
@@ -227,35 +265,37 @@ static int arc_dbg_set_watchpoint(struct target *target,
 		LOG_ERROR("Watchpoints address should be word aligned");
 		return ERROR_TARGET_UNALIGNED_ACCESS;
 	}
+	*/
 
-#ifdef NEEDS_PORTING
+	int enable = AP_AC_TT_DISABLE;
 	switch (watchpoint->rw) {
 		case WPT_READ:
-			enable &= ~EJTAG_DBCn_NOLB;
+			enable = AP_AC_TT_READ;
 			break;
 		case WPT_WRITE:
-			enable &= ~EJTAG_DBCn_NOSB;
+			enable = AP_AC_TT_WRITE;
 			break;
 		case WPT_ACCESS:
-			enable &= ~(EJTAG_DBCn_NOLB | EJTAG_DBCn_NOSB);
+			enable = AP_AC_TT_READWRITE;
 			break;
 		default:
 			LOG_ERROR("BUG: watchpoint->rw neither read, write nor access");
+			return ERROR_FAIL;
 	}
-#endif
 
-	watchpoint->set = wp_num + 1;
-	comparator_list[wp_num].used = 1;
-	comparator_list[wp_num].bp_value = watchpoint->address;
-	target_write_u32(target, comparator_list[wp_num].reg_address, comparator_list[wp_num].bp_value);
-	target_write_u32(target, comparator_list[wp_num].reg_address + 0x08, 0x00000000);
-	target_write_u32(target, comparator_list[wp_num].reg_address + 0x10, 0x00000000);
-	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, enable);
-	target_write_u32(target, comparator_list[wp_num].reg_address + 0x20, 0);
+	int retval =  arc_dbg_configure_actionpoint(target, wp_num,
+					watchpoint->address, enable, AP_AC_AT_MEMORY_ADDR);
 
-	LOG_DEBUG("wp_num %i bp_value 0x%" PRIx32, wp_num, comparator_list[wp_num].bp_value);
+	if (retval == ERROR_OK) {
+		watchpoint->set = wp_num + 1;
+		comparator_list[wp_num].used = 1;
+		comparator_list[wp_num].bp_value = watchpoint->address;
 
-	return ERROR_OK;
+		LOG_DEBUG("wpid: %" PRIu32 ", bp_num %i bp_value 0x%" PRIx32,
+				watchpoint->unique_id, wp_num, comparator_list[wp_num].bp_value);
+	}
+
+	return retval;
 }
 
 static int arc_dbg_unset_watchpoint(struct target *target,
@@ -263,25 +303,33 @@ static int arc_dbg_unset_watchpoint(struct target *target,
 {
 	/* get pointers to arch-specific information */
 	struct arc32_common *arc32 = target_to_arc32(target);
-	struct arc32_comparator *comparator_list = arc32->data_break_list;
+	struct arc32_comparator *comparator_list = arc32->actionpoints_list;
 
 	if (!watchpoint->set) {
 		LOG_WARNING("watchpoint not set");
 		return ERROR_OK;
 	}
 
-	int wp_num = watchpoint->set - 1;
-	if ((wp_num < 0) || (wp_num >= arc32->num_data_bpoints)) {
-		LOG_DEBUG("Invalid FP Comparator number in watchpoint");
+	unsigned int wp_num = watchpoint->set - 1;
+	if ((watchpoint->set == 0) || (wp_num >= arc32->actionpoints_num)) {
+		LOG_DEBUG("Invalid actionpoint ID: %u in watchpoint: %" PRIu32,
+				wp_num, watchpoint->unique_id);
 		return ERROR_OK;
 	}
 
-	comparator_list[wp_num].used = 0;
-	comparator_list[wp_num].bp_value = 0;
-	target_write_u32(target, comparator_list[wp_num].reg_address + 0x18, 0);
-	watchpoint->set = 0;
+	int retval =  arc_dbg_configure_actionpoint(target, wp_num,
+				watchpoint->address, AP_AC_TT_DISABLE, AP_AC_AT_MEMORY_ADDR);
 
-	return ERROR_OK;
+	if (retval == ERROR_OK) {
+		watchpoint->set = 0;
+		comparator_list[wp_num].used = 0;
+		comparator_list[wp_num].bp_value = 0;
+
+		LOG_DEBUG("wpid: %" PRIu32 " - releasing actionpoint ID: %i",
+				watchpoint->unique_id, wp_num);
+	}
+
+	return retval;
 }
 
 static void arc_dbg_enable_watchpoints(struct target *target)
@@ -606,23 +654,12 @@ int arc_dbg_step(struct target *target, int current, uint32_t address,
 int arc_dbg_add_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	struct arc32_common *arc32 = target_to_arc32(target);
-
-	if (breakpoint->type == BKPT_HARD) {
-		if (arc32->num_inst_bpoints_avail < 1) {
-			LOG_ERROR(" > Hardware breakpoints are not supported in this release.");
-			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
-		}
-
-		arc32->num_inst_bpoints_avail--;
-	}
-
 	if (target->state == TARGET_HALTED) {
 		return arc_dbg_set_breakpoint(target, breakpoint);
+
 	} else {
-		arc_dbg_enter_debug(target);
 		LOG_WARNING(" > core was not halted, please try again.");
-		return ERROR_OK;
+		return ERROR_TARGET_NOT_HALTED;
 	}
 }
 
@@ -643,8 +680,7 @@ int arc_dbg_add_hybrid_breakpoint(struct target *target,
 int arc_dbg_remove_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	/* get pointers to arch-specific information */
-	struct arc32_common *arc32 = target_to_arc32(target);
+	int retval = ERROR_OK;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -652,10 +688,7 @@ int arc_dbg_remove_breakpoint(struct target *target,
 	}
 
 	if (breakpoint->set)
-		arc_dbg_unset_breakpoint(target, breakpoint);
-
-	if (breakpoint->type == BKPT_HARD)
-		arc32->num_inst_bpoints_avail++;
+		retval = arc_dbg_unset_breakpoint(target, breakpoint);
 
 	return ERROR_OK;
 }
@@ -663,16 +696,14 @@ int arc_dbg_remove_breakpoint(struct target *target,
 int arc_dbg_add_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	struct arc32_common *arc32 = target_to_arc32(target);
+	int retval = ERROR_OK;
 
-	if (arc32->num_data_bpoints_avail < 1) {
-		LOG_INFO("Hardware watchpoints are not supported in this release.");
-		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	if (target->state != TARGET_HALTED) {
+		LOG_WARNING("target not halted");
+		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	arc32->num_data_bpoints_avail--;
-
-	arc_dbg_set_watchpoint(target, watchpoint);
+	retval = arc_dbg_set_watchpoint(target, watchpoint);
 
 	return ERROR_OK;
 }
@@ -680,8 +711,7 @@ int arc_dbg_add_watchpoint(struct target *target,
 int arc_dbg_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	/* get pointers to arch-specific information */
-	struct arc32_common *arc32 = target_to_arc32(target);
+	int retval = ERROR_OK;
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
@@ -689,9 +719,104 @@ int arc_dbg_remove_watchpoint(struct target *target,
 	}
 
 	if (watchpoint->set)
-		arc_dbg_unset_watchpoint(target, watchpoint);
-
-	arc32->num_data_bpoints_avail++;
+		retval = arc_dbg_unset_watchpoint(target, watchpoint);
 
 	return ERROR_OK;
 }
+int arc_dbg_add_auxreg_actionpoint(struct target *target,
+	uint32_t auxreg_addr, uint32_t transaction)
+{
+
+	if (target->state == TARGET_HALTED) {
+		struct arc32_common *arc32 = target_to_arc32(target);
+		struct arc32_comparator *comparator_list = arc32->actionpoints_list;
+		unsigned int ap_num = 0;
+
+		while (comparator_list[ap_num].used)
+			ap_num++;
+
+		if (ap_num >= arc32->actionpoints_num) {
+			LOG_ERROR("No actionpoint free, maximim amount is %u",
+					arc32->actionpoints_num);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+		}
+
+		int retval =  arc_dbg_configure_actionpoint(target, ap_num,
+				auxreg_addr, transaction, AP_AC_AT_AUXREG_ADDR);
+
+		if (retval == ERROR_OK) {
+			comparator_list[ap_num].used = 1;
+			comparator_list[ap_num].reg_address = auxreg_addr;
+		}
+
+		return retval;
+
+	} else {
+		return ERROR_TARGET_NOT_HALTED;
+	}
+}
+
+int arc_dbg_remove_auxreg_actionpoint(struct target *target, uint32_t auxreg_addr)
+{
+	int retval = ERROR_OK;
+
+	if (target->state == TARGET_HALTED) {
+		struct arc32_common *arc32 = target_to_arc32(target);
+		struct arc32_comparator *comparator_list = arc32->actionpoints_list;
+		int ap_found = 0;
+		unsigned int ap_num = 0;
+
+		while ((comparator_list[ap_num].used) && (ap_num < arc32->actionpoints_num)) {
+			if (comparator_list[ap_num].reg_address == auxreg_addr) {
+				ap_found = 1;
+				break;
+			}
+			ap_num++;
+		}
+
+		if (ap_found) {
+			retval =  arc_dbg_configure_actionpoint(target, ap_num,
+					auxreg_addr, AP_AC_TT_DISABLE, AP_AC_AT_AUXREG_ADDR);
+
+			if (retval == ERROR_OK) {
+				comparator_list[ap_num].used = 0;
+				comparator_list[ap_num].bp_value = 0;
+			}
+		} else {
+			LOG_ERROR("Register actionpoint not found");
+		}
+
+		return retval;
+
+	} else {
+		return ERROR_TARGET_NOT_HALTED;
+	}
+}
+
+void arc_dbg_reset_actionpoints(struct target *target)
+{
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct arc32_comparator *comparator_list = arc32->actionpoints_list;
+	struct breakpoint *next_b;
+	struct watchpoint *next_w;
+
+	while (target->breakpoints) {
+		next_b = target->breakpoints->next;
+		arc_dbg_remove_breakpoint(target, target->breakpoints);
+		free(target->breakpoints->orig_instr);
+		free(target->breakpoints);
+		target->breakpoints = next_b;
+	}
+	while (target->watchpoints) {
+		next_w = target->watchpoints->next;
+		arc_dbg_remove_watchpoint(target, target->watchpoints);
+		free(target->watchpoints);
+		target->watchpoints = next_w;
+	}
+	for (unsigned int i = 0; i < arc32->actionpoints_num; i++) {
+		if ((comparator_list[i].used) && (comparator_list[i].reg_address)) {
+			arc_dbg_remove_auxreg_actionpoint(target, comparator_list[i].reg_address);
+		}
+	}
+}
+
