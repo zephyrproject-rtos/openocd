@@ -81,7 +81,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
-		} else {
+		} else if (breakpoint->length == 2) {
 			uint16_t verify = 0xffff;
 
 			CHECK_RETVAL(target_read_buffer(target, breakpoint->address, breakpoint->length,
@@ -94,6 +94,9 @@ static int arc_dbg_set_breakpoint(struct target *target,
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
+		} else {
+			LOG_ERROR("Invalid breakpoint length: target supports only 2 or 4");
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
 		/* core instruction cache is now invalid */
@@ -147,7 +150,7 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				LOG_WARNING("Software breakpoint @%" PRIx32
 					" has been overwritten outside of debugger.", breakpoint->address);
 			}
-		} else {
+		} else if (breakpoint->length == 2) {
 			uint16_t current_instr;
 
 			/* check that user program has not modified breakpoint instruction */
@@ -161,6 +164,9 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				LOG_WARNING("Software breakpoint @%" PRIx32
 					" has been overwritten outside of debugger.", breakpoint->address);
 			}
+		} else {
+			LOG_ERROR("Invalid breakpoint length: target supports only 2 or 4");
+			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 	}
 
