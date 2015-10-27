@@ -122,13 +122,11 @@ struct arc32_common {
 	struct working_area *fast_data_area;
 
 	int bp_scanned;
-	int num_inst_bpoints;
-	int num_data_bpoints;
-	int num_inst_bpoints_avail;
-	int num_data_bpoints_avail;
 
-	struct arc32_comparator *inst_break_list;
-	struct arc32_comparator *data_break_list;
+	/* Actionpoints */
+	unsigned int actionpoints_num;
+	unsigned int actionpoints_num_avail;
+	struct arc32_comparator *actionpoints_list;
 
 	/* Cache control */
 	bool has_dcache;

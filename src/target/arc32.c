@@ -74,7 +74,21 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 
 	/* has breakpoint/watchpoint unit been scanned */
 	arc32->bp_scanned = 0;
-	arc32->data_break_list = NULL;
+
+	/*
+	 * TODO: number has to be determined dynamically querying register 0x76 (AP_BUILD)
+	 */
+	arc32->actionpoints_num_avail = 4;
+	arc32->actionpoints_num = 4;
+
+	/*
+	 * because checking return values from malloc is soooo 90's!
+	 * and if you don't have 48 bytes to give me probably you need to segfault anyways...
+	 */
+	arc32->actionpoints_list = malloc(sizeof(struct arc32_comparator) * arc32->actionpoints_num_avail);
+
+	for (unsigned int i = 0; i < arc32->actionpoints_num_avail; i++)
+		arc32->actionpoints_list[i].used = 0;
 
 	/* Flush D$ by default. It is safe to assume that D$ is present,
 	 * because if it isn't, there will be no error, just a slight
