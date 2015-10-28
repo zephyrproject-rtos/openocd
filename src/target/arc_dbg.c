@@ -475,7 +475,9 @@ int arc_dbg_halt(struct target *target)
 	/* break (stop) processor */
 	CHECK_RETVAL(arc_dbg_enter_debug(target));
 
-	target->debug_reason = DBG_REASON_DBGRQ;
+	/* update state and notify gdb*/
+	target->state = TARGET_HALTED;
+	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
 	return ERROR_OK;
 }
