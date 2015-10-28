@@ -319,6 +319,8 @@ int arc_dbg_enter_debug(struct target *target)
 	uint32_t value;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	target->state = TARGET_HALTED;
+
 	/* Do read-modify-write sequence, or DEBUG.UB will be reset unintentionally. */
 	/* TODO: I think this should be moved to halt(). */
 	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
