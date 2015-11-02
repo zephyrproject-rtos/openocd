@@ -53,6 +53,16 @@ proc arc_v2_examine_target { {target ""} } {
 			}
 		}
 	}
+
+	# DCCM
+	if { [arc reg-field dccm_build version] == 3 } {
+		arc set-reg-exists aux_dccm
+	}
+
+	# ICCM
+	if { [arc reg-field iccm_build version] == 4 } {
+		arc set-reg-exists aux_iccm
+	}
 }
 
 proc arc_v2_init_regs { } {
@@ -65,8 +75,17 @@ proc arc_v2_init_regs { } {
 	# Types are sorted alphabetically according to their name.
 	arc add-reg-type-struct -name ap_build_t -bitfield version 0 7 \
 		-bitfield type 8 11
+	arc add-reg-type-struct -name dccm_build_t -bitfield version 0 7 \
+		-bitfield size0 8 11 -bitfield size1 12 15
+	arc add-reg-type-struct -name iccm_build_t -bitfield version 0 7 \
+		-bitfield iccm0_size0  8 11 -bitfield iccm1_size0 12 15 \
+		-bitfield iccm0_size1 16 19 -bitfield iccm1_size1 20 23
 	arc add-reg-type-struct -name identity_t \
 		-bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
+	arc add-reg-type-struct -name isa_config_t -bitfield version 0 7 \
+		-bitfield pc_size 8 11 -bitfield lpc_size 12 15 -bitfield addr_size 16 19 \
+		-bitfield b 20 20 -bitfield a 21 21 -bitfield n 22 22 -bitfield l 23 23 \
+		-bitfield c 24 27 -bitfield d 28 31
 	arc add-reg-type-flags -name status32_t \
 		-flag   H  0 -flag E0   1 -flag E1   2 -flag E2  3 \
 		-flag  E3  4 -flag AE   5 -flag DE   6 -flag  U  7 \
@@ -162,6 +181,8 @@ proc arc_v2_init_regs { } {
 	set aux_other {
 		0x004 identity	identity_t
 		0x005 debug		int
+		0x018 aux_dccm	int
+		0x208 aux_iccm	int
 		0x412 bta		code_ptr
 	}
 	foreach {num name type} $aux_other {
@@ -170,7 +191,10 @@ proc arc_v2_init_regs { } {
 
 	# AUX BCR
 	set bcr {
+		0x74 dccm_build
 		0x76 ap_build
+		0x78 iccm_build
+		0xC1 isa_config
 	}
 	foreach {num reg} $bcr {
 		arc add-reg -name $reg -num $num -type ${reg}_t -bcr -feature $aux_other_feature
