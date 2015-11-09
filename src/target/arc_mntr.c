@@ -33,6 +33,15 @@
  *
  * ------------------------------------------------------------------------- */
 
+/*
+ * Helper functions
+ */
+static int arc_cmd_jim_get_uint32(Jim_GetOptInfo *goi, uint32_t *value);
+static int arc_cmd_jim_get_uint(Jim_GetOptInfo *goi, unsigned *value);
+
+/*
+ * Handlers
+ */
 COMMAND_HANDLER(arc_handle_has_dcache)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -746,6 +755,14 @@ static int arc_cmd_jim_get_uint32(Jim_GetOptInfo *goi, uint32_t *value)
 	jim_wide value_wide;
 	JIM_CHECK_RETVAL(Jim_GetOpt_Wide(goi, &value_wide));
 	*value = (uint32_t)value_wide;
+	return JIM_OK;
+}
+
+static int arc_cmd_jim_get_uint(Jim_GetOptInfo *goi, unsigned *value)
+{
+	jim_wide value_wide;
+	JIM_CHECK_RETVAL(Jim_GetOpt_Wide(goi, &value_wide));
+	*value = (unsigned)value_wide;
 	return JIM_OK;
 }
 
