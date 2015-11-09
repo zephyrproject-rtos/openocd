@@ -287,4 +287,8 @@ int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 int arc32_get_register_field(struct target *target, const char *reg_name,
 		const char *field_name, uint32_t *value_ptr);
 
+/* Set an amount of actionpoints in target.  This function will remove any
+ * existing actionpoints from target.  */
+void arc32_set_actionpoints_num(struct target *target, unsigned ap_num);
+
 #endif /* ARC32_H */

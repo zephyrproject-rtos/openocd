@@ -75,20 +75,10 @@ int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	/* has breakpoint/watchpoint unit been scanned */
 	arc32->bp_scanned = 0;
 
-	/*
-	 * TODO: number has to be determined dynamically querying register 0x76 (AP_BUILD)
-	 */
-	arc32->actionpoints_num_avail = 4;
-	arc32->actionpoints_num = 4;
-
-	/*
-	 * because checking return values from malloc is soooo 90's!
-	 * and if you don't have 48 bytes to give me probably you need to segfault anyways...
-	 */
-	arc32->actionpoints_list = malloc(sizeof(struct arc32_comparator) * arc32->actionpoints_num_avail);
-
-	for (unsigned int i = 0; i < arc32->actionpoints_num_avail; i++)
-		arc32->actionpoints_list[i].used = 0;
+	/* We don't know how many actionpoints are in the core yet. */
+	arc32->actionpoints_num_avail = 0;
+	arc32->actionpoints_num = 0;
+	arc32->actionpoints_list = NULL;
 
 	/* Flush D$ by default. It is safe to assume that D$ is present,
 	 * because if it isn't, there will be no error, just a slight
@@ -608,26 +598,43 @@ int arc32_read_instruction_u32(struct target *target, uint32_t address,
     return ERROR_OK;
 }
 
-static unsigned int arc_regs_addr_size_bits(struct target *target)
+/**
+ * Evaluate size of address: from 16 to 32 bits.
+ */
+static int arc_regs_addr_size_bits(struct target *target,
+		uint32_t *addr_size_bits)
 {
 	assert(target);
+	assert(addr_size_bits);
+
 	uint32_t addr_size = 32;
-	arc32_get_register_field(target, "isa_config", "addr_size", &addr_size);
+	CHECK_RETVAL(arc32_get_register_field(target,
+				"isa_config", "addr_size", &addr_size));
+
+	/* addr_size_bits = (addr_size << 2) + 0x10  */
 	switch (addr_size) {
 		case 0:
-			return 16;
+			*addr_size_bits = 16;
+			return ERROR_OK;
 		case 1:
-			return 20;
+			*addr_size_bits = 20;
+			return ERROR_OK;
 		case 2:
-			return 24;
+			*addr_size_bits = 24;
+			return ERROR_OK;
 		case 3:
-			return 28;
+			*addr_size_bits = 28;
+			return ERROR_OK;
 		case 4:
-			return 32;
+			*addr_size_bits = 32;
+			return ERROR_OK;
 		default:
 			LOG_ERROR("isa_config.addr_size value %" PRIu32 " is invalid.", addr_size);
-			assert(false);
-			return 32;
+			/* This value is read from the core - it is not a user input, hence
+			 * default case is not really possible, unless format of register
+			 * changes.  */
+			*addr_size_bits = 32;
+			return ERROR_OK;
 	}
 }
 
@@ -667,6 +674,10 @@ int arc32_configure(struct target *target)
 	arc32->iccm0_end = 0;
 	if (register_get_by_name(target->reg_cache, "iccm_build", true) &&
 	    register_get_by_name(target->reg_cache, "aux_iccm", true)) {
+		/* Common for both ICCMx  */
+		uint32_t addr_size_bits;
+		CHECK_RETVAL(arc_regs_addr_size_bits(target, &addr_size_bits));
+
 		/* ICCM0 */
 		uint32_t iccm_build_version, iccm_build_size00, iccm_build_size01;
 		arc32_address_t aux_iccm = 0;
@@ -682,7 +693,7 @@ int arc32_configure(struct target *target)
 			iccm0_size <<= iccm_build_size00;
 			if (iccm_build_size00 == 0xF)
 				iccm0_size <<= iccm_build_size01;
-			arc32->iccm0_start = aux_iccm & (0xF0000000 >> (32 - arc_regs_addr_size_bits(target)));
+			arc32->iccm0_start = aux_iccm & (0xF0000000 >> (32 - addr_size_bits));
 			arc32->iccm0_end = arc32->iccm0_start + iccm0_size;
 			LOG_DEBUG("ICCM0 detected start=0x%" PRIx32 " end=0x%" PRIx32,
 					arc32->iccm0_start, arc32->iccm0_end);
@@ -702,7 +713,7 @@ int arc32_configure(struct target *target)
 			iccm1_size <<= iccm_build_size10;
 			if (iccm_build_size10 == 0xF)
 				iccm1_size <<= iccm_build_size11;
-			arc32->iccm1_start = aux_iccm & (0x0F000000 >> (32 - arc_regs_addr_size_bits(target)));
+			arc32->iccm1_start = aux_iccm & (0x0F000000 >> (32 - addr_size_bits));
 			arc32->iccm1_end = arc32->iccm1_start + iccm1_size;
 			LOG_DEBUG("ICCM1 detected start=0x%" PRIx32 " end=0x%" PRIx32,
 					arc32->iccm1_start, arc32->iccm1_end);
@@ -710,6 +721,23 @@ int arc32_configure(struct target *target)
 	}
 
 	return ERROR_OK;
+}
+
+void arc32_set_actionpoints_num(struct target *target, unsigned ap_num)
+{
+	LOG_DEBUG("target=%s actionpoints=%u", target_name(target), ap_num);
+	struct arc32_common *arc32 = target_to_arc32(target);
+
+	/* Make sure that there are no enabled actionpoints in target. */
+	arc_dbg_reset_actionpoints(target);
+
+	/* Assume that all actionpoints have been removed from target.  */
+	free(arc32->actionpoints_list);
+
+	arc32->actionpoints_num_avail = ap_num;
+	arc32->actionpoints_num = ap_num;
+	/* calloc can be safely called when ncount == 0.  */
+	arc32->actionpoints_list = calloc(ap_num, sizeof(struct arc32_comparator));
 }
 
 void arc32_add_reg_data_type(struct target *target,
@@ -955,8 +983,10 @@ int arc32_get_register_field(struct target *target, const char *reg_name,
 	/* Get register */
 	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
 
-	if (!reg)
+	if (!reg) {
+		LOG_ERROR("Requested register `%s' doens't exist.", reg_name);
 		return ERROR_ARC_REGISTER_NOT_FOUND;
+	}
 
 	if (reg->reg_data_type->type != REG_TYPE_ARCH_DEFINED
 	    || reg->reg_data_type->type_class != REG_TYPE_CLASS_STRUCT)
