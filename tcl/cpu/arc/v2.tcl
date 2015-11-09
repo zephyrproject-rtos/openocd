@@ -33,6 +33,26 @@ proc arc_v2_examine_target { {target ""} } {
 		r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 \
 		r13 r14 r15 r16 r17 r18 r19 r20 r21 r22 r23 r24 r25 \
 		gp fp sp ilink r30 blink lp_count pcl
+
+	# Actionpoints
+	if { [arc reg-field ap_build version] == 5 } {
+		set ap_build_type [arc reg-field ap_build type]
+		# AP_BUILD.TYPE > 0b0110 is reserved in current ISA.
+		# Current ISA supports up to 8 actionpoints.
+		if { $ap_build_type < 8 } {
+			# Two LSB bits of AP_BUILD.TYPE define amount of actionpoints:
+			# 0b00 - 2 actionpoints
+			# 0b01 - 4 actionpoints
+			# 0b10 - 8 actionpoints
+			# 0b11 - reserved.
+			set ap_num [expr 0x2 << ($ap_build_type & 3)]
+			# Expression on top may produce 16 action points - which is a
+			# reserved value for now.
+			if { $ap_num < 16 } {
+				arc num-actionpoints $ap_num
+			}
+		}
+	}
 }
 
 proc arc_v2_init_regs { } {
@@ -42,6 +62,11 @@ proc arc_v2_init_regs { } {
 	set aux_other_feature "org.gnu.gdb.arc.aux-other"
 
 	# Describe types
+	# Types are sorted alphabetically according to their name.
+	arc add-reg-type-struct -name ap_build_t -bitfield version 0 7 \
+		-bitfield type 8 11
+	arc add-reg-type-struct -name identity_t \
+		-bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
 	arc add-reg-type-flags -name status32_t \
 		-flag   H  0 -flag E0   1 -flag E1   2 -flag E2  3 \
 		-flag  E3  4 -flag AE   5 -flag DE   6 -flag  U  7 \
@@ -49,8 +74,6 @@ proc arc_v2_init_regs { } {
 		-flag   L 12 -flag DZ  13 -flag SC  14 -flag ES 15 \
 		-flag RB0 16 -flag RB1 17 -flag RB2 18 \
 		-flag  AD 19 -flag US  20 -flag IE  31
-	arc add-reg-type-struct -name identity_t \
-		-bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
 
 	# Core registers
 	set core_regs {
@@ -143,6 +166,14 @@ proc arc_v2_init_regs { } {
 	}
 	foreach {num name type} $aux_other {
 		arc add-reg -name $name -num $num -type $type -feature $aux_other_feature
+	}
+
+	# AUX BCR
+	set bcr {
+		0x76 ap_build
+	}
+	foreach {num reg} $bcr {
+		arc add-reg -name $reg -num $num -type ${reg}_t -bcr -feature $aux_other_feature
 	}
 
     [target current] configure \

@@ -42,6 +42,7 @@ static int arc_cmd_jim_get_uint(Jim_GetOptInfo *goi, unsigned *value);
 /*
  * Handlers
  */
+
 COMMAND_HANDLER(arc_handle_has_dcache)
 {
 	struct target *target = get_current_target(CMD_CTX);
@@ -944,6 +945,45 @@ COMMAND_HANDLER(remove_actionpoint_auxreg_addr)
 	return retval;
 }
 
+static int jim_handle_actionpoints_num(Jim_Interp *interp, int argc,
+	Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc - 1, argv + 1);
+
+	LOG_DEBUG("-");
+
+	if (goi.argc >= 2) {
+		Jim_WrongNumArgs(interp, goi.argc, goi.argv, "[?amount of actionpoints?]");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	struct command_context *context = current_command_context(interp);
+	assert(context);
+
+	struct target *target = get_current_target(context);
+
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	struct arc32_common *arc32 = target_to_arc32(target);
+	/* It is not possible to pass &arc32->actionpoints_num directly to
+	 * handle_command_parse_uint, because this value should be valid during
+	 * "actionpoint reset, initiated by arc32_set_actionpoints_num.  */
+	unsigned int ap_num = arc32->actionpoints_num;
+
+	if (goi.argc == 1) {
+		JIM_CHECK_RETVAL(arc_cmd_jim_get_uint(&goi, &ap_num));
+		arc32_set_actionpoints_num(target, ap_num);
+	}
+
+	Jim_SetResultInt(interp, ap_num);
+
+	return JIM_OK;
+}
+
 static const struct command_registration arc_jtag_command_group[] = {
 	{
 		.name = "always-check-status-rd",
@@ -1087,6 +1127,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_EXEC,
 		.usage = "has only one argument: <auxreg-addr>",
 		.help = "removes break when aux register is accessed",
+	},
+	{
+		.name = "num-actionpoints",
+		.jim_handler = jim_handle_actionpoints_num,
+		.mode = COMMAND_ANY,
+		.usage = "[<unsigned integer>]",
+		.help = "Prints or sets amount of actionpoints in the processor.",
 	},
 	COMMAND_REGISTRATION_DONE
 };
