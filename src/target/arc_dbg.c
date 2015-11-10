@@ -31,7 +31,6 @@ static int arc_dbg_configure_actionpoint(struct target *target, uint32_t ap_num,
 	uint32_t match_value, uint32_t control_tt, uint32_t control_at)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	uint32_t ap_reg_id = ap_num * AP_STRUCT_LEN;
 
 	if (control_tt != AP_AC_TT_DISABLE) {
 
@@ -41,15 +40,25 @@ static int arc_dbg_configure_actionpoint(struct target *target, uint32_t ap_num,
 			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 		}
 
-		/* TODO: This code ignores register configurability provided by TCL. */
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AMV_BASE + ap_reg_id,
-				match_value);
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AMM_BASE + ap_reg_id, 0x0);
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AC_BASE  + ap_reg_id,
-				control_tt | control_at);
+		/* Names of register to set - 24 chars should be enough. Looks a little
+		 * bit out-of-place for C code, but makes it aligned to the bigger
+		 * concept of "ARC registers are defined in TCL" as far as possible.
+		 */
+		char ap_amv_reg_name[24], ap_amm_reg_name[24], ap_ac_reg_name[24];
+		snprintf(ap_amv_reg_name, 24, "ap_amv%u", ap_num);
+		snprintf(ap_amm_reg_name, 24, "ap_amm%u", ap_num);
+		snprintf(ap_ac_reg_name, 24, "ap_ac%u", ap_num);
+		CHECK_RETVAL(arc32_set_register_value_u32(target, ap_amv_reg_name,
+					 match_value));
+		CHECK_RETVAL(arc32_set_register_value_u32(target, ap_amm_reg_name, 0));
+		CHECK_RETVAL(arc32_set_register_value_u32(target, ap_ac_reg_name,
+					 control_tt | control_at));
 		arc32->actionpoints_num_avail--;
 	} else {
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AP_AC_BASE  + ap_reg_id, AP_AC_TT_DISABLE);
+		char ap_ac_reg_name[24];
+		snprintf(ap_ac_reg_name, 24, "ap_ac%u", ap_num);
+		CHECK_RETVAL(arc32_set_register_value_u32(target, ap_ac_reg_name,
+					 AP_AC_TT_DISABLE));
 		arc32->actionpoints_num_avail++;
 	}
 
