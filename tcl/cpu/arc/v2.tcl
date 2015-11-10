@@ -49,6 +49,12 @@ proc arc_v2_examine_target { {target ""} } {
 			# Expression on top may produce 16 action points - which is a
 			# reserved value for now.
 			if { $ap_num < 16 } {
+				# Enable actionpoint registers
+				for {set i 0} {$i < $ap_num} {incr i} {
+					arc set-reg-exists ap_amv$i ap_amm$i ap_ac$i
+				}
+
+				# Set amount of actionpoints
 				arc num-actionpoints $ap_num
 			}
 		}
@@ -75,6 +81,8 @@ proc arc_v2_init_regs { } {
 	# Types are sorted alphabetically according to their name.
 	arc add-reg-type-struct -name ap_build_t -bitfield version 0 7 \
 		-bitfield type 8 11
+	arc add-reg-type-struct -name ap_control_t -bitfield at 0 3 -bitfield tt 4 5 \
+		-bitfield m 6 6 -bitfield p 7 7 -bitfield aa 8 8 -bitfield q 9 9
 	arc add-reg-type-struct -name dccm_build_t -bitfield version 0 7 \
 		-bitfield size0 8 11 -bitfield size1 12 15
 	arc add-reg-type-struct -name iccm_build_t -bitfield version 0 7 \
@@ -183,6 +191,32 @@ proc arc_v2_init_regs { } {
 		0x005 debug		int
 		0x018 aux_dccm	int
 		0x208 aux_iccm	int
+
+		0x220 ap_amv0	uint32
+		0x221 ap_amm0	uint32
+		0x222 ap_ac0	ap_control_t
+		0x223 ap_amv1	uint32
+		0x224 ap_amm1	uint32
+		0x225 ap_ac1	ap_control_t
+		0x226 ap_amv2	uint32
+		0x227 ap_amm2	uint32
+		0x228 ap_ac2	ap_control_t
+		0x229 ap_amv3	uint32
+		0x22A ap_amm3	uint32
+		0x22B ap_ac3	ap_control_t
+		0x22C ap_amv4	uint32
+		0x22D ap_amm4	uint32
+		0x22E ap_ac4	ap_control_t
+		0x22F ap_amv5	uint32
+		0x230 ap_amm5	uint32
+		0x231 ap_ac5	ap_control_t
+		0x232 ap_amv6	uint32
+		0x233 ap_amm6	uint32
+		0x234 ap_ac6	ap_control_t
+		0x235 ap_amv7	uint32
+		0x236 ap_amm7	uint32
+		0x237 ap_ac7	ap_control_t
+
 		0x412 bta		code_ptr
 	}
 	foreach {num name type} $aux_other {
