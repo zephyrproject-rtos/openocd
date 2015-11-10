@@ -283,6 +283,9 @@ int arc32_add_reg(struct target *target, struct arc_reg_desc *arc_reg,
 /* Get value of 32-bit register. */
 int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 		uint32_t * value_ptr);
+/* Set value of 32-bit register. */
+int arc32_set_register_value_u32(struct target *target, const char *reg_name,
+		uint32_t value);
 /* Get value of field in struct register */
 int arc32_get_register_field(struct target *target, const char *reg_name,
 		const char *field_name, uint32_t *value_ptr);
