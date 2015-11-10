@@ -970,6 +970,27 @@ int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 	return ERROR_OK;
 }
 
+/* Set value of 32-bit register. */
+int arc32_set_register_value_u32(struct target *target, const char *reg_name,
+		uint32_t value)
+{
+	if (!(target && reg_name)) {
+		LOG_ERROR("Arguments cannot be NULL.");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
+
+	if (!reg)
+		return ERROR_ARC_REGISTER_NOT_FOUND;
+
+	uint8_t value_buf[4];
+	buf_set_u32(value_buf, 0, 32, value);
+	CHECK_RETVAL(reg->type->set(reg, value_buf));
+
+	return ERROR_OK;
+}
+
 int arc32_get_register_field(struct target *target, const char *reg_name,
 		const char *field_name, uint32_t *value_ptr)
 {
