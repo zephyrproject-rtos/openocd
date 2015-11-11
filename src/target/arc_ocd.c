@@ -195,7 +195,7 @@ int arc_ocd_examine(struct target *target)
 			target->state = TARGET_HALTED;
 		}
 
-		/* Read BCRs and configure optinal registers. */
+		/* Read BCRs and configure optional registers. */
 		CHECK_RETVAL(arc32_configure(target));
 
 		target_set_examined(target);
