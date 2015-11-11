@@ -237,3 +237,15 @@ proc arc_v2_init_regs { } {
     [target current] configure \
 		-event examine-end "arc_v2_examine_target [target current]"
 }
+
+proc arc_v2_reset { {target ""} } {
+	arc_common_reset $target
+
+	# Disable all actionpoints.  Cannot write via regcache yet, because it will
+	# not be flushed and all changes to registers will get lost.  Therefore has
+	# to write directly via JTAG layer...
+	set num_ap [arc num-actionpoints]
+	for {set i 0} {$i < $num_ap} {incr i} {
+		arc jtag aux-reg [expr 0x222 + $i * 3] 0
+	}
+}
