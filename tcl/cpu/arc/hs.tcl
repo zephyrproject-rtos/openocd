@@ -29,3 +29,8 @@ proc arc_hs_init_regs { } {
 		-event examine-end "arc_hs_examine_target [target current]"
 }
 
+# Scripts in "target" folder should call this function instead of direct
+# invocation of arc_common_reset.
+proc arc_hs_reset { {target ""} } {
+	arc_common_reset $target
+}
