@@ -951,6 +951,8 @@ int arc32_build_bcr_reg_cache(struct target *target)
 int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 		uint32_t *value_ptr)
 {
+	LOG_DEBUG("reg_name=%s", reg_name);
+
 	if (!(target && reg_name && value_ptr)) {
 		LOG_ERROR("Arguments cannot be NULL.");
 		return ERROR_COMMAND_SYNTAX_ERROR;
@@ -967,6 +969,8 @@ int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 	const struct arc_reg_t * const arc_r = reg->arch_info;
 	*value_ptr = arc_r->value;
 
+	LOG_DEBUG("return %s=0x%08" PRIx32, reg_name, *value_ptr);
+
 	return ERROR_OK;
 }
 
@@ -974,6 +978,8 @@ int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 int arc32_set_register_value_u32(struct target *target, const char *reg_name,
 		uint32_t value)
 {
+	LOG_DEBUG("reg_name=%s value=0x%08" PRIx32, reg_name, value);
+
 	if (!(target && reg_name)) {
 		LOG_ERROR("Arguments cannot be NULL.");
 		return ERROR_COMMAND_SYNTAX_ERROR;
