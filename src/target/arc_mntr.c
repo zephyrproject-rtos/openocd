@@ -655,6 +655,59 @@ COMMAND_HANDLER(arc_set_reg_feature)
 	return JIM_OK;
 }
 
+int jim_arc_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
+{
+	Jim_GetOptInfo goi;
+	Jim_GetOpt_Setup(&goi, interp, argc-1, argv+1);
+
+	LOG_DEBUG("-");
+	if (goi.argc == 0 || goi.argc > 2 ) {
+		Jim_WrongNumArgs(interp, goi.argc, goi.argv, "?regname? [?value?]");
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	char *reg_name;
+	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &reg_name, NULL));
+	assert(reg_name);
+
+	struct command_context * const ctx = current_command_context(interp);
+	assert(ctx);
+	struct target * const target = get_current_target(ctx);
+	if (!target) {
+		Jim_SetResultFormatted(goi.interp, "No current target");
+		return JIM_ERR;
+	}
+
+	uint32_t value;
+	int retval;
+
+	/* argc decreased by one when regname has been read with JIM_GetOpt_string.  */
+	if (goi.argc == 0) {
+		/* Get register value.  */
+		retval = arc32_get_register_value_u32(target, reg_name, &value);
+	} else {
+		/* Set register value.  */
+		JIM_CHECK_RETVAL(arc_cmd_jim_get_uint32(&goi, &value));
+		retval = arc32_set_register_value_u32(target, reg_name, value);
+	}
+
+	switch (retval) {
+		case ERROR_OK:
+			break;
+		case ERROR_ARC_REGISTER_NOT_FOUND:
+			Jim_SetResultFormatted(goi.interp,
+				"Register `%s' has not been found.", reg_name);
+			return ERROR_COMMAND_ARGUMENT_INVALID;
+		default:
+			/* Pass through other errors. */
+			return retval;
+	}
+
+	Jim_SetResultInt(interp, value);
+
+	return JIM_OK;
+}
+
 int jim_arc_reg_field(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 {
 	Jim_GetOptInfo goi;
@@ -1099,6 +1152,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.usage = "arc set-reg-feature ?register-name? ?feature-name?",
 		.help = "Set new feature name for a register.",
+	},
+	{
+		.name = "reg",
+		.jim_handler = jim_arc_reg,
+		.mode = COMMAND_ANY,
+		.usage = "?regname? [?value?]",
+		.help = "Set or get value of register.",
 	},
 	{
 		.name = "reg-field",
