@@ -375,8 +375,11 @@ int arc32_config_step(struct target *target, int enable_step)
 			value));
 		LOG_DEBUG(" [status32:0x%08" PRIx32 "]", value);
 
-		//retval = arc_jtag_read_aux_reg(&arc32->jtag_info, AUX_DEBUG_REG, &value);
-		value = SET_CORE_SINGLE_INSTR_STEP; /* set the IS bit */
+		/* Doing read-modify-write, because DEBUG might contain manually set
+		 * bits like UB or ED, which should be preserved.  */
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info,
+					AUX_DEBUG_REG, &value));
+		value |= SET_CORE_SINGLE_INSTR_STEP; /* set the IS bit */
 
 		if (arc32->has_debug_ss) {
 			value |= SET_CORE_SINGLE_STEP;  /* set the SS bit */
