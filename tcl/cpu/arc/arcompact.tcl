@@ -155,3 +155,8 @@ proc arc_arcompact_init_regs { } {
 		-event examine-end "arc_arcompact_examine_target [target current]"
 }
 
+# Scripts in "target" folder should call this function instead of direct
+# invocation of arc_common_reset.
+proc arc_arcompact_reset { {target ""} } {
+	arc_common_reset $target
+}
