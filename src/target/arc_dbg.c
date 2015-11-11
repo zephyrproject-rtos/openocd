@@ -442,16 +442,7 @@ int arc_dbg_debug_entry(struct target *target)
 
 int arc_dbg_exit_debug(struct target *target)
 {
-	uint32_t value;
-	struct arc32_common *arc32 = target_to_arc32(target);
-
 	target->state = TARGET_RUNNING;
-
-	/* raise the Reset Applied bit flag */
-	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, &value));
-	value |= SET_CORE_RESET_APPLIED; /* set the RA bit */
-	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG, value));
-
 #ifdef DEBUG
 	CHECK_RETVAL(arc32_print_core_state(target));
 #endif
