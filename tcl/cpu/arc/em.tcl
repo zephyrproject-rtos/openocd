@@ -32,7 +32,7 @@ proc arc_em_init_regs { } {
 # Scripts in "target" folder should call this function instead of direct
 # invocation of arc_common_reset.
 proc arc_em_reset { {target ""} } {
-	arc_common_reset $target
+	arc_v2_reset $target
 
 	# Set DEBUG.ED bit to enable clock in actionpoint module.
 	# This is specific to ARC EM.
