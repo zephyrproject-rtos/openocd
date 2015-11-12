@@ -17,6 +17,12 @@
 
 source [find cpu/arc/common.tcl]
 
+# Currently 'examine_target' can only read JTAG registers and set properties -
+# but it shouldn't write any of registers - writes will be cached, but cache
+# will be invalidated before flushing after examine_target, and changes will be
+# lost.  Perhaps that would be fixed later - perhaps writes shouldn't be cached
+# after all.  But if write to register is really needed from TCL - then it
+# should be done via "arc jtag" for now.
 proc arc_v2_examine_target { {target ""} } {
 	# Set current target, because OpenOCD event handlers don't do this for us.
 	if { $target != "" } {
