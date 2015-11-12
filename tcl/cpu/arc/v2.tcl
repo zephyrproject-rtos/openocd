@@ -91,6 +91,12 @@ proc arc_v2_init_regs { } {
 		-bitfield m 6 6 -bitfield p 7 7 -bitfield aa 8 8 -bitfield q 9 9
 	arc add-reg-type-struct -name dccm_build_t -bitfield version 0 7 \
 		-bitfield size0 8 11 -bitfield size1 12 15
+	arc add-reg-type-struct -name debug_t \
+		-bitfield fh 1 1   -bitfield ah 2 2   -bitfield asr 3 10 \
+		-bitfield is 11 11 -bitfield ep 19 19 -bitfield ed 20 20 \
+		-bitfield eh 21 21 -bitfield ra 22 22 -bitfield zz 23 23 \
+		-bitfield sm 24 26 -bitfield ub 28 28 -bitfield bh 29 29 \
+		-bitfield sh 30 30 -bitfield ld 31 31
 	arc add-reg-type-struct -name iccm_build_t -bitfield version 0 7 \
 		-bitfield iccm0_size0  8 11 -bitfield iccm1_size0 12 15 \
 		-bitfield iccm0_size1 16 19 -bitfield iccm1_size1 20 23
@@ -194,7 +200,7 @@ proc arc_v2_init_regs { } {
 	# AUX other
 	set aux_other {
 		0x004 identity	identity_t
-		0x005 debug		int
+		0x005 debug		debug_t
 		0x018 aux_dccm	int
 		0x208 aux_iccm	int
 
