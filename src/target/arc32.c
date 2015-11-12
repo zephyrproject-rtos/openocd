@@ -26,7 +26,12 @@
 
 #include "arc32.h"
 
-/* ----- Supporting functions ---------------------------------------------- */
+
+/* ----- Public data  ------------------------------------------------------ */
+const char * const arc_reg_debug = "debug";
+
+
+/* ----- Private data  ----------------------------------------------------- */
 
 static const char *arc_isa_strings[] = {
 	"ARC32", "ARC16"
@@ -55,6 +60,7 @@ static const struct reg_data_type standard_gdb_types[] = {
 /* GDB register groups. For now we suport only general and "empty" */
 static const char * const reg_group_general = "general";
 static const char * const reg_group_other = "";
+
 
 /* ----- Exported functions ------------------------------------------------ */
 
@@ -1183,6 +1189,7 @@ struct target_type arcv2_target = {
 	.remove_breakpoint = arc_dbg_remove_breakpoint,
 	.add_watchpoint = arc_dbg_add_watchpoint,
 	.remove_watchpoint = arc_dbg_remove_watchpoint,
+	.hit_watchpoint = arc_hit_watchpoint,
 
 	.run_algorithm = arc_mem_run_algorithm,
 	.start_algorithm = arc_mem_start_algorithm,
