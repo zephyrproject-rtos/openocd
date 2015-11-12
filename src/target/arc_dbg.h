@@ -51,6 +51,8 @@ int arc_dbg_add_watchpoint(struct target *target,
 	struct watchpoint *watchpoint);
 int arc_dbg_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint);
+int arc_hit_watchpoint(struct target *target,
+	struct watchpoint **hit_watchpoint);
 
 int arc_dbg_add_auxreg_actionpoint(struct target *target,
 	uint32_t auxreg_addr, uint32_t transaction);
