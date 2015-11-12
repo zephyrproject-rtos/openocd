@@ -101,11 +101,17 @@ struct arc_reg_desc_list {
 
 extern int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv);
 
+enum arc_actionpoint_type {
+	ARC_AP_BREAKPOINT,
+	ARC_AP_WATCHPOINT,
+};
+
 /* offsets into arc32 core register cache */
 struct arc32_comparator {
 	int used;
 	uint32_t bp_value;
 	uint32_t reg_address;
+	enum arc_actionpoint_type type;
 };
 
 struct arc32_common {
@@ -210,6 +216,11 @@ struct arc_common {
 	bool is_4wire;
 	struct arc32_common arc32;
 };
+
+
+/* ----- Public data ------------------------------------------------------- */
+extern const char * const arc_reg_debug;
+
 
 /* ----- Inlined functions ------------------------------------------------- */
 

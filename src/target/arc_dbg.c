@@ -96,6 +96,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 			breakpoint->set = bp_num + 1;
 			comparator_list[bp_num].used = 1;
 			comparator_list[bp_num].bp_value = breakpoint->address;
+			comparator_list[bp_num].type = ARC_AP_BREAKPOINT;
 
 			LOG_DEBUG("bpid: %" PRIu32 ", bp_num %u bp_value 0x%" PRIx32,
 					breakpoint->unique_id, bp_num, comparator_list[bp_num].bp_value);
@@ -299,6 +300,7 @@ static int arc_dbg_set_watchpoint(struct target *target,
 		watchpoint->set = wp_num + 1;
 		comparator_list[wp_num].used = 1;
 		comparator_list[wp_num].bp_value = watchpoint->address;
+		comparator_list[wp_num].type = ARC_AP_WATCHPOINT;
 
 		LOG_DEBUG("wpid: %" PRIu32 ", bp_num %i bp_value 0x%" PRIx32,
 				watchpoint->unique_id, wp_num, comparator_list[wp_num].bp_value);
@@ -369,6 +371,45 @@ static int arc_dbg_single_step_core(struct target *target)
 	return ERROR_OK;
 }
 
+/**
+ * Finds an actionpoint that triggered last actionpoint event, as specified by
+ * DEBUG.ASR.
+ *
+ * @param actionpoint Pointer to be set to last active actionpoint. Pointer
+ *                    will be set to NULL ig DEBUG.AH is 0.
+ */
+static int get_current_actionpoint(struct target *target,
+		struct arc32_comparator **actionpoint)
+{
+	assert(target != NULL);
+	assert(actionpoint != NULL);
+
+	uint32_t debug_ah;
+	CHECK_RETVAL(arc32_get_register_field(target, arc_reg_debug, "ah",
+				&debug_ah));
+
+	if (debug_ah) {
+		struct arc32_common *arc = target_to_arc32(target);
+		unsigned ap;
+		uint32_t debug_asr;
+		CHECK_RETVAL(arc32_get_register_field(target, arc_reg_debug,
+					"asr", &debug_asr));
+
+		for (ap = 0; debug_asr > 1; debug_asr >>= 1) {
+			ap += 1;
+		}
+
+		assert(ap < arc->actionpoints_num);
+
+		*actionpoint = &(arc->actionpoints_list[ap]);
+	} else {
+		*actionpoint = NULL;
+	}
+
+	return ERROR_OK;
+}
+
+
 /* ----- Exported supporting functions ------s------------------------------- */
 
 int arc_dbg_enter_debug(struct target *target)
@@ -396,27 +437,38 @@ int arc_dbg_enter_debug(struct target *target)
 
 int arc_dbg_examine_debug_reason(struct target *target)
 {
-	struct arc32_common *arc = target_to_arc32(target);
-
 	/* Only check for reason if don't know it already. */
 	/* BTW After singlestep at this point core is not marked as halted, so
-	 * reading from memory to get current instruction won't work anyways. */
+	 * reading from memory to get current instruction wouldn't work anyway.  */
 	if (DBG_REASON_DBGRQ == target->debug_reason ||
 	    DBG_REASON_SINGLESTEP == target->debug_reason) {
 		return ERROR_OK;
 	}
 
-	/* Ensure that DEBUG register value is in cache */
-	struct reg *debug_reg =
-		&(target->reg_cache->reg_list[arc->debug_index_in_cache]);
-	if (!debug_reg->valid) {
-		CHECK_RETVAL(debug_reg->type->get(debug_reg));
-	}
+	uint32_t debug_bh;
+	CHECK_RETVAL(arc32_get_register_field(target, arc_reg_debug, "bh",
+				&debug_bh));
 
-	/* DEBUG.BH is set if core halted due to BRK instruction. */
-	uint32_t debug_reg_value = buf_get_u32(debug_reg->value, 0, debug_reg->size);
-	if (debug_reg_value & SET_CORE_BREAKPOINT_HALT) {
+	if (debug_bh) {
+		/* DEBUG.BH is set if core halted due to BRK instruction.  */
 		target->debug_reason = DBG_REASON_BREAKPOINT;
+	} else {
+		struct arc32_comparator *actionpoint = NULL;
+		CHECK_RETVAL(get_current_actionpoint(target, &actionpoint));
+
+		if (actionpoint != NULL) {
+			if (!actionpoint->used) {
+				LOG_WARNING("Target halted by an unused actionpoint.");
+			}
+
+			if (actionpoint->type == ARC_AP_BREAKPOINT) {
+				target->debug_reason = DBG_REASON_BREAKPOINT;
+			} else if (actionpoint->type == ARC_AP_WATCHPOINT) {
+				target->debug_reason = DBG_REASON_WATCHPOINT;
+			} else {
+				LOG_WARNING("Unknown type of actionpoint.");
+			}
+		}
 	}
 
 	return ERROR_OK;
@@ -725,6 +777,39 @@ int arc_dbg_remove_watchpoint(struct target *target,
 
 	return ERROR_OK;
 }
+
+int arc_hit_watchpoint(struct target *target, struct watchpoint **hit_watchpoint)
+{
+	assert(target);
+	assert(hit_watchpoint);
+
+	struct arc32_comparator *actionpoint = NULL;
+	CHECK_RETVAL(get_current_actionpoint(target, &actionpoint));
+
+	if (actionpoint != NULL) {
+		if (!actionpoint->used) {
+			LOG_WARNING("Target halted by unused actionpoint.");
+		}
+
+		/* If this check fails - that is some sort of an error in OpenOCD. */
+		if (actionpoint->type != ARC_AP_WATCHPOINT) {
+			LOG_WARNING("Target halted by breakpoint, but is treated as a "
+					"watchpoint.");
+		}
+
+		for (struct watchpoint *watchpoint = target->watchpoints;
+				watchpoint != NULL;
+				watchpoint = watchpoint->next ) {
+			if (actionpoint->bp_value == watchpoint->address) {
+				*hit_watchpoint = watchpoint;
+				return ERROR_OK;
+			}
+		}
+	}
+
+	return ERROR_FAIL;
+}
+
 int arc_dbg_add_auxreg_actionpoint(struct target *target,
 	uint32_t auxreg_addr, uint32_t transaction)
 {
