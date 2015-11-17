@@ -34,9 +34,6 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	struct target *target = arc_reg->target;
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	if (target->state != TARGET_HALTED)
-		return ERROR_TARGET_NOT_HALTED;
-
 	if (reg->valid) {
 		LOG_DEBUG("Get register (cached) gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
 				reg->number, arc_reg->desc->name, arc_reg->value);
@@ -56,8 +53,33 @@ static int arc_regs_get_core_reg(struct reg *reg)
 	}
 
 	buf_set_u32(reg->value, 0, 32, arc_reg->value);
-	reg->valid = true;
+
+	/* In general it is preferable that target is halted, so its state doesn't
+	 * change in ways unknown to OpenOCD, and there used to be a check in this
+	 * function - it would work only if target is halted.  However there is a
+	 * twist - arc32_configure is called from arc_ocd_examine_target.
+	 * arc32_configure will read registers via this function, but target may be
+	 * still run at this point - if it was running when OpenOCD connected to it.
+	 * ARC initialization scripts would do a "force halt" of target, but that
+	 * happens only after target is examined, so this function wouldn't work if
+	 * it would require target to be halted.  It is possible to do a force halt
+	 * of target from arc_ocd_examine_target, but then if we look at this
+	 * problem longterm - this is not a solution, as it would prevent non-stop
+	 * debugging.  Preferable way seems to allow register reading from nonhalted
+	 * target, but those reads should be uncached.  Therefore "valid" bit is set
+	 * only when target is halted.
+	 *
+	 * The same is not done for register setter - for now it will continue to
+	 * support only halted targets, untill there will be a real need for async
+	 * writes there as well.
+	 */
+	if (target->state == TARGET_HALTED) {
+		reg->valid = true;
+	} else {
+		reg->valid = false;
+	}
 	reg->dirty = false;
+
 	LOG_DEBUG("Get register gdb_num=%" PRIu32 ", name=%s, value=0x%" PRIx32,
 			reg->number , arc_reg->desc->name, arc_reg->value);
 
