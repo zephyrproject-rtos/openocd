@@ -220,6 +220,8 @@ struct arc_common {
 
 /* ----- Public data ------------------------------------------------------- */
 extern const char * const arc_reg_debug;
+extern const char * const arc_reg_isa_config;
+extern const char * const arc_reg_isa_config_addr_size;
 
 
 /* ----- Inlined functions ------------------------------------------------- */
