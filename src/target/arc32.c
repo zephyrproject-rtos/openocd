@@ -29,6 +29,8 @@
 
 /* ----- Public data  ------------------------------------------------------ */
 const char * const arc_reg_debug = "debug";
+const char * const arc_reg_isa_config = "isa_config";
+const char * const arc_reg_isa_config_addr_size = "addr_size";
 
 
 /* ----- Private data  ----------------------------------------------------- */
@@ -617,8 +619,8 @@ static int arc_regs_addr_size_bits(struct target *target,
 	assert(addr_size_bits);
 
 	uint32_t addr_size = 32;
-	CHECK_RETVAL(arc32_get_register_field(target,
-				"isa_config", "addr_size", &addr_size));
+	CHECK_RETVAL(arc32_get_register_field(target, arc_reg_isa_config,
+				arc_reg_isa_config_addr_size, &addr_size));
 
 	/* addr_size_bits = (addr_size << 2) + 0x10  */
 	switch (addr_size) {
