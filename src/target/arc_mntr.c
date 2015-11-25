@@ -790,8 +790,8 @@ COMMAND_HANDLER(arc_cmd_handle_jtag_wait_until_write_finished)
 	struct arc32_common *arc32 = target_to_arc32(target);
 	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
 		&arc32->jtag_info.wait_until_write_finished,
-		"Check that current write operation intiated via JTAG has "
-		"finished before resetting JTAG transaction.");
+		"Check that current write operation initiated via JTAG has "
+		"finished before resetting JTAG transaction");
 
 }
 
@@ -1053,17 +1053,7 @@ static const struct command_registration arc_jtag_command_group[] = {
 		.mode = COMMAND_ANY,
 		.usage = "on|off",
 		.help = "If true OpenOCD will poll JTAG STATUS register until "
-		        "'ready' bit is set after doing memory and register writes. "
-		        "Without this check there is a chance that OpenOCD will "
-		        "'reset' JTAG transaction command before it is finished and "
-		        "that in some situations might completely hang the core. "
-		        "That is known to happen, for example, in some occasions "
-		        "when D$ is flushed, hence it is essential to wait until "
-		        "cache is flushed and only then finish a transaction. "
-			"Default is 'on'. Switching this off might improve "
-			"performance of debugging, however there would be less "
-			"protection from cases where writes over JTAG take a "
-			"long time to execute.",
+			"'ready' bit is set after doing memory and register writes. ",
 	},
 	{
 		.name = "check-status-fl",
