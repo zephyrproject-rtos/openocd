@@ -8171,6 +8171,17 @@ operations. This is @var{on} by default, and can be disabled for targets that
 doen't have caches - it will slightly improve OpenOCD performance.
 @end deffn
 
+@deffn {Command} {arc num-actionpoints} [value]
+Gets or sets amount of actionpoints in the current ARC core.
+@end deffn
+
+@deffn {Command} {arc reg} name [value]
+Gets or sets value of register by name. This is similiar to generic @code{reg}
+command, but instead of printing register value it returns it. Unlike @code{arc
+jtag core-reg|aux-reg} commands, this command operates through register cache
+of OpenOCD.
+@end deffn
+
 @deffn {Command} {arc reg-field} reg-name field-name
 Returns value of bit-field in a register. Register must be have a ``struct''
 register type.
