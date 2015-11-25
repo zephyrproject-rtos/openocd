@@ -36,12 +36,53 @@ proc arc_test_consecutive_memory_reads { {address 0x10000000} {count 2} } {
     echo "Test for consecutive memory reads: PASS"
 }
 
+# In some cores when wait-until-write-finished is ON, write operations
+# overwrite next register/memory word. This is a testcase for this bug (whether
+# wait-until-write-finished is set or not is defined outside of this function).
+proc arc_test_reg_write { } {
+	# Set known values to registers.
+	arc jtag core-reg 0 0
+	arc jtag core-reg 1 0
+
+	# Write R0.
+	arc jtag core-reg 0 1
+
+	# Check that R1 hasn't been modified.
+	set r1 [arc jtag core-reg 1]
+	if { $r1 != 0 } {
+		echo "Test for register write: FAIL"
+	} else {
+		echo "Test for register write: PASS"
+	}
+}
+
+# In some cores when wait-until-write-finished is ON, write operations
+# overwrite next register/memory word. This is a testcase for this bug (whether
+# wait-until-write-finished is set or not is defined outside of this function).
+proc arc_test_mem_write { {address 0x80000000} } {
+	# Set known values to memory.
+	mww $address 0xdeadbeef
+	mww [expr $address + 4] 0xdeadbeef
+
+	# Write first memory word
+	mww $address 1
+
+	# Check that second memory word hasn't been modified.
+	set mem_content ""
+	mem2array mem_content 32 [expr $address + 4] 1
+	if { $mem_content(0) != 0xdeadbeef } {
+		echo "Test for memory write: FAIL"
+	} else {
+		echo "Test for memory write: PASS"
+	}
+}
+
 add_help_text arc_test_run_all "Run all ARC tests"
 proc arc_test_run_all { } {
-    set tests {consecutive_memory_reads}
-    foreach i $tests {
-	arc_test_$i
-    }
+	set tests {consecutive_memory_reads reg_write mem_write}
+	foreach i $tests {
+		arc_test_$i
+	}
 }
 
 # vi:ft=tcl
