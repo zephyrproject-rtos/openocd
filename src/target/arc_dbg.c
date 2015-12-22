@@ -117,7 +117,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &verify));
 
 			if (verify != ARC32_SDBBP) {
-				LOG_ERROR("Unable to set 32bit breakpoint at address %08" PRIx32
+				LOG_ERROR("Unable to set 32bit breakpoint at address 0x%08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
@@ -130,7 +130,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 
 			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &verify));
 			if (verify != ARC16_SDBBP) {
-				LOG_ERROR("Unable to set 16bit breakpoint at address %08" PRIx32
+				LOG_ERROR("Unable to set 16bit breakpoint at address 0x%08" PRIx32
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
