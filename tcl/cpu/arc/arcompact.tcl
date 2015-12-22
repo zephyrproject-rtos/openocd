@@ -48,13 +48,26 @@ proc arc_arcompact_init_regs { } {
 	set aux_other_feature "org.gnu.gdb.arc.aux-other"
 
 	# AUX registers types
+	arc add-reg-type-struct -name debug_t \
+		-bitfield ss  0  0 \
+		-bitfield fh  1  1 \
+		-bitfield is 11 11 \
+		-bitfield ra 22 22 \
+		-bitfield zz 23 23 \
+		-bitfield ed 24 24 \
+		-bitfield ep 25 25 \
+		-bitfield ub 28 28 \
+		-bitfield bh 29 29 \
+		-bitfield sh 30 30 \
+		-bitfield ld 31 31
+
+	arc add-reg-type-struct -name identity_t \
+		-bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
 	arc add-reg-type-flags -name status32_t \
 		-flag H  0 -flag E1 1 -flag E2  2 -flag A1 3 \
 		-flag A2 4 -flag AE 5 -flag DE  6 -flag U  7 \
 		-flag V  8 -flag C  9 -flag N  10 -flag Z 11 \
 		-flag L 12 -flag R 13 -flag SE 14
-	arc add-reg-type-struct -name identity_t \
-		-bitfield arcver 0 7 -bitfield arcnum 8 15 -bitfield chipid 16 31
 
 	# BCR types
 	arc add-reg-type-struct -name bcr_ver_t -bitfield version 0 7
@@ -145,7 +158,7 @@ proc arc_arcompact_init_regs { } {
 	# AUX other
 	set aux_other {
 		0x004 identity		identity_t
-		0x005 debug			int
+		0x005 debug			debug_t
 	}
 	foreach {num name type} $aux_other {
 		arc add-reg -name $name -num $num -type $type -feature $aux_other_feature
