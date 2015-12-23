@@ -394,6 +394,11 @@ int arc32_config_step(struct target *target, int enable_step)
 			LOG_DEBUG("ARC600 extra single step bit to set.");
 		}
 
+		if (arc32->on_step_reset_debug_ra) {
+			LOG_DEBUG("Resetting DEBUG.RA bit.");
+			value &= ~SET_CORE_RESET_APPLIED; /* Reset the RA bit. */
+		}
+
 		CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_DEBUG_REG,
 			value));
 		LOG_DEBUG("core debug step mode enabled [debug-reg:0x%08" PRIx32 "]", value);

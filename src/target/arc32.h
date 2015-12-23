@@ -146,6 +146,13 @@ struct arc32_common {
 	/* Whether DEBUG.SS bit is present. This is a unique feature of ARC 600. */
 	bool has_debug_ss;
 
+	/* Workaround for a problem with ARC 600 - writing RA | IS | SS will not
+	 * step an instruction - it must be only a (IS | SS). However RA is set by
+	 * the processor itself and since OpenOCD does read-modify-write of DEBUG
+	 * register when stepping, it is required to explicitly disable RA before
+	 * stepping. */
+	bool on_step_reset_debug_ra;
+
 	/* CCM memory regions (optional). */
 	arc32_address_t iccm0_start;
 	arc32_address_t iccm0_end;
