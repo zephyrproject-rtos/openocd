@@ -160,6 +160,7 @@ int arc_ocd_arc600_target_create(struct target *target, Jim_Interp *interp)
 	struct arc_common *arc = calloc(1, sizeof(struct arc_common));
 
 	arc->arc32.has_debug_ss = true;
+	arc->arc32.on_step_reset_debug_ra = true;
 
 	CHECK_RETVAL(arc_ocd_init_arch_info(target, arc, target->tap));
 
