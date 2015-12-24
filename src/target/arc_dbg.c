@@ -189,6 +189,8 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 
 			/* check that user program has not modified breakpoint instruction */
 			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &current_instr));
+			/* FIXME: Read to times as a workaround for D$ flushing issues */
+			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &current_instr));
 
 			if (current_instr == ARC32_SDBBP) {
 				target->running_alg = 1;
@@ -207,9 +209,15 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 			uint16_t current_instr;
 
 			/* check that user program has not modified breakpoint instruction */
+#if 0
 			CHECK_RETVAL(target_read_memory(target, breakpoint->address, 2, 1,
 					(uint8_t *)&current_instr));
 			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
+#else
+			/* FIXME: Read to times as a workaround for D$ flushing issues */
+			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &current_instr));
+			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &current_instr));
+#endif
 			if (current_instr == ARC16_SDBBP) {
 				target->running_alg = 1;
 				retval = target_write_buffer(target, breakpoint->address,
