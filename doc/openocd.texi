@@ -8233,7 +8233,7 @@ OpenOCD will 'reset' JTAG transaction command before it is finished and that in
 some situations might completely hang the core.That is known to happen, for
 example, in some occasions when D$ is flushed, hence it is essential to wait
 until cache is flushed and only then finish a transaction. On the other hand
-it has been found that this polling triggers a big in ARC EM JTAG unit: while
+it has been found that this polling triggers a bug in ARC EM JTAG unit: while
 write to memory or to register, read of the status will cause a second write to
 be done to the next register or memory word. This, happens with EM Starter Kit,
 ARCompact cores in AXS101, but doesn't happen with EM6 in AXS101 or with HS in
