@@ -8326,17 +8326,17 @@ registers.
 If true OpenOCD will poll JTAG STATUS register until 'ready' bit is set after
 doing memory and register writes. Without this check there is a chance that
 OpenOCD will 'reset' JTAG transaction command before it is finished and that in
-some situations might completely hang the core.That is known to happen, for
+some situations might completely hang the core. That is known to happen, for
 example, in some occasions when D$ is flushed, hence it is essential to wait
-until cache is flushed and only then finish a transaction. On the other hand
-it has been found that this polling triggers a bug in ARC EM JTAG unit: while
+until cache is flushed and only then finish a transaction. On the other hand it
+has been found that this polling triggers a bug in ARC EM JTAG unit: while
 write to memory or to register, read of the status will cause a second write to
 be done to the next register or memory word. This, happens with EM Starter Kit,
-ARCompact cores in AXS101, but doesn't happen with EM6 in AXS101 or with HS in
-AXS102. Default is 'off'. Switching this on might degrade performance of
-debugging, and as mentioned can cause errors in some ARC cores. On the other
-hand, in theory switch this option on is the "right way" of doing JTAG
-communication.
+ARCompact cores in AXS101, ARC HS cores in AXS103, but doesn't happen with EM6
+in AXS101 or with HS in AXS102. Default is 'off'. Switching this on might
+degrade performance of debugging, and as mentioned can cause errors in some ARC
+cores. On the other hand, in theory switch this option on is the "right way" of
+doing JTAG communication.
 @end deffn
 
 
