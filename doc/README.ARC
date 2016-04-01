@@ -105,17 +105,11 @@ cable to the host computer:
 2. How to build OpenOCD for Windows (cross compile on Linux)
 ------------------------------------------------------------
 
-There are two ways to use OpenOCD with FTDI-based debug cables: with an
-obsolete ft2232 interface and proprietary FTD2xx drivers (further down called
-ft2232/ftd2xx) or with new ftdi interface and libusb driver (further down
-called ftdi/libusb).
-
-Since ft2232 interface is considered obsolete by OpenOCD developers in general
-it is suggested to use ftdi/libusb combination, however on Windows this
-requires replacing the original FTDI drivers with open source ones. This will
-render Digilent cable unusable by Digilent tools, like Adept.  Consequently you
-have to choose depending on your requirements. It is also has to be mentioned
-that in practice ftdi/libusb is much faster on Windows than ft2232/ftd2xx.
+It is possible to use OpenOCD on Windows with FTDI-based debug cables using a
+`ftdi` interface and libusb driver (further down called ftdi/libusb). Note,
+however that this requires replacing the original FTDI proprietary drivers with
+open source ones. This will render Digilent cable unusable by Digilent tools,
+like Adept.
 
 Install the same prerequisites like for Linux build (except for libusb-dev) and
 MinGW on your system:
@@ -127,24 +121,16 @@ Install MinGW cross-compiler to your system:
 
     $ sudo apt-get install gcc-mingw-w64
 
-If you are going to use libusb drivers, then download libusb or
-[libusbsx](http://libusbx.org/) sources. Configure and build them with MinGW
-compiler. It is recommended to build only static libusb, so that OpenOCD will
-not need this library's dll file to be copied around:
+Download [libusb sources](http://libusb.info) sources. Configure and build them
+with MinGW compiler. It is recommended to build only static libusb, so that
+OpenOCD will not need this library's dll file to be copied around:
 
-    $ tar xaf libusbx-1.0.18-rc1.tar.bz2
-    $ cd libusbx-1.0.18-rc1
+    $ tar xaf libusb-1.0.20.tar.bz2
+    $ cd libusb-1.0.20
     $ ./configure --host=i686-w64-mingw32 --build=x86_64-linux-gnu \
       --prefix=</libusbx/install/path> --disable-shared --enable-static
     $ make
     $ make install
-
-If you are planing to use FTD2xx drivers, then download them from [FTDI
-site](http://www.ftdichip.com/Drivers/D2XX.htm). Since year 2014 those drivers
-for Windows are available only as an installer executable, there is no option
-to download zip archive. So use 7-zip to open downloaded .exe file as archive
-and extract contents from it. Further it will be assumed that contents of this
-archive is in `ftd2xx` directory.
 
 Download OpenOCD sources:
 
@@ -155,26 +141,13 @@ Download OpenOCD sources:
 Configure OpenOCD. Consult `configure --help` and generic OpenOCD documentation
 for details. This command line is recommended for ARC with libusb/ftdi:
 
-    $ PKG_CONFIG_PATH=</libusbx/install/path>/lib/pkgconfig ./configure \
+    $ PKG_CONFIG_PATH=</libusb/install/path>/lib/pkgconfig ./configure \
       --enable-ftdi --host=i686-w64-mingw32 --build=x86_64-linux-gnu \
       --disable-werror --prefix=<openocd/install/path>
 
 Note that it is required to set PKG_CONFIG_PATH, otherwise configure script
 will detect host libusb installation, instead of the one cross-compiled for
 Windows.
-
-To configure for FTD2xx drivers:
-
-    $ ./configure --enable-ft2232_ftd2xx --host=i686-w64-mingw32 \
-      --build=x86_64-linux-gnu --disable-werror --prefix=</openocd/install/path> \
-      --with-ftd2xx-win32-zipdir=</directory/where/you've/unzipped/ftd2xx>
-
-It is highly recommended to remove libusb-1.0-dev package from your host
-system, otherwise configure script will use information from your host system
-when configuring, but compiler will not be able to link Windows' openocd binary
-with libusb for Linux. Alternative is to compile with both interfaces. In the
-latter case add `--enable-ft2232_ftd2xx --with-ftd2xx-win32-zipdir=...` to the
-command line for libusb/ftdi.
 
 Build and install:
 
@@ -250,24 +223,17 @@ Resume execution to reach function exit:
 4. How to use OpenOCD on Windows
 --------------------------------
 
-If you are using libusb/ftdi combination, then you have to download WinUSB
-driver and replace FTDI drivers for Digilent cables or EM Starter Kit with it.
-Refer to [this page](https://github.com/libusbx/libusbx/wiki/Windows-Backend)
+WinUSB driver should be used to allow OpenOCD to connect to debug cable and
+that driver would replace FTDI proprietary drivers for Digilent cables or EM
+Starter Kit with it.  Refer to [this
+page](https://github.com/libusb/libusb/wiki/Windows#How_to_use_libusb_on_Windows)
+or [this
+page](https://github.com/foss-for-synopsys-dwc-arc-processors/arc_gnu_eclipse/wiki/How-to-Use-OpenOCD-on-Windows)
 for details. In a nutshell, download [Zadig](http://zadig.akeo.ie/), run it and
-use it to install WinUSB driver for FTDI device. If your FTDI device is not
-shown by Zadig, then tick "List all devices" in "Options". Note that antivirus
-might complain about driver files created by Zadig. After installing the driver
+use it to install WinUSB driver for FTDI device. If FTDI device is not shown by
+Zadig, then tick "List all devices" in "Options". Note that antivirus might
+complain about driver files created by Zadig. After installing the driver
 everything is the same as on Linux: run OpenOCD, connect to it with GDB, etc.
-
-To use ft2232/ftd2xx combination, download [Digilent Adept
-utility](http://www.digilentinc.com/Products/Detail.cfm?Prod=ADEPT2) and use it
-to install latest FTDI drivers. Then you need to change OpenOCD configuration
-file, because by default it uses ftdi/libusb combination. Refer to "How to use
-OpenOCD on Linux" for a list of available files. In your configuration script
-replace line `source [find interface/ftdi/digilent-hs1.cfg]` with line `source
-[find interface/digilent-hs1.cfg]`. If you are using Digilent HS2, then use
-files named `digilent-hs2.cfg`.  Everything else is the same as for Linux or
-for ftdi/libusb combination.
 
 
 5. Advanced debug commands
