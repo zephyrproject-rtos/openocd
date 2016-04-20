@@ -214,7 +214,7 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 					(uint8_t *)&current_instr));
 			current_instr = target_buffer_get_u16(target, (uint8_t *)&current_instr);
 #else
-			/* FIXME: Read to times as a workaround for D$ flushing issues */
+			/* FIXME: Read two times as a workaround for D$ flushing issues */
 			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &current_instr));
 			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &current_instr));
 #endif
@@ -746,15 +746,13 @@ int arc_dbg_add_hybrid_breakpoint(struct target *target,
 int arc_dbg_remove_breakpoint(struct target *target,
 	struct breakpoint *breakpoint)
 {
-	int retval = ERROR_OK;
-
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
 	if (breakpoint->set)
-		retval = arc_dbg_unset_breakpoint(target, breakpoint);
+		CHECK_RETVAL(arc_dbg_unset_breakpoint(target, breakpoint));
 
 	return ERROR_OK;
 }
@@ -762,14 +760,12 @@ int arc_dbg_remove_breakpoint(struct target *target,
 int arc_dbg_add_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	int retval = ERROR_OK;
-
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
-	retval = arc_dbg_set_watchpoint(target, watchpoint);
+	CHECK_RETVAL(arc_dbg_set_watchpoint(target, watchpoint));
 
 	return ERROR_OK;
 }
@@ -777,15 +773,13 @@ int arc_dbg_add_watchpoint(struct target *target,
 int arc_dbg_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
-	int retval = ERROR_OK;
-
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
 
 	if (watchpoint->set)
-		retval = arc_dbg_unset_watchpoint(target, watchpoint);
+		CHECK_RETVAL(arc_dbg_unset_watchpoint(target, watchpoint));
 
 	return ERROR_OK;
 }
