@@ -26,9 +26,13 @@
 
 #include "arc32.h"
 
+/* Upstream OpenOCD {read,write}_memory use `uint32_t` as a type for `size` and
+ * `count` although we would prefer a more generic type, like `size_t`. For now
+ * for uniformity with upstream we would keep using `uint32_t`. */
+
 /* ----- Supporting functions ---------------------------------------------- */
 static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
-	int size, int count)
+	uint32_t size, uint32_t count)
 {
 	uint32_t addr_end = addr + size * count;
 	/* `_end` field can overflow - it points to the first byte after the end,
@@ -42,16 +46,14 @@ static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
 }
 
 static int arc_mem_read_block(struct target *target, uint32_t addr,
-	int size, int count, void *buf)
+	uint32_t size, uint32_t count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG("Read memory: addr=0x%" PRIx32 ", size=%i, count=%i",
-			addr, size, count);
+	LOG_DEBUG("Read memory: addr=0x%08" PRIx32 ", size=%" PRIu32
+			", count=%" PRIu32, addr, size, count);
 	assert(!(addr & 3));
 	assert(size == 4);
-
-	/* Is this a slow memory (DDR) or fast (CCM)? */
 
 	/* Always call D$ flush, it will decide whether to perform actual
 	 * flush. */
@@ -63,17 +65,20 @@ static int arc_mem_read_block(struct target *target, uint32_t addr,
 }
 
 /* Write word at word-aligned address */
-static int arc_mem_write_block32(struct target *target, uint32_t addr, int count,
-	void *buf)
+static int arc_mem_write_block32(struct target *target, uint32_t addr,
+	uint32_t count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 
+	LOG_DEBUG("Write 4-byte memory block: addr=0x%08" PRIx32 ", count=%" PRIu32,
+			addr, count);
+
 	/* Check arguments */
-	if (addr & 0x3u)
-		return ERROR_TARGET_UNALIGNED_ACCESS;
+	assert(!(addr & 3));
 
 	/* No need to flush cache, because we don't read values from memory. */
-	CHECK_RETVAL(arc_jtag_write_memory( &arc32->jtag_info, addr, count, (uint32_t *)buf));
+	CHECK_RETVAL(arc_jtag_write_memory( &arc32->jtag_info, addr, count,
+				(uint32_t *)buf));
 	/* Invalidate caches. */
 	CHECK_RETVAL(arc32_cache_invalidate(target));
 
@@ -81,17 +86,17 @@ static int arc_mem_write_block32(struct target *target, uint32_t addr, int count
 }
 
 /* Write half-word at half-word-aligned address */
-static int arc_mem_write_block16(struct target *target, uint32_t addr, int count,
-	void *buf)
+static int arc_mem_write_block16(struct target *target, uint32_t addr,
+	uint32_t count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int i;
+	uint32_t i;
 
-	LOG_DEBUG("Write memory (16bit): addr=0x%" PRIx32 ", count=%i", addr, count);
+	LOG_DEBUG("Write 2-byte memory block: addr=0x%08" PRIx32 ", count=%" PRIu32,
+			addr, count);
 
 	/* Check arguments */
-	if (addr & 1u)
-		return ERROR_TARGET_UNALIGNED_ACCESS;
+	assert(!(addr & 1));
 
 	/* We will read data from memory, so we need to flush D$. */
 	CHECK_RETVAL(arc32_dcache_flush(target));
@@ -135,11 +140,14 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr, int count
 }
 
 /* Write byte at address */
-static int arc_mem_write_block8(struct target *target, uint32_t addr, int count,
-	void *buf)
+static int arc_mem_write_block8(struct target *target, uint32_t addr,
+	uint32_t count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
-	int i;
+	uint32_t i;
+
+	LOG_DEBUG("Write 1-byte memory block: addr=0x%08" PRIx32 ", count=%" PRIu32,
+			addr, count);
 
 	/* We will read data from memory, so we need to flush D$. */
 	CHECK_RETVAL(arc32_dcache_flush(target));
@@ -174,8 +182,8 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("Read memory: addr=0x%" PRIx32 ", size=%i, count=%i",
-			address, size, count);
+	LOG_DEBUG("Read memory: addr=0x%08" PRIx32 ", size=%" PRIu32
+			", count=%" PRIu32, address, size, count);
 
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
