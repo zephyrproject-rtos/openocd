@@ -36,9 +36,9 @@ static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
 	 * dccm_end will be 0. */
 	assert(addr_end >= addr || addr_end == 0);
 
-	return	!((addr >= arc32->dccm_start && addr_end < arc32->dccm_end) ||
-		(addr >= arc32->iccm0_start && addr_end < arc32->iccm0_end) ||
-		(addr >= arc32->iccm1_start && addr_end < arc32->iccm1_end));
+	return !((addr >= arc32->dccm_start && addr_end <= arc32->dccm_end) ||
+		(addr >= arc32->iccm0_start && addr_end <= arc32->iccm0_end) ||
+		(addr >= arc32->iccm1_start && addr_end <= arc32->iccm1_end));
 }
 
 static int arc_mem_read_block(struct target *target, uint32_t addr,
