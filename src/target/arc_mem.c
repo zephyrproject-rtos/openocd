@@ -31,7 +31,10 @@ static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
 	int size, int count)
 {
 	uint32_t addr_end = addr + size * count;
-	assert(addr_end >= addr);
+	/* `_end` field can overflow - it points to the first byte after the end,
+	 * therefore if DCCM is right at the end of memory address space, then
+	 * dccm_end will be 0. */
+	assert(addr_end >= addr || addr_end == 0);
 
 	return	!((addr >= arc32->dccm_start && addr_end < arc32->dccm_end) ||
 		(addr >= arc32->iccm0_start && addr_end < arc32->iccm0_end) ||
