@@ -67,7 +67,8 @@ proc arc_v2_examine_target { {target ""} } {
 	}
 
 	# DCCM
-	if { [arc reg-field dccm_build version] == 3 } {
+	set dccm_version [arc reg-field dccm_build version]
+	if { $dccm_version == 3 || $dccm_version == 4 } {
 		arc set-reg-exists aux_dccm
 	}
 
@@ -89,8 +90,9 @@ proc arc_v2_init_regs { } {
 		-bitfield type 8 11
 	arc add-reg-type-struct -name ap_control_t -bitfield at 0 3 -bitfield tt 4 5 \
 		-bitfield m 6 6 -bitfield p 7 7 -bitfield aa 8 8 -bitfield q 9 9
+	# Cycles field added in version 4.
 	arc add-reg-type-struct -name dccm_build_t -bitfield version 0 7 \
-		-bitfield size0 8 11 -bitfield size1 12 15
+		-bitfield size0 8 11 -bitfield size1 12 15 -bitfield cycles 17 19
 	arc add-reg-type-struct -name debug_t \
 		-bitfield fh 1 1   -bitfield ah 2 2   -bitfield asr 3 10 \
 		-bitfield is 11 11 -bitfield ep 19 19 -bitfield ed 20 20 \
