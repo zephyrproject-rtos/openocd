@@ -32,7 +32,8 @@ proc arc_v2_examine_target { {target ""} } {
 	# Those registers always exist. DEBUG and DEBUGI are formally optional,
 	# however they come with JTAG interface, and so far there is no way
 	# OpenOCD can communicate with target without JTAG interface.
-	arc set-reg-exists identity pc status32 bta	debug lp_start lp_end
+	arc set-reg-exists identity pc status32 bta debug lp_start lp_end \
+		eret erbta erstatus ecr efa
 
 	# 32 core registers
 	arc set-reg-exists \
@@ -99,6 +100,12 @@ proc arc_v2_init_regs { } {
 		-bitfield eh 21 21 -bitfield ra 22 22 -bitfield zz 23 23 \
 		-bitfield sm 24 26 -bitfield ub 28 28 -bitfield bh 29 29 \
 		-bitfield sh 30 30 -bitfield ld 31 31
+	arc add-reg-type-struct -name ecr_t \
+		-bitfield parameter 0 7 \
+		-bitfield cause 8 15 \
+		-bitfield vector 16 23 \
+		-bitfield U 30 30 \
+		-bitfield P 31 31
 	arc add-reg-type-struct -name iccm_build_t -bitfield version 0 7 \
 		-bitfield iccm0_size0  8 11 -bitfield iccm1_size0 12 15 \
 		-bitfield iccm0_size1 16 19 -bitfield iccm1_size1 20 23
@@ -230,6 +237,12 @@ proc arc_v2_init_regs { } {
 		0x235 ap_amv7	uint32
 		0x236 ap_amm7	uint32
 		0x237 ap_ac7	ap_control_t
+
+		0x400 eret		code_ptr
+		0x401 erbta		code_ptr
+		0x402 erstatus	status32_t
+		0x403 ecr		ecr_t
+		0x404 efa		data_ptr
 
 		0x412 bta		code_ptr
 	}
