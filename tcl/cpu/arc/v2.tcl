@@ -77,6 +77,21 @@ proc arc_v2_examine_target { {target ""} } {
 	if { [arc reg-field iccm_build version] == 4 } {
 		arc set-reg-exists aux_iccm
 	}
+
+	# MPU
+	if { [arc reg-field mpu_build version] >= 2 &&
+		 [arc reg-field mpu_build version] <= 4 } {
+		arc set-reg-exists mpu_en mpu_ecr
+		set mpu_regions [arc reg-field mpu_build regions]
+		for {set i 0} {$i < $mpu_regions} {incr i} {
+			arc set-reg-exists mpu_rdp$i mpu_rdb$i
+		}
+
+		# Secure MPU
+		if { [arc reg-field mpu_build version] == 4 } {
+			arc set-reg-exists mpu_index mpu_rstart mpu_rend mpu_rper
+		}
+	}
 }
 
 proc arc_v2_init_regs { } {
@@ -115,6 +130,26 @@ proc arc_v2_init_regs { } {
 		-bitfield pc_size 8 11 -bitfield lpc_size 12 15 -bitfield addr_size 16 19 \
 		-bitfield b 20 20 -bitfield a 21 21 -bitfield n 22 22 -bitfield l 23 23 \
 		-bitfield c 24 27 -bitfield d 28 31
+	arc add-reg-type-struct -name mpu_build_t -bitfield version 0 7 \
+		-bitfield regions 8 15 \
+		-bitfield s 16 16 \
+		-bitfield i 17 17
+	arc add-reg-type-struct -name mpu_ecr_t \
+		-bitfield MR 0 7 \
+		-bitfield VT 8 9 \
+		-bitfield EC_CODE 16 31
+	arc add-reg-type-struct -name mpu_en_t \
+		-bitfield UE  3  3 -bitfield UW   4  4 -bitfield UR 5 5 \
+		-bitfield KE  6  6 -bitfield KW   7  7 -bitfield KR 8 8 \
+		-bitfield S  15 15 -bitfield SID 16 23 \
+		-bitfield EN 30 30
+	arc add-reg-type-struct -name mpu_index_t \
+		-bitfield I 0 3 -bitfield M 30 30 -bitfield D 31 31
+	arc add-reg-type-struct -name mpu_rper_t \
+		-bitfield V 0 0 \
+		-bitfield UE 3 3 -bitfield UW 4 4 -bitfield UR 5 5 \
+		-bitfield KE 6 6 -bitfield KW 7 7 -bitfield KR 8 8 \
+		-bitfield S 15 15 -bitfield SID 16 23
 	arc add-reg-type-flags -name status32_t \
 		-flag   H  0 -flag E0   1 -flag E1   2 -flag E2  3 \
 		-flag  E3  4 -flag AE   5 -flag DE   6 -flag  U  7 \
@@ -244,7 +279,48 @@ proc arc_v2_init_regs { } {
 		0x403 ecr		ecr_t
 		0x404 efa		data_ptr
 
+		0x409 mpu_en	mpu_en_t
+
 		0x412 bta		code_ptr
+
+		0x420 mpu_ecr	mpu_ecr_t
+		0x422 mpu_rdb0	int
+		0x423 mpu_rdp0	int
+		0x424 mpu_rdb1	int
+		0x425 mpu_rdp1	int
+		0x426 mpu_rdb2	int
+		0x427 mpu_rdp2	int
+		0x428 mpu_rdb3	int
+		0x429 mpu_rdp3	int
+		0x42A mpu_rdb4	int
+		0x42B mpu_rdp4	int
+		0x42C mpu_rdb5	int
+		0x42D mpu_rdp5	int
+		0x42E mpu_rdb6	int
+		0x42F mpu_rdp6	int
+		0x430 mpu_rdb7	int
+		0x431 mpu_rdp7	int
+		0x432 mpu_rdb8	int
+		0x433 mpu_rdp8	int
+		0x434 mpu_rdb9	int
+		0x435 mpu_rdp9	int
+		0x436 mpu_rdb10	int
+		0x437 mpu_rdp10	int
+		0x438 mpu_rdb11	int
+		0x439 mpu_rdp11	int
+		0x43A mpu_rdb12	int
+		0x43B mpu_rdp12	int
+		0x43C mpu_rdb13	int
+		0x43D mpu_rdp13	int
+		0x43E mpu_rdb14	int
+		0x43F mpu_rdp14	int
+		0x440 mpu_rdb15	int
+		0x441 mpu_rdp15	int
+		0x448 mpu_index	mpu_index_t
+		0x449 mpu_rstart uint32
+		0x44A mpu_rend	uint32
+		0x44B mpu_rper	mpu_rper_t
+		0x44C mpu_probe uint32
 	}
 	foreach {num name type} $aux_other {
 		arc add-reg -name $name -num $num -type $type -feature $aux_other_feature
@@ -252,6 +328,7 @@ proc arc_v2_init_regs { } {
 
 	# AUX BCR
 	set bcr {
+		0x6D mpu_build
 		0x74 dccm_build
 		0x76 ap_build
 		0x78 iccm_build
