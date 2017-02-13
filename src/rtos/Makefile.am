@@ -18,6 +18,7 @@ noinst_LTLIBRARIES += %D%/librtos.la
 	%D%/uCOS-III.c \
 	%D%/nuttx.c \
 	%D%/hwthread.c \
+	%D%/Zephyr.c \
 	%D%/rtos.h \
 	%D%/rtos_standard_stackings.h \
 	%D%/rtos_ecos_stackings.h \
