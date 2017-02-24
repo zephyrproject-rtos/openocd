@@ -115,7 +115,7 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 		switch (n->value) {
 			case CFG_ADD_REG_TYPE_FLAGS_NAME:
 			{
-				char *name;
+				const char *name;
 				int name_len;
 				if (goi.argc == 0) {
 					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-name ?name? ...");
@@ -134,7 +134,7 @@ int jim_arc_add_reg_type_flags(Jim_Interp *interp, int argc,
 			}
 			case CFG_ADD_REG_TYPE_FLAGS_FLAG:
 			{
-				char *field_name;
+				const char *field_name;
 				int field_name_len;
 				jim_wide position;
 
@@ -275,7 +275,7 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 		switch (n->value) {
 			case CFG_ADD_REG_TYPE_STRUCT_NAME:
 			{
-				char *name;
+				const char *name;
 				int name_len;
 				if (goi.argc == 0) {
 					Jim_WrongNumArgs(interp, goi.argc, goi.argv, "-name ?name? ...");
@@ -294,7 +294,7 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 			}
 			case CFG_ADD_REG_TYPE_STRUCT_BITFIELD:
 			{
-				char *field_name;
+				const char *field_name;
 				int field_name_len;
 				jim_wide start, end;
 
@@ -435,7 +435,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 	/* There is no architecture number that we could treat as invalid, so
 	 * separate variable requried to ensure that arch num has been set. */
 	bool arch_num_set = false;
-	char *type_name = "int"; /* Default type */
+	const char *type_name = "int"; /* Default type */
 	int type_name_len = strlen(type_name);
 	int e = ERROR_OK;
 
@@ -452,7 +452,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		switch (n->value) {
 			case CFG_ADD_REG_NAME:
 			{
-				char *reg_name;
+				const char *reg_name;
 				int reg_name_len;
 
 				if (goi.argc == 0) {
@@ -502,7 +502,7 @@ int jim_arc_add_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 			}
 			case CFG_ADD_REG_GDB_FEATURE:
 			{
-				char *feature;
+				const char *feature;
 				int feature_len;
 
 				if (goi.argc == 0) {
@@ -666,7 +666,7 @@ int jim_arc_reg(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	char *reg_name;
+	const char *reg_name;
 	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &reg_name, NULL));
 	assert(reg_name);
 
@@ -724,7 +724,7 @@ int jim_arc_reg_field(Jim_Interp *interp, int argc, Jim_Obj * const *argv)
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	char *reg_name, *field_name;
+	const char *reg_name, *field_name;
 	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &reg_name, NULL));
 	JIM_CHECK_RETVAL(Jim_GetOpt_String(&goi, &field_name, NULL));
 	assert(reg_name);
