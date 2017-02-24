@@ -35,7 +35,7 @@ int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
 int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
 	uint32_t *checksum);
 int arc_mem_blank_check(struct target *target, uint32_t address,
-	uint32_t count, uint32_t *blank);
+	uint32_t count, uint32_t *blank, uint8_t erased_value);
 
 /* ......................................................................... */
 
