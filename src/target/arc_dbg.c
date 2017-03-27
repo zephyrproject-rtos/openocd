@@ -80,8 +80,10 @@ static int arc_dbg_set_breakpoint(struct target *target,
 		struct arc32_comparator *comparator_list = arc32->actionpoints_list;
 		unsigned int bp_num = 0;
 
-		while (comparator_list[bp_num].used)
-			bp_num++;
+		for (bp_num = 0; bp_num < arc32->actionpoints_num; bp_num++) {
+			if (!comparator_list[bp_num].used)
+				break;
+		}
 
 		if (bp_num >= arc32->actionpoints_num) {
 			LOG_ERROR("No free actionpoints, maximim amount is %" PRIu32,
