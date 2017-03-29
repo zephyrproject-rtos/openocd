@@ -261,6 +261,7 @@ static void arc_dbg_enable_breakpoints(struct target *target)
 static int arc_dbg_set_watchpoint(struct target *target,
 		struct watchpoint *watchpoint)
 {
+	unsigned int wp_num;
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct arc32_comparator *comparator_list = arc32->actionpoints_list;
 
@@ -269,9 +270,10 @@ static int arc_dbg_set_watchpoint(struct target *target,
 		return ERROR_OK;
 	}
 
-	unsigned int wp_num = 0;
-	while (comparator_list[wp_num].used)
-		wp_num++;
+	for (wp_num = 0; wp_num < arc32->actionpoints_num; wp_num++) {
+		if (!comparator_list[wp_num].used)
+			break;
+	}
 
 	if (wp_num >= arc32->actionpoints_num) {
 		LOG_ERROR("No free actionpoints, maximim amount is %u",
