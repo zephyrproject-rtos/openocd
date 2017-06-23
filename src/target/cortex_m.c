@@ -1298,6 +1298,12 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 	uint32_t mask, temp;
 	struct cortex_m_common *cortex_m = target_to_cm(target);
 
+	/* IO watchpoints are only supported on Intel Architecture (x86) */
+	if (watchpoint->rw == WPT_IO) {
+		LOG_ERROR("IO watchpoints are not supported");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	/* watchpoint params were validated earlier */
 	mask = 0;
 	temp = watchpoint->length;
@@ -1342,6 +1348,9 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 			break;
 		case WPT_ACCESS:
 			comparator->function = 7;
+			break;
+		case WPT_IO:
+			/* not supported, error checking was done above */
 			break;
 	}
 	target_write_u32(target, comparator->dwt_comparator_address + 8,
