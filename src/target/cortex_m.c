@@ -1405,6 +1405,12 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 	 */
 	struct cortex_m_dwt_comparator *comparator;
 
+	/* IO watchpoints are only supported on Intel Architecture (x86) */
+	if (watchpoint->rw == WPT_IO) {
+		LOG_ERROR("IO watchpoints are not supported");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
+
 	for (comparator = cortex_m->dwt_comparator_list;
 		comparator->used && dwt_num < cortex_m->dwt_num_comp;
 		comparator++, dwt_num++)
@@ -1445,6 +1451,9 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 		case WPT_ACCESS:
 			comparator->function = 7;
 			break;
+		case WPT_IO:
+			/* not supported, error checking was done above */
+			break;
 		}
 	} else {
 		uint32_t data_size = watchpoint->length >> 1;
@@ -1459,6 +1468,9 @@ int cortex_m_set_watchpoint(struct target *target, struct watchpoint *watchpoint
 			break;
 		case WPT_READ:
 			comparator->function = 6;
+			break;
+		case WPT_IO:
+			/* not supported, error checking was done above */
 			break;
 		}
 		comparator->function = comparator->function | (1 << 4) |

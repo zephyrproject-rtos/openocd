@@ -35,7 +35,8 @@ static const char * const breakpoint_type_strings[] = {
 static const char * const watchpoint_rw_strings[] = {
 	"read",
 	"write",
-	"access"
+	"access",
+	"IO"
 };
 
 /* monotonic counter/id-number for breakpoints and watch points */

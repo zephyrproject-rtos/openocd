@@ -1,11 +1,12 @@
 /*
- * Copyright(c) 2013 Intel Corporation.
+ * Copyright(c) 2013-2015 Intel Corporation.
  *
  * Adrian Burns (adrian.burns@intel.com)
  * Thomas Faust (thomas.faust@intel.com)
  * Ivan De Cesaris (ivan.de.cesaris@intel.com)
  * Julien Carreno (julien.carreno@intel.com)
  * Jeffrey Maxwell (jeffrey.r.maxwell@intel.com)
+ * Jessica Gomez (jessica.gomez.hernandez@intel.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +42,7 @@
 #include "breakpoints.h"
 #include "x86_32_common.h"
 
+static int set_debug_ext_reg(struct target *t);
 static int set_debug_regs(struct target *t, uint32_t address,
 			uint8_t bp_num, uint8_t bp_type, uint8_t bp_length);
 static int unset_debug_regs(struct target *t, uint8_t bp_num);
@@ -156,13 +158,15 @@ int x86_32_common_read_phys_mem(struct target *t, target_addr_t phys_address,
 	/* After reading memory from target, we must replace software breakpoints
 	 * with the original instructions again.
 	 */
-	struct swbp_mem_patch *iter = x86_32->swbbp_mem_patch_list;
-	while (iter != NULL) {
-		if (iter->physaddr >= phys_address && iter->physaddr < phys_address+(size*count)) {
-			uint32_t offset = iter->physaddr - phys_address;
-			buffer[offset] = iter->orig_byte;
+	if  (t->running_alg == 0) {
+		struct swbp_mem_patch *iter = x86_32->swbbp_mem_patch_list;
+		while (iter != NULL) {
+			if (iter->physaddr >= phys_address && iter->physaddr < phys_address + (size * count)) {
+				uint32_t offset = iter->physaddr - phys_address;
+				buffer[offset] = iter->orig_byte;
+			}
+			iter = iter->next;
 		}
-		iter = iter->next;
 	}
 	return ERROR_OK;
 }
@@ -178,7 +182,7 @@ static int read_phys_mem(struct target *t, uint32_t phys_address,
 
 	if (check_not_halted(t))
 		return ERROR_TARGET_NOT_HALTED;
-	if (!count || !buffer || !phys_address) {
+	if (!count || !buffer) {
 		LOG_ERROR("%s invalid params count=0x%" PRIx32 ", buf=%p, addr=0x%08" PRIx32,
 				__func__, count, buffer, phys_address);
 		return ERROR_COMMAND_ARGUMENT_INVALID;
@@ -281,7 +285,7 @@ static int write_phys_mem(struct target *t, uint32_t phys_address,
 			phys_address, size, count, buffer);
 
 	check_not_halted(t);
-	if (!count || !buffer || !phys_address) {
+	if (!count || !buffer) {
 		LOG_ERROR("%s invalid params count=0x%" PRIx32 ", buf=%p, addr=0x%08" PRIx32,
 				__func__, count, buffer, phys_address);
 		return ERROR_COMMAND_ARGUMENT_INVALID;
@@ -335,6 +339,7 @@ static int read_mem(struct target *t, uint32_t size,
 
 	/* if CS.D bit=1 then its a 32 bit code segment, else 16 */
 	bool use32 = (buf_get_u32(x86_32->cache->reg_list[CSAR].value, 0, 32)) & CSAR_D;
+
 	int retval = x86_32->write_hw_reg(t, EAX, addr, 0);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("%s error write EAX", __func__);
@@ -371,7 +376,7 @@ static int read_mem(struct target *t, uint32_t size,
 	/* read_hw_reg() will write to 4 bytes (uint32_t)
 	 * Watch out, the buffer passed into read_mem() might be 1 or 2 bytes.
 	 */
-	uint32_t regval;
+	uint32_t regval = 0;
 	retval = x86_32->read_hw_reg(t, EDX, &regval, 0);
 
 	if (retval != ERROR_OK) {
@@ -403,6 +408,7 @@ static int write_mem(struct target *t, uint32_t size,
 	}
 	/* if CS.D bit=1 then its a 32 bit code segment, else 16 */
 	bool use32 = (buf_get_u32(x86_32->cache->reg_list[CSAR].value, 0, 32)) & CSAR_D;
+
 	retval = x86_32->write_hw_reg(t, EAX, addr, 0);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("%s error write EAX", __func__);
@@ -583,8 +589,9 @@ int x86_32_common_read_memory(struct target *t, target_addr_t addr,
 	struct x86_32_common *x86_32 = target_to_x86_32(t);
 	LOG_DEBUG("addr=" TARGET_ADDR_FMT ", size=%" PRIu32 ", count=0x%" PRIx32 ", buf=%p",
 			addr, size, count, buf);
-	check_not_halted(t);
-	if (!count || !buf || !addr) {
+	if (check_not_halted(t))
+		return ERROR_TARGET_NOT_HALTED;
+	if (!count || !buf) {
 		LOG_ERROR("%s invalid params count=0x%" PRIx32 ", buf=%p, addr=" TARGET_ADDR_FMT,
 				__func__, count, buf, addr);
 		return ERROR_COMMAND_ARGUMENT_INVALID;
@@ -640,12 +647,14 @@ int x86_32_common_write_memory(struct target *t, target_addr_t addr,
 	struct x86_32_common *x86_32 = target_to_x86_32(t);
 	LOG_DEBUG("addr=" TARGET_ADDR_FMT ", size=%" PRIu32 ", count=0x%" PRIx32 ", buf=%p",
 			addr, size, count, buf);
-	check_not_halted(t);
-	if (!count || !buf || !addr) {
+	if (check_not_halted(t))
+		return ERROR_TARGET_NOT_HALTED;
+	if (!count || !buf) {
 		LOG_ERROR("%s invalid params count=0x%" PRIx32 ", buf=%p, addr=" TARGET_ADDR_FMT,
 					__func__, count, buf, addr);
 		return ERROR_COMMAND_ARGUMENT_INVALID;
 	}
+
 	if (x86_32->is_paging_enabled(t)) {
 		/* all memory accesses from debugger must be physical (CR0.PG == 0)
 		 * conversion to physical address space needed
@@ -889,6 +898,26 @@ int x86_32_common_remove_breakpoint(struct target *t, struct breakpoint *bp)
 	return ERROR_OK;
 }
 
+static int set_debug_ext_reg(struct target *t)
+{
+	struct x86_32_common *x86_32 = target_to_x86_32(t);
+	uint32_t cr4 = buf_get_u32(x86_32->cache->reg_list[CR4].value, 0, 32);
+
+	if (cr4 & 0x8) {
+		LOG_DEBUG("%s register CR4.DR already set, val=%08" PRIx32, __func__, cr4);
+	} else {
+		/* update regs in the reg cache ready to be written to hardware
+		 * when we exit PM
+		 */
+		buf_set_u32(x86_32->cache->reg_list[CR4].value, 0, 32, cr4|=0x8);
+		x86_32->cache->reg_list[CR4].dirty = 1;
+		x86_32->cache->reg_list[CR4].valid = 1;
+		LOG_DEBUG("%s setting register CR4.DR, val=%08" PRIx32, __func__, cr4);
+	}
+
+	return ERROR_OK;
+}
+
 static int set_debug_regs(struct target *t, uint32_t address,
 			uint8_t bp_num, uint8_t bp_type, uint8_t bp_length)
 {
@@ -921,9 +950,9 @@ static int set_debug_regs(struct target *t, uint32_t address,
 			DR7_SET_LENGTH(dr7, bp_num, bp_length);
 		break;
 		case 2:
-			/* 10 UNSUPPORTED - an I/O read and I/O write */
-			LOG_ERROR("%s unsupported feature bp_type=%d", __func__, bp_type);
-			return ERROR_FAIL;
+			/* 10 - on I/O read or write */
+			DR7_SET_IO(dr7, bp_num);
+			DR7_SET_LENGTH(dr7, bp_num, bp_length);
 		break;
 		case 3:
 			/* on data read or data write */
@@ -937,7 +966,7 @@ static int set_debug_regs(struct target *t, uint32_t address,
 
 	/* update regs in the reg cache ready to be written to hardware
 	 * when we exit PM
-	*/
+	 */
 	buf_set_u32(x86_32->cache->reg_list[bp_num+DR0].value, 0, 32, address);
 	x86_32->cache->reg_list[bp_num+DR0].dirty = true;
 	x86_32->cache->reg_list[bp_num+DR0].valid = true;
@@ -968,7 +997,7 @@ static int unset_debug_regs(struct target *t, uint8_t bp_num)
 
 	/* update regs in the reg cache ready to be written to hardware
 	 * when we exit PM
-	*/
+	 */
 	buf_set_u32(x86_32->cache->reg_list[bp_num+DR0].value, 0, 32, 0);
 	x86_32->cache->reg_list[bp_num+DR0].dirty = true;
 	x86_32->cache->reg_list[bp_num+DR0].valid = true;
@@ -1041,8 +1070,10 @@ static int set_swbp(struct target *t, struct breakpoint *bp)
 	LOG_DEBUG("set software breakpoint - orig byte=0x%02" PRIx8 "", *bp->orig_instr);
 
 	/* just write the instruction trap byte */
-	if (write_phys_mem(t, physaddr, 1, 1, &opcode))
+	t->running_alg = 1;
+	if (target_write_memory(t, physaddr, 1, 1, &opcode))
 		return ERROR_FAIL;
+	t->running_alg = 0;
 
 	/* verify that this is not invalid/read-only memory */
 	if (read_phys_mem(t, physaddr, 1, 1, &readback))
@@ -1095,8 +1126,10 @@ static int unset_swbp(struct target *t, struct breakpoint *bp)
 		return ERROR_FAIL;
 
 	if (current_instr == SW_BP_OPCODE) {
-		if (write_phys_mem(t, physaddr, 1, 1, bp->orig_instr))
+		t->running_alg = 1;
+		if (target_write_memory(t, physaddr, 1, 1, bp->orig_instr))
 			return ERROR_FAIL;
+		t->running_alg = 0;
 	} else {
 		LOG_ERROR("%s software breakpoint remove error at " TARGET_ADDR_FMT ", check memory",
 				__func__, bp->address);
@@ -1199,7 +1232,7 @@ static int set_watchpoint(struct target *t, struct watchpoint *wp)
 	}
 
 	if (wp->rw == WPT_READ) {
-		LOG_ERROR("%s no support for 'read' watchpoints, use 'access' or 'write'"
+		LOG_ERROR("%s no support for 'read' watchpoints, use 'access', 'write' or 'io'"
 				, __func__);
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
@@ -1229,8 +1262,23 @@ static int set_watchpoint(struct target *t, struct watchpoint *wp)
 				return ERROR_FAIL;
 			}
 			break;
+		case WPT_IO:
+			if (x86_32->io_bpts_supported(t)) {
+				set_debug_ext_reg(t);
+				if (set_debug_regs(t, wp->address, wp_num, DR7_RW_IO,
+							wp->length) != ERROR_OK) {
+					LOG_ERROR("%s error setting IO watchpoint at 0x%08" TARGET_PRIxADDR,
+							__func__, wp->address);
+					return ERROR_FAIL;
+				}
+			} else {
+				LOG_ERROR("%s core doesn't support IO watchpoints", __func__);
+				return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+			}
+			break;
 		default:
-			LOG_ERROR("%s only 'access' or 'write' watchpoints are supported", __func__);
+			LOG_ERROR("%s only 'access', 'write' or 'io' watchpoints are supported", __func__);
+			return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 			break;
 	}
 	wp->set = wp_num + 1;
@@ -1238,7 +1286,8 @@ static int set_watchpoint(struct target *t, struct watchpoint *wp)
 	debug_reg_list[wp_num].bp_value = wp->address;
 	LOG_USER("'%s' watchpoint %d set at " TARGET_ADDR_FMT " with length %" PRIu32 " (hwreg=%d)",
 			wp->rw == WPT_READ ? "read" : wp->rw == WPT_WRITE ?
-			"write" : wp->rw == WPT_ACCESS ? "access" : "?",
+			"write" : wp->rw == WPT_ACCESS ? "access" : wp->rw == WPT_IO ?
+			"IO" : "?",
 			wp->unique_id, wp->address, wp->length, wp_num);
 	return ERROR_OK;
 }
@@ -1267,7 +1316,8 @@ static int unset_watchpoint(struct target *t, struct watchpoint *wp)
 
 	LOG_USER("'%s' watchpoint %d removed from " TARGET_ADDR_FMT " with length %" PRIu32 " (hwreg=%d)",
 			wp->rw == WPT_READ ? "read" : wp->rw == WPT_WRITE ?
-			"write" : wp->rw == WPT_ACCESS ? "access" : "?",
+			"write" : wp->rw == WPT_ACCESS ? "access" : wp->rw == WPT_IO ?
+			"IO" : "?",
 			wp->unique_id, wp->address, wp->length, wp_num);
 
 	return ERROR_OK;
@@ -1288,6 +1338,7 @@ void x86_32_common_reset_breakpoints_watchpoints(struct target *t)
 
 	while (t->breakpoints) {
 		next_b = t->breakpoints->next;
+		x86_32_common_remove_breakpoint(t, t->breakpoints);
 		free(t->breakpoints->orig_instr);
 		free(t->breakpoints);
 		t->breakpoints = next_b;
@@ -1295,6 +1346,7 @@ void x86_32_common_reset_breakpoints_watchpoints(struct target *t)
 
 	while (t->watchpoints) {
 		next_w = t->watchpoints->next;
+		x86_32_common_remove_watchpoint(t, t->watchpoints);
 		free(t->watchpoints);
 		t->watchpoints = next_w;
 	}
@@ -1486,6 +1538,318 @@ COMMAND_HANDLER(handle_iow_command)
 	return target_fill_io(target, address, wordsize, value);
 }
 
+
+static int handle_msr_read(struct target *target, uint32_t address, uint64_t *value)
+{
+	struct x86_32_common *x86_32 = target_to_x86_32(target);
+	uint64_t msrval = 0;
+	uint32_t regval = 0;
+	int retval;
+
+	/* switch off the CR0.PG bit before rdmsr instruction */
+	bool pg_disabled = false;
+	if (x86_32->is_paging_enabled(target)) {
+		retval = x86_32->disable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not disable paging", __func__);
+			return retval;
+		}
+		pg_disabled = true;
+	}
+
+	/* write MSR index to ECX */
+	retval = x86_32->write_hw_reg(target, ECX, address, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error write ECX", __func__);
+		return retval;
+	}
+
+	/* submit 'rdmsr' instruction */
+	x86_32->flush = 0;
+	retval = x86_32->submit_instruction(target, RDMSR);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error submitting RDMSR", __func__);
+		return retval;
+	}
+
+	/*
+	 * read MSR value
+	 * EDX: MSR's 63:32 bits
+	 * EAX: MSR's 31:0 bits
+	 */
+	retval = x86_32->read_hw_reg(target, EDX, &regval, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EDX", __func__);
+		return retval;
+	}
+
+	msrval += ((uint64_t)regval << 32);
+	retval = x86_32->read_hw_reg(target, EAX, &regval, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EAX", __func__);
+		return retval;
+	}
+
+	msrval += regval;
+	*value = msrval;
+	LOG_USER("0x%08" PRIx32 " (/64): 0x%016" PRIx64, address, msrval);
+
+	/* restore CR0.PG bit if needed */
+	if (pg_disabled) {
+		retval = x86_32->enable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not enable paging", __func__);
+			return retval;
+		}
+	}
+
+	return retval;
+
+}
+
+static int handle_msr_write(struct target *target, uint32_t address, uint64_t value)
+{
+	struct x86_32_common *x86_32 = target_to_x86_32(target);
+	int retval;
+
+	/* switch off CR0.PG bit before 'wrmsr' instruction */
+	bool pg_disabled = false;
+	if (x86_32->is_paging_enabled(target)) {
+		retval = x86_32->disable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not disable paging", __func__);
+			return retval;
+		}
+		pg_disabled = true;
+	}
+
+	/* write MSR index to ECX */
+	retval = x86_32->write_hw_reg(target, ECX, address, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error write ECX", __func__);
+		return retval;
+	}
+
+	uint32_t low_bits  = (uint32_t)value;
+	uint32_t high_bits = ((uint32_t)(value >> 32));
+
+	/*
+	 * write MSR value
+	 * EDX: MSR's 63:32 bits
+	 * EAX: MSR's 31:0 bits
+	 */
+	retval = x86_32->write_hw_reg(target, EAX, low_bits, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error write EAX", __func__);
+		return retval;
+	}
+
+	retval = x86_32->write_hw_reg(target, EDX, high_bits, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error write EDX", __func__);
+		return retval;
+	}
+
+	/* submit 'wrmsr' instruction */
+	x86_32->flush = 0;
+	retval = x86_32->submit_instruction(target, WRMSR);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error submitting WRMSR", __func__);
+		return retval;
+	}
+
+	/* restore CR0.PG bit if needed */
+	if (pg_disabled) {
+		retval = x86_32->enable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not enable paging", __func__);
+			return retval;
+		}
+	}
+
+	/* final MSR value */
+	uint64_t readval;
+	retval  = handle_msr_read(target, address, &readval);
+	return retval;
+}
+
+static int handle_cpuid_read(struct target *target, uint32_t eax_leaf, uint32_t ecx_subleaf)
+{
+
+	struct x86_32_common *x86_32 = target_to_x86_32(target);
+	uint32_t r_eax, r_ebx, r_ecx, r_edx;
+	uint32_t r_eflags, rt_eflags;
+	int retval;
+
+	/* making sure that EFLAGS.ID[21] is changeable */
+	retval = x86_32->read_hw_reg(target, EFLAGS, &r_eflags, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EFLAGS", __func__);
+		return retval;
+	}
+
+	retval = x86_32->write_hw_reg(target, EFLAGS, r_eflags ^ EFLAGS_ID, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error setting eflags.id", __func__);
+		return retval;
+	}
+
+	retval = x86_32->read_hw_reg(target, EFLAGS, &rt_eflags, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EFLAGS", __func__);
+		return retval;
+	}
+
+	if (rt_eflags != (r_eflags ^ EFLAGS_ID)) {
+		LOG_ERROR("%s The HW is not capable to perform cpuid instruction."
+				" Bit EFLAGS.ID[21] is not changeable", __func__);
+		return ERROR_FAIL;
+	}
+
+	/* restoring EFLAGS.ID[21] value */
+	retval = x86_32->write_hw_reg(target, EFLAGS, r_eflags, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error setting eflags.id", __func__);
+		return retval;
+	}
+
+	/* switch off the CR0.PG bit before cpuid instruction */
+	bool pg_disabled = false;
+	if (x86_32->is_paging_enabled(target)) {
+		retval = x86_32->disable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not disable paging", __func__);
+			return retval;
+		}
+		pg_disabled = true;
+	}
+
+	/* set desired leaf in register EAX */
+	retval = x86_32->write_hw_reg(target, EAX, eax_leaf, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error setting eax_leaf register", __func__);
+		return retval;
+	}
+
+	/* set desired subleaf in register ECX */
+	retval = x86_32->write_hw_reg(target, ECX, ecx_subleaf, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error setting ecx_subleaf register", __func__);
+		return retval;
+	}
+
+	/* submit 'cpuid' instruction */
+	x86_32->flush = 0;
+	retval = x86_32->submit_instruction(target, CPUID);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error submitting CPUID", __func__);
+		return retval;
+	}
+
+	/* get information */
+	retval = x86_32->read_hw_reg(target, EAX, &r_eax, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EAX", __func__);
+		return retval;
+	}
+	LOG_USER("eax (/32): 0x%08" PRIx32 "", r_eax);
+
+	retval = x86_32->read_hw_reg(target, EBX, &r_ebx, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EBX", __func__);
+		return retval;
+	}
+	LOG_USER("ebx (/32): 0x%08" PRIx32 "", r_ebx);
+
+	retval = x86_32->read_hw_reg(target, ECX, &r_ecx, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read ECX", __func__);
+		return retval;
+	}
+	LOG_USER("ecx (/32): 0x%08" PRIx32 "", r_ecx);
+
+	retval = x86_32->read_hw_reg(target, EDX, &r_edx, 0);
+	if (retval != ERROR_OK) {
+		LOG_ERROR("%s error read EDX", __func__);
+		return retval;
+	}
+	LOG_USER("edx (/32): 0x%08" PRIx32 "", r_edx);
+
+	/* restore CR0.PG bit if needed */
+	if (pg_disabled) {
+		retval = x86_32->enable_paging(target);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("%s could not enable paging", __func__);
+			return retval;
+		}
+	}
+
+	return ERROR_OK;
+
+}
+
+COMMAND_HANDLER(handle_msr_command)
+{
+
+	struct target *target = get_current_target(CMD_CTX);
+	uint32_t address;
+	uint64_t value;
+
+	/* TODO: Find a better way to find supported targets */
+	if ((strncmp(target_type_name(target), "quark", 5) != 0)) {
+		LOG_ERROR("Invalid target type - please select a x86_32 target");
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	if (check_not_halted(target))
+		return ERROR_TARGET_NOT_HALTED;
+
+	switch (CMD_ARGC) {
+		case 1:
+			/* read msr */
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], address);
+			return handle_msr_read(target, address, &value);
+			break;
+		case 2:
+			/* write msr */
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], address);
+			COMMAND_PARSE_NUMBER(u64, CMD_ARGV[1], value);
+			return handle_msr_write(target, address, value);
+			break;
+		default:
+			return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+}
+
+COMMAND_HANDLER(handle_cpuid_command)
+{
+	struct target *target = get_current_target(CMD_CTX);
+	uint32_t eax_leaf, ecx_subleaf;
+
+	/* TODO: Find a better way to find supported targets */
+	if ((strncmp(target_type_name(target), "quark", 5) != 0)) {
+		LOG_ERROR("Invalid target type - please select a x86_32 target");
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	switch (CMD_ARGC) {
+		case 1:
+			/* only eax_leaf */
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], eax_leaf);
+			return handle_cpuid_read(target, eax_leaf, 0);
+			break;
+		case 2:
+			/* eax_leaf + ecx_subleaf */
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], eax_leaf);
+			COMMAND_PARSE_NUMBER(u32, CMD_ARGV[1], ecx_subleaf);
+			return handle_cpuid_read(target, eax_leaf, ecx_subleaf);
+			break;
+		default:
+			return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+}
+
 static const struct command_registration x86_32_exec_command_handlers[] = {
 	{
 		.name = "iww",
@@ -1528,6 +1892,20 @@ static const struct command_registration x86_32_exec_command_handlers[] = {
 		.handler = handle_iod_command,
 		.help = "display I/O port byte",
 		.usage = "port",
+	},
+	{
+		.name = "msr",
+		.mode = COMMAND_EXEC,
+		.handler = handle_msr_command,
+		.help = "read/write msr",
+		.usage = "opcode [value]",
+	},
+	{
+		.name = "cpuid",
+		.mode = COMMAND_EXEC,
+		.handler = handle_cpuid_command,
+		.help = "display cpuid information",
+		.usage = "eax_leaf [ecx_subleaf]",
 	},
 
 	COMMAND_REGISTRATION_DONE

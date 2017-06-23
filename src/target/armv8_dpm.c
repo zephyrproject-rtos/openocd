@@ -1210,6 +1210,11 @@ static int dpmv8_watchpoint_setup(struct arm_dpm *dpm, unsigned index_t,
 		LOG_DEBUG("watchpoint values and masking not supported");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
+	/* IO watchpoints are only supported on Intel Architecture (x86) */
+	if (wp->rw == WPT_IO) {
+		LOG_ERROR("IO watchpoints are not supported");
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
 
 	retval = dpmv8_bpwp_setup(dpm, &dwp->bpwp, wp->address, wp->length);
 	if (retval != ERROR_OK)
@@ -1225,6 +1230,9 @@ static int dpmv8_watchpoint_setup(struct arm_dpm *dpm, unsigned index_t,
 			break;
 		case WPT_ACCESS:
 			control |= 3 << 3;
+			break;
+		case WPT_IO:
+			/* not supported, error checking was done above */
 			break;
 	}
 	dwp->bpwp.control = control;
