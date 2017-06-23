@@ -1994,6 +1994,8 @@ static const char *gdb_get_reg_type_name(enum reg_type type)
 			return "ieee_single";
 		case REG_TYPE_IEEE_DOUBLE:
 			return "ieee_double";
+		case REG_TYPE_i387_EXT:
+			return "i387_ext";
 		case REG_TYPE_ARCH_DEFINED:
 			return "int"; /* return arbitrary string to avoid compile warning. */
 	}
