@@ -24,47 +24,48 @@
 
 /* ----- Exported functions ------------------------------------------------ */
 
-int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
+int arc_mem_read(struct target *target, target_addr_t address, uint32_t size,
 	uint32_t count, uint8_t *buffer);
-int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
+int arc_mem_write(struct target *target, target_addr_t address, uint32_t size,
 	uint32_t count, const uint8_t *buffer);
 
-int arc_mem_bulk_write(struct target *target, uint32_t address, uint32_t count,
+int arc_mem_bulk_write(struct target *target, target_addr_t address, uint32_t count,
 	const uint8_t *buffer);
 
-int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
+int arc_mem_checksum(struct target *target, target_addr_t address, uint32_t count,
 	uint32_t *checksum);
-int arc_mem_blank_check(struct target *target, uint32_t address,
-	uint32_t count, uint32_t *blank, uint8_t erased_value);
+int arc_mem_blank_check(struct target *target,
+	struct target_memory_check_block *blocks, int num_blocks,
+	uint8_t erased_value);
 
 /* ......................................................................... */
 
 int arc_mem_run_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	int timeout_ms, void *arch_info);
 
 int arc_mem_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info);
 
 int arc_mem_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t exit_point, int timeout_ms,
+	target_addr_t exit_point, int timeout_ms,
 	void *arch_info);
 
 /* ......................................................................... */
 
-int arc_mem_virt2phys(struct target *target, uint32_t address,
-	uint32_t *physical);
+int arc_mem_virt2phys(struct target *target, target_addr_t address,
+	target_addr_t *physical);
 
-int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
+int arc_mem_read_phys_memory(struct target *target, target_addr_t phys_address,
 	uint32_t size, uint32_t count, uint8_t *buffer);
-int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
+int arc_mem_write_phys_memory(struct target *target, target_addr_t phys_address,
 	uint32_t size, uint32_t count, const uint8_t *buffer);
 
 int arc_mem_mmu(struct target *target, int *enabled);

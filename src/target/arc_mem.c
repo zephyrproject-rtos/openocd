@@ -45,12 +45,12 @@ static bool arc_mem_is_slow_memory(struct arc32_common *arc32, uint32_t addr,
 		(addr >= arc32->iccm1_start && addr_end <= arc32->iccm1_end));
 }
 
-static int arc_mem_read_block(struct target *target, uint32_t addr,
+static int arc_mem_read_block(struct target *target, target_addr_t addr,
 	uint32_t size, uint32_t count, void *buf)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 
-	LOG_DEBUG("Read memory: addr=0x%08" PRIx32 ", size=%" PRIu32
+	LOG_DEBUG("Read memory: addr=0x%08" TARGET_PRIxADDR ", size=%" PRIu32
 			", count=%" PRIu32, addr, size, count);
 	assert(!(addr & 3));
 	assert(size == 4);
@@ -177,12 +177,12 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr,
 
 /* ----- Exported functions ------------------------------------------------ */
 
-int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
+int arc_mem_read(struct target *target, target_addr_t address, uint32_t size,
 	uint32_t count, uint8_t *buffer)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("Read memory: addr=0x%08" PRIx32 ", size=%" PRIu32
+	LOG_DEBUG("Read memory: addr=0x%08" TARGET_PRIxADDR ", size=%" PRIu32
 			", count=%" PRIu32, address, size, count);
 
 	if (target->state != TARGET_HALTED) {
@@ -254,12 +254,12 @@ int arc_mem_read(struct target *target, uint32_t address, uint32_t size,
 	return retval;
 }
 
-int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
+int arc_mem_write(struct target *target, target_addr_t address, uint32_t size,
 	uint32_t count, const uint8_t *buffer)
 {
 	int retval = ERROR_OK;
 
-	LOG_DEBUG("address: 0x%08" PRIx32 ", size: %" PRIu32 ", count: %" PRIu32,
+	LOG_DEBUG("address: 0x%08" TARGET_PRIxADDR ", size: %" PRIu32 ", count: %" PRIu32,
 		address, size, count);
 
 	if (target->state != TARGET_HALTED) {
@@ -319,15 +319,16 @@ int arc_mem_write(struct target *target, uint32_t address, uint32_t size,
 	return retval;
 }
 
-int arc_mem_checksum(struct target *target, uint32_t address, uint32_t count,
+int arc_mem_checksum(struct target *target, target_addr_t address, uint32_t count,
 	uint32_t *checksum)
 {
 	LOG_ERROR("arc_mem_checksum NOT SUPPORTED IN THIS RELEASE.");
 	return ERROR_OK;
 }
 
-int arc_mem_blank_check(struct target *target, uint32_t address,
-	uint32_t count, uint32_t *blank, uint8_t erased_value)
+int arc_mem_blank_check(struct target *target,
+	struct target_memory_check_block *blocks, int num_blocks,
+	uint8_t erased_value)
 {
 	LOG_ERROR("arc_mem_blank_check NOT SUPPORTED IN THIS RELEASE.");
 	return ERROR_OK;
@@ -338,7 +339,7 @@ int arc_mem_blank_check(struct target *target, uint32_t address,
 int arc_mem_run_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	int timeout_ms, void *arch_info)
 {
 	LOG_ERROR("arc_mem_run_algorithm NOT SUPPORTED IN THIS RELEASE.");
@@ -348,7 +349,7 @@ int arc_mem_run_algorithm(struct target *target,
 int arc_mem_start_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t entry_point, uint32_t exit_point,
+	target_addr_t entry_point, target_addr_t exit_point,
 	void *arch_info)
 {
 	LOG_ERROR("arc_mem_start_algorithm NOT SUPPORTED IN THIS RELEASE.");
@@ -358,7 +359,7 @@ int arc_mem_start_algorithm(struct target *target,
 int arc_mem_wait_algorithm(struct target *target,
 	int num_mem_params, struct mem_param *mem_params,
 	int num_reg_params, struct reg_param *reg_params,
-	uint32_t exit_point, int timeout_ms,
+	target_addr_t exit_point, int timeout_ms,
 	void *arch_info)
 {
 	LOG_ERROR("arc_mem_wait_algorithm NOT SUPPORTED IN THIS RELEASE.");
@@ -367,21 +368,21 @@ int arc_mem_wait_algorithm(struct target *target,
 
 /* ......................................................................... */
 
-int arc_mem_virt2phys(struct target *target, uint32_t address,
-	uint32_t *physical)
+int arc_mem_virt2phys(struct target *target, target_addr_t address,
+	target_addr_t *physical)
 {
 	LOG_ERROR("arc_mem_virt2phys NOT SUPPORTED IN THIS RELEASE.");
 	return ERROR_OK;
 }
 
-int arc_mem_read_phys_memory(struct target *target, uint32_t phys_address,
+int arc_mem_read_phys_memory(struct target *target, target_addr_t phys_address,
 	uint32_t size, uint32_t count, uint8_t *buffer)
 {
 	LOG_ERROR("arc_mem_read_phys_memory NOT SUPPORTED IN THIS RELEASE.");
 	return ERROR_OK;
 }
 
-int arc_mem_write_phys_memory(struct target *target, uint32_t phys_address,
+int arc_mem_write_phys_memory(struct target *target, target_addr_t phys_address,
 	uint32_t size, uint32_t count, const uint8_t *buffer)
 {
 	LOG_ERROR("arc_mem_write_phys_memory NOT SUPPORTED IN THIS RELEASE.");
