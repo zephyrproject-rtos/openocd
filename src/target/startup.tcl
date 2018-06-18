@@ -80,7 +80,14 @@ proc ocd_process_reset_inner { MODE } {
 	foreach t $targets {
 		# C code needs to know if we expect to 'halt'
 		if {![using_jtag] || [jtag tapisenabled [$t cget -chain-position]]} {
-			$t arp_reset assert $halt
+			# TODO: Workaround for double nSRST pulse issue. The call to 
+			# init_reset above will assert and deassert nSRST. But the 
+			# steps to examine and restore debug connection only happen just
+			# after that point. This arp_reset call will assert nSRST again
+			# but examination will not happen again. Also, some of the events
+			# that fire need the target scan chain to be examined.
+			# So comment out this second nSRST assert as a quick workaround.
+			# $t arp_reset assert $halt
 		}
 	}
 	foreach t $targets {
@@ -127,6 +134,17 @@ proc ocd_process_reset_inner { MODE } {
 
 			# Did we succeed?
 			set s [$t curstate]
+
+			# TODO: Workaround for targets that cannot halt while reset is
+			# asserted. That halt during reset mechanism does not work for
+			# all target types, yet other scripts and commands assume that
+			# reset-halt always works.  Added this bit so that failing to
+			# halt during reset is a warning and not fatal.
+			if { 0 != [string compare $s "halted" ] } {
+				echo "target did not halt at reset vector"
+				halt
+				set s [$t curstate]
+			}
 
 			if { 0 != [string compare $s "halted" ] } {
 				return -code error [format "TARGET: %s - Not halted" $t]
