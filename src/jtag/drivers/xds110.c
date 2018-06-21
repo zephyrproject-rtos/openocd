@@ -1598,6 +1598,8 @@ static int xds110_reset(int trst, int srst)
 	bool success;
 	int retval = ERROR_OK;
 
+	static bool first = true;
+
 	if (trst != -1) {
 		if (trst == 0) {
 			/* Deassert nTRST (active low) */
@@ -1616,8 +1618,19 @@ static int xds110_reset(int trst, int srst)
 			/* Deassert nSRST (active low) */
 			value = 1;
 		} else {
-			/* Assert nSRST (active low) */
-			value = 0;
+			/* TODO: Workaround for double nSRST reset in JTAG mode */
+			if (xds110.is_swd_mode) {
+				/* Always assert nSRST in SWD mode (active low) */
+				value = 0;
+			} else if (first) {
+				/* Assert nSRST first time in JTAG mode (active low) */
+				value = 0;
+				first = false;
+			} else {
+				/* Do not assert nSRST second time in JTAG mode (active low) */
+				value = 1;
+				first = true;
+			}
 		}
 		success = xds_set_srst(value);
 		if (!success)
