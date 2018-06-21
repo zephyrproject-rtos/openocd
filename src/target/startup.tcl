@@ -80,14 +80,7 @@ proc ocd_process_reset_inner { MODE } {
 	foreach t $targets {
 		# C code needs to know if we expect to 'halt'
 		if {![using_jtag] || [jtag tapisenabled [$t cget -chain-position]]} {
-			# TODO: Workaround for double nSRST pulse issue. The call to 
-			# init_reset above will assert and deassert nSRST. But the 
-			# steps to examine and restore debug connection only happen just
-			# after that point. This arp_reset call will assert nSRST again
-			# but examination will not happen again. Also, some of the events
-			# that fire need the target scan chain to be examined.
-			# So comment out this second nSRST assert as a quick workaround.
-			# $t arp_reset assert $halt
+			$t arp_reset assert $halt
 		}
 	}
 	foreach t $targets {
