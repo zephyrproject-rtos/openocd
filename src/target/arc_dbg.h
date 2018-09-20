@@ -31,9 +31,9 @@ int arc_dbg_exit_debug(struct target *target);
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_dbg_halt(struct target *target);
-int arc_dbg_resume(struct target *target, int current, uint32_t address,
+int arc_dbg_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution);
-int arc_dbg_step(struct target *target, int current, uint32_t address,
+int arc_dbg_step(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints);
 
 /* ......................................................................... */
