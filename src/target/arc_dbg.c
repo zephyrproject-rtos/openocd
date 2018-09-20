@@ -119,7 +119,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 			CHECK_RETVAL(arc32_read_instruction_u32(target, breakpoint->address, &verify));
 
 			if (verify != ARC32_SDBBP) {
-				LOG_ERROR("Unable to set 32bit breakpoint at address 0x%08" PRIx32
+				LOG_ERROR("Unable to set 32bit breakpoint at address 0x%08" TARGET_PRIxADDR
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
@@ -132,7 +132,7 @@ static int arc_dbg_set_breakpoint(struct target *target,
 
 			CHECK_RETVAL(target_read_u16(target, breakpoint->address, &verify));
 			if (verify != ARC16_SDBBP) {
-				LOG_ERROR("Unable to set 16bit breakpoint at address 0x%08" PRIx32
+				LOG_ERROR("Unable to set 16bit breakpoint at address 0x%08" TARGET_PRIxADDR
 						" - check that memory is read/writable", breakpoint->address);
 				return ERROR_OK;
 			}
@@ -202,7 +202,7 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				if (retval != ERROR_OK)
 					return retval;
 			} else {
-				LOG_WARNING("Software breakpoint @0x%" PRIx32
+				LOG_WARNING("Software breakpoint @0x%" TARGET_PRIxADDR
 					" has been overwritten outside of debugger."
 					"Expected: 0x%08" PRIx32 ", got: 0x%08" PRIx32,
 					breakpoint->address, ARC32_SDBBP, current_instr);
@@ -228,7 +228,7 @@ static int arc_dbg_unset_breakpoint(struct target *target,
 				if (retval != ERROR_OK)
 					return retval;
 			} else {
-				LOG_WARNING("Software breakpoint @0x%" PRIx32
+				LOG_WARNING("Software breakpoint @0x%" TARGET_PRIxADDR
 					" has been overwritten outside of debugger. "
 					"Expected: 0x%04" PRIx16 ", got: 0x%04" PRIx16,
 					breakpoint->address, ARC16_SDBBP, current_instr);
@@ -550,7 +550,7 @@ int arc_dbg_halt(struct target *target)
 	return ERROR_OK;
 }
 
-int arc_dbg_resume(struct target *target, int current, uint32_t address,
+int arc_dbg_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
@@ -558,7 +558,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	uint32_t resume_pc = 0;
 	struct reg *pc = &arc32->core_cache->reg_list[arc32->pc_index_in_cache];
 
-	LOG_DEBUG("current:%i, address:0x%08" PRIx32 ", handle_breakpoints:%i, debug_execution:%i",
+	LOG_DEBUG("current:%i, address:0x%08" TARGET_PRIxADDR ", handle_breakpoints:%i, debug_execution:%i",
 		current, address, handle_breakpoints, debug_execution);
 
 	if (target->state != TARGET_HALTED) {
@@ -579,7 +579,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 		buf_set_u32(pc->value, 0, 32, address);
 		pc->dirty = 1;
 		pc->valid = 1;
-		LOG_DEBUG("Changing the value of current PC to 0x%08" PRIx32, address);
+		LOG_DEBUG("Changing the value of current PC to 0x%08" TARGET_PRIxADDR, address);
 	}
 
 	if (!current)
@@ -606,7 +606,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 		/* Single step past breakpoint at current address */
 		breakpoint = breakpoint_find(target, resume_pc);
 		if (breakpoint) {
-			LOG_DEBUG("unset breakpoint at 0x%08" PRIx32,
+			LOG_DEBUG("unset breakpoint at 0x%08" TARGET_PRIxADDR,
 				breakpoint->address);
 			arc_dbg_unset_breakpoint(target, breakpoint);
 			arc_dbg_single_step_core(target);
@@ -640,7 +640,7 @@ int arc_dbg_resume(struct target *target, int current, uint32_t address,
 	return ERROR_OK;
 }
 
-int arc_dbg_step(struct target *target, int current, uint32_t address,
+int arc_dbg_step(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints)
 {
 	/* get pointers to arch-specific information */
