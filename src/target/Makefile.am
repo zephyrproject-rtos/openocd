@@ -25,6 +25,7 @@ noinst_LTLIBRARIES += %D%/libtarget.la
 	$(INTEL_IA32_SRC) \
 	$(ESIRISC_SRC) \
 	$(ARC32_SRC) \
+	$(PULPINO_SRC) \
 	%D%/avrt.c \
 	%D%/dsp563xx.c \
 	%D%/dsp563xx_once.c \
@@ -244,6 +245,11 @@ ARC32_SRC = \
 	%D%/esirisc_jtag.h \
 	%D%/esirisc_regs.h \
 	%D%/esirisc_trace.h
+
+PULPINO_SRC = \
+	%D%/rv32m1/rv32m1_tap_mohor.c \
+	%D%/rv32m1/rv32m1_du_adv.c \
+	%D%/rv32m1/rv32m1.c
 
 include %D%/openrisc/Makefile.am
 include %D%/riscv/Makefile.am
