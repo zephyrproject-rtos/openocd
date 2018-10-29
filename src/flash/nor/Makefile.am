@@ -34,6 +34,7 @@ NOR_DRIVERS = \
 	%D%/jtagspi.c \
 	%D%/kinetis.c \
 	%D%/kinetis_ke.c \
+	%D%/rv32m1.c \
 	%D%/lpc2000.c \
 	%D%/lpc288x.c \
 	%D%/lpc2900.c \
