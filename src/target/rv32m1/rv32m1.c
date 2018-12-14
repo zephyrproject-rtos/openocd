@@ -342,11 +342,12 @@ static int rv32m1_build_reg_cache(struct target *target)
 		cache->reg_list[i].type = &rv32m1_reg_type;
 		cache->reg_list[i].arch_info = target;
 		cache->reg_list[i].number = i;
-		cache->reg_list[i].exist = true;
+		cache->reg_list[i].exist = false;
 
         if (i<RV32M1_CORE_REG_NUM)
         {
 			sprintf(reg_name, "%s", core_reg_name[i]);
+            cache->reg_list[i].exist = true;
         }
         else if (i<RV32M1_REG_CSR0)
         {
@@ -372,6 +373,7 @@ static int rv32m1_build_reg_cache(struct target *target)
             else
             {
                 sprintf(reg_name, "%s", rv32m1_csr_names[j].name);
+                cache->reg_list[i].exist = true;
             }
         }
 
