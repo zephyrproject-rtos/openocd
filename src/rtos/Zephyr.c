@@ -222,9 +222,11 @@ static int Zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 		td->threadid = thread.ptr;
 		td->exists = true;
 
-		if (asprintf(&td->thread_name_str, "thr_%x_%x", thread.entry, thread.ptr) < 0)
-			goto error;
-		if (asprintf(&td->extra_info_str, "prio:%d,useropts:%d", thread.prio, thread.user_options) < 0)
+		td->thread_name_str = alloc_printf("thr_%x_%x",
+										   thread.entry, thread.ptr);
+		td->extra_info_str = alloc_printf("prio:%d,useropts:%d",
+										  thread.prio, thread.user_options);
+		if (!td->thread_name_str || !td->extra_info_str)
 			goto error;
 
 		if (td->threadid == current_thread)
