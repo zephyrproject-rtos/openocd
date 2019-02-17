@@ -400,10 +400,10 @@ static int Zephyr_create(struct target *target)
 {
 	struct Zephyr_params *p;
 
-	LOG_INFO("Zephyr: looking for target: %s", target->type->name);
+	LOG_INFO("Zephyr: looking for target: %s", target_type_name(target));
 
 	for (p = Zephyr_params_list; p->target_name; p++) {
-		if (!strcmp(p->target_name, target->type->name)) {
+		if (!strcmp(p->target_name, target_type_name(target))) {
 			LOG_INFO("Zephyr: target known, params at %p", p);
 			target->rtos->rtos_specific_params = p;
 			return ERROR_OK;
