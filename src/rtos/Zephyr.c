@@ -28,6 +28,7 @@
 #include "rtos_standard_stackings.h"
 #include "target/target.h"
 #include "target/target_type.h"
+#include "target/armv7m.h"
 
 struct Zephyr_thread {
 	uint32_t ptr, next_ptr;
@@ -56,14 +57,83 @@ struct Zephyr_params {
 	uint8_t size_width;
 	uint8_t pointer_width;
 	uint32_t offsets[OFFSET_MAX];
-	const struct rtos_register_stacking *reg_stacking;
+	const struct rtos_register_stacking *callee_saved_stacking;
+	const struct rtos_register_stacking *cpu_saved_nofp_stacking;
+	const struct rtos_register_stacking *cpu_saved_fp_stacking;
+};
+
+static const struct stack_register_offset arm_callee_saved[] = {
+	{ ARMV7M_R13, 32, 32 },
+	{ 4,  0,  32 },
+	{ 5,  4,  32 },
+	{ 6,  8,  32 },
+	{ 7,  12, 32 },
+	{ 8,  16, 32 },
+	{ 9,  20, 32 },
+	{ 10, 24, 32 },
+	{ 11, 28, 32 },
+};
+
+static const struct rtos_register_stacking arm_callee_saved_stacking = {
+	.stack_registers_size = 36,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arm_callee_saved),
+	.register_offsets = arm_callee_saved,
+};
+
+static const struct stack_register_offset arm_cpu_saved[] = {
+	{ ARMV7M_R0,   0,  32 },
+	{ ARMV7M_R1,   4,  32 },
+	{ ARMV7M_R2,   8,  32 },
+	{ ARMV7M_R3,   12, 32 },
+	{ ARMV7M_R4,   -1, 32 },
+	{ ARMV7M_R5,   -1, 32 },
+	{ ARMV7M_R6,   -1, 32 },
+	{ ARMV7M_R7,   -1, 32 },
+	{ ARMV7M_R8,   -1, 32 },
+	{ ARMV7M_R9,   -1, 32 },
+	{ ARMV7M_R10,  -1, 32 },
+	{ ARMV7M_R11,  -1, 32 },
+	{ ARMV7M_R12,  16, 32 },
+	{ ARMV7M_R13,  -2, 32 },
+	{ ARMV7M_R14,  20, 32 },
+	{ ARMV7M_PC,   24, 32 },
+	{ ARMV7M_xPSR, 28, 32 },
+};
+
+static int64_t Zephyr_Cortex_M_stack_align(struct target *target,
+								const uint8_t *stack_data,
+								const struct rtos_register_stacking *stacking,
+								int64_t stack_ptr)
+{
+	const int XPSR_OFFSET = 28;
+	return rtos_Cortex_M_stack_align(target, stack_data, stacking, stack_ptr,
+									 XPSR_OFFSET);
+}
+
+static const struct rtos_register_stacking arm_cpu_saved_nofp_stacking = {
+	.stack_registers_size = 32,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arm_cpu_saved),
+	.calculate_process_stack = Zephyr_Cortex_M_stack_align,
+	.register_offsets = arm_cpu_saved,
+};
+
+static const struct rtos_register_stacking arm_cpu_saved_fp_stacking = {
+	.stack_registers_size = 32 + 18 * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arm_cpu_saved),
+	.calculate_process_stack = Zephyr_Cortex_M_stack_align,
+	.register_offsets = arm_cpu_saved,
 };
 
 static struct Zephyr_params Zephyr_params_list[] = {
 	{
 		.target_name = "cortex_m",
 		.pointer_width = 4,
-		.reg_stacking = &rtos_standard_Cortex_M4F_FPU_stacking,
+		.callee_saved_stacking = &arm_callee_saved_stacking,
+		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
 	},
 	{
 		.target_name = NULL
@@ -339,8 +409,11 @@ static int Zephyr_update_threads(struct rtos *rtos)
 static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		struct rtos_reg **reg_list, int *num_regs)
 {
-	struct Zephyr_thread thr;
 	struct Zephyr_params *params;
+	const struct rtos_register_stacking *stacking;
+	struct rtos_reg *callee_saved_reg_list;
+	int num_callee_saved_regs;
+	int64_t addr;
 	int retval;
 
 	LOG_INFO("Getting thread %" PRId64 " reg list", thread_id);
@@ -355,12 +428,33 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	if (params == NULL)
 		return ERROR_FAIL;
 
-	retval = Zephyr_fetch_thread(rtos, &thr, thread_id);
+	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
+		 - params->callee_saved_stacking->register_offsets[0].offset;
+	retval = rtos_generic_stack_read(rtos->target,
+									 params->callee_saved_stacking,
+									 addr, &callee_saved_reg_list,
+									 &num_callee_saved_regs);
 	if (retval < 0)
 		return retval;
 
-	return rtos_generic_stack_read(rtos->target, params->reg_stacking,
-		thr.stack_pointer, reg_list, num_regs);
+	addr = target_buffer_get_u32(rtos->target,
+								 callee_saved_reg_list[0].value);
+	if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
+		stacking = params->cpu_saved_fp_stacking;
+	else
+		stacking = params->cpu_saved_nofp_stacking;
+	retval = rtos_generic_stack_read(rtos->target, stacking, addr, reg_list,
+									 num_regs);
+
+	if (retval >= 0)
+		for (int i = 1; i < num_callee_saved_regs; i++)
+			buf_cpy(callee_saved_reg_list[i].value,
+					(*reg_list)[callee_saved_reg_list[i].number].value,
+					callee_saved_reg_list[i].size);
+
+	free(callee_saved_reg_list);
+
+	return retval;
 }
 
 static int Zephyr_get_symbol_list_to_lookup(symbol_table_elem_t **symbol_list)
