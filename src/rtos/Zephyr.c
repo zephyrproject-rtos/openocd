@@ -39,6 +39,7 @@ struct Zephyr_thread {
 	uint8_t state;
 	uint8_t user_options;
 	int8_t prio;
+	char name[64];
 };
 
 enum Zephyr_offsets {
@@ -270,6 +271,27 @@ static int Zephyr_fetch_thread(const struct rtos *rtos,
 		return retval;
 	thread->prio = (int8_t)prio;
 
+	thread->name[0] = '\0';
+	if (param->offsets[OFFSET_T_NAME] != UNIMPLEMENTED) {
+		uint32_t name_ptr;
+
+		retval = target_read_u32(rtos->target,
+								 ptr + param->offsets[OFFSET_T_NAME],
+								 &name_ptr);
+		if (retval != ERROR_OK)
+			return retval;
+
+		if (name_ptr) {
+			retval = target_read_buffer(rtos->target, name_ptr,
+										sizeof(thread->name) - 1,
+										(uint8_t *)thread->name);
+			if (retval != ERROR_OK)
+				return retval;
+
+			thread->name[sizeof(thread->name) - 1] = '\0';
+		}
+	}
+
 	LOG_DEBUG("Fetched thread%" PRIx32 ": {entry@0x%" PRIx32
 		", state=%" PRIu8 ", useropts=%" PRIu8 ", prio=%" PRId8 "}",
 		ptr, thread->entry, thread->state, thread->user_options, thread->prio);
@@ -306,8 +328,11 @@ static int Zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 		td->threadid = thread.ptr;
 		td->exists = true;
 
-		td->thread_name_str = alloc_printf("thr_%" PRIx32 "_%" PRIx32,
-										   thread.entry, thread.ptr);
+		if (thread.name[0])
+			td->thread_name_str = strdup(thread.name);
+		else
+			td->thread_name_str = alloc_printf("thr_%" PRIx32 "_%" PRIx32,
+											   thread.entry, thread.ptr);
 		td->extra_info_str = alloc_printf("prio:%" PRId8 ",useropts:%" PRIu8,
 										  thread.prio, thread.user_options);
 		if (!td->thread_name_str || !td->extra_info_str)
