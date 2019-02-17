@@ -39,16 +39,16 @@ struct Zephyr_thread {
 };
 
 enum Zephyr_offsets {
-       OFFSET_VERSION,
-       OFFSET_K_CURR_THREAD,
-       OFFSET_K_THREADS,
-       OFFSET_T_ENTRY,
-       OFFSET_T_NEXT_THREAD,
-       OFFSET_T_STATE,
-       OFFSET_T_USER_OPTIONS,
-       OFFSET_T_PRIO,
-       OFFSET_T_STACK_POINTER,
-       OFFSET_MAX
+	OFFSET_VERSION,
+	OFFSET_K_CURR_THREAD,
+	OFFSET_K_THREADS,
+	OFFSET_T_ENTRY,
+	OFFSET_T_NEXT_THREAD,
+	OFFSET_T_STATE,
+	OFFSET_T_USER_OPTIONS,
+	OFFSET_T_PRIO,
+	OFFSET_T_STACK_POINTER,
+	OFFSET_MAX
 };
 
 struct Zephyr_params {
@@ -148,8 +148,8 @@ static uint32_t Zephyr_kptr(const struct rtos *rtos, enum Zephyr_offsets off)
 	return rtos->symbols[Zephyr_VAL__kernel].address + params->offsets[off];
 }
 
-static int Zephyr_fetch_thread(const struct rtos *rtos, struct Zephyr_thread *thread,
-	uint32_t ptr)
+static int Zephyr_fetch_thread(const struct rtos *rtos,
+							   struct Zephyr_thread *thread, uint32_t ptr)
 {
 	const struct Zephyr_params *param = rtos->rtos_specific_params;
 	int retval;
@@ -157,32 +157,36 @@ static int Zephyr_fetch_thread(const struct rtos *rtos, struct Zephyr_thread *th
 	thread->ptr = ptr;
 
 	retval = target_read_u32(rtos->target, ptr + param->offsets[OFFSET_T_ENTRY],
-		&thread->entry);
+							 &thread->entry);
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = target_read_u32(rtos->target, ptr + param->offsets[OFFSET_T_NEXT_THREAD],
-		&thread->next_ptr);
+	retval = target_read_u32(rtos->target,
+							 ptr + param->offsets[OFFSET_T_NEXT_THREAD],
+							 &thread->next_ptr);
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = target_read_u32(rtos->target, ptr + param->offsets[OFFSET_T_STACK_POINTER],
-		&thread->stack_pointer);
+	retval = target_read_u32(rtos->target,
+							 ptr + param->offsets[OFFSET_T_STACK_POINTER],
+							 &thread->stack_pointer);
 	if (retval != ERROR_OK)
 		return retval;
 
 	retval = target_read_u8(rtos->target, ptr + param->offsets[OFFSET_T_STATE],
-		&thread->state);
+							&thread->state);
 	if (retval != ERROR_OK)
 		return retval;
 
-	retval = target_read_u8(rtos->target, ptr + param->offsets[OFFSET_T_USER_OPTIONS],
-		&thread->user_options);
+	retval = target_read_u8(rtos->target,
+							ptr + param->offsets[OFFSET_T_USER_OPTIONS],
+							&thread->user_options);
 	if (retval != ERROR_OK)
 		return retval;
 
 	uint8_t prio;
-	retval = target_read_u8(rtos->target, ptr + param->offsets[OFFSET_T_PRIO], &prio);
+	retval = target_read_u8(rtos->target,
+							ptr + param->offsets[OFFSET_T_PRIO], &prio);
 	if (retval != ERROR_OK)
 		return retval;
 	thread->prio = (int8_t)prio;
@@ -296,7 +300,8 @@ static int Zephyr_update_threads(struct rtos *rtos)
 
 	/* We can fetch the whole array for version 0, as they're supposed
 	 * to grow only */
-	uint32_t address = rtos->symbols[Zephyr_VAL__kernel_openocd_offsets].address;
+	uint32_t address;
+	address  = rtos->symbols[Zephyr_VAL__kernel_openocd_offsets].address;
 	for (size_t i = 0; i < OFFSET_MAX; i++, address += param->size_width) {
 		retval = target_read_u32(rtos->target, address, &param->offsets[i]);
 		if (retval != ERROR_OK) {
@@ -310,7 +315,8 @@ static int Zephyr_update_threads(struct rtos *rtos)
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("Zephyr OpenOCD support version %d", param->offsets[OFFSET_VERSION]);
+	LOG_DEBUG("Zephyr OpenOCD support version %d",
+			  param->offsets[OFFSET_VERSION]);
 
 	uint32_t current_thread;
 	retval = target_read_u32(rtos->target,
@@ -376,7 +382,7 @@ static bool Zephyr_detect_rtos(struct target *target)
 	for (enum Zephyr_symbol_values symbol = Zephyr_VAL__kernel;
 					symbol != Zephyr_VAL_COUNT; symbol++) {
 		LOG_INFO("Zephyr: does it have symbol %d (%s)?", symbol,
-			target->rtos->symbols[symbol].optional?"optional":"mandatory");
+			target->rtos->symbols[symbol].optional ? "optional" : "mandatory");
 
 		if (target->rtos->symbols[symbol].optional)
 			continue;
