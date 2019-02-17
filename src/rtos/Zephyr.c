@@ -30,6 +30,8 @@
 #include "target/target_type.h"
 #include "target/armv7m.h"
 
+#define UNIMPLEMENTED 0xFFFFFFFFU
+
 struct Zephyr_thread {
 	uint32_t ptr, next_ptr;
 	uint32_t entry;
@@ -49,6 +51,10 @@ enum Zephyr_offsets {
 	OFFSET_T_USER_OPTIONS,
 	OFFSET_T_PRIO,
 	OFFSET_T_STACK_POINTER,
+	OFFSET_T_NAME,
+	OFFSET_T_ARCH,
+	OFFSET_T_PREEMPT_FLOAT,
+	OFFSET_T_COOP_FLOAT,
 	OFFSET_MAX
 };
 
@@ -56,6 +62,7 @@ struct Zephyr_params {
 	const char *target_name;
 	uint8_t size_width;
 	uint8_t pointer_width;
+	uint32_t num_offsets;
 	uint32_t offsets[OFFSET_MAX];
 	const struct rtos_register_stacking *callee_saved_stacking;
 	const struct rtos_register_stacking *cpu_saved_nofp_stacking;
@@ -161,6 +168,7 @@ enum Zephyr_symbol_values {
 	Zephyr_VAL__kernel,
 	Zephyr_VAL__kernel_openocd_offsets,
 	Zephyr_VAL__kernel_openocd_size_t_size,
+	Zephyr_VAL__kernel_openocd_num_offsets,
 	Zephyr_VAL_COUNT
 };
 
@@ -168,6 +176,7 @@ static const symbol_table_elem_t Zephyr_symbol_list[] = {
 	{ .symbol_name = "_kernel", .optional = false },
 	{ .symbol_name = "_kernel_openocd_offsets", .optional = false },
 	{ .symbol_name = "_kernel_openocd_size_t_size", .optional = false },
+	{ .symbol_name = "_kernel_openocd_num_offsets", .optional = true },
 	{ }
 };
 
@@ -369,20 +378,49 @@ static int Zephyr_update_threads(struct rtos *rtos)
 		return ERROR_FAIL;
 	}
 
+	if (rtos->symbols[Zephyr_VAL__kernel_openocd_num_offsets].address) {
+		retval = target_read_u32(rtos->target,
+				rtos->symbols[Zephyr_VAL__kernel_openocd_num_offsets].address,
+				&param->num_offsets);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Couldn't not fetch number of offsets from Zephyr");
+			return retval;
+		}
+		if (param->num_offsets <= OFFSET_T_STACK_POINTER) {
+			LOG_ERROR("Number of offsets too small");
+			return ERROR_FAIL;
+		}
+	} else {
+		param->num_offsets = OFFSET_VERSION + 1;
+	}
 	/* We can fetch the whole array for version 0, as they're supposed
 	 * to grow only */
 	uint32_t address;
 	address  = rtos->symbols[Zephyr_VAL__kernel_openocd_offsets].address;
 	for (size_t i = 0; i < OFFSET_MAX; i++, address += param->size_width) {
+		if (i >= param->num_offsets) {
+			param->offsets[i] = UNIMPLEMENTED;
+			continue;
+		}
 		retval = target_read_u32(rtos->target, address, &param->offsets[i]);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Could not fetch offsets from Zephyr");
 			return ERROR_FAIL;
 		}
+		if (param->num_offsets == OFFSET_VERSION + 1 && i == OFFSET_VERSION) {
+			switch (param->offsets[OFFSET_VERSION]) {
+			case 0:
+				param->num_offsets = OFFSET_T_STACK_POINTER + 1;
+				break;
+			case 1:
+				param->num_offsets = OFFSET_T_COOP_FLOAT + 1;
+				break;
+			}
+		}
 	}
-	if (param->offsets[OFFSET_VERSION] != 0) {
-		LOG_ERROR("Expecting OpenOCD support version 0, got % " PRId32
-				  " instead", param->offsets[OFFSET_VERSION]);
+	if (param->offsets[OFFSET_VERSION] > 1) {
+		LOG_ERROR("Unexpected OpenOCD support version %" PRIu32,
+				  param->offsets[OFFSET_VERSION]);
 		return ERROR_FAIL;
 	}
 
