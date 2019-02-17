@@ -191,7 +191,8 @@ static int Zephyr_fetch_thread(const struct rtos *rtos,
 		return retval;
 	thread->prio = (int8_t)prio;
 
-	LOG_DEBUG("Fetched thread%x: {entry@0x%x, state=%d, useropts=%d, prio=%d}",
+	LOG_DEBUG("Fetched thread%" PRIx32 ": {entry@0x%" PRIx32
+		", state=%" PRIu8 ", useropts=%" PRIu8 ", prio=%" PRId8 "}",
 		ptr, thread->entry, thread->state, thread->user_options, thread->prio);
 
 	return 0;
@@ -226,9 +227,9 @@ static int Zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 		td->threadid = thread.ptr;
 		td->exists = true;
 
-		td->thread_name_str = alloc_printf("thr_%x_%x",
+		td->thread_name_str = alloc_printf("thr_%" PRIx32 "_%" PRIx32,
 										   thread.entry, thread.ptr);
-		td->extra_info_str = alloc_printf("prio:%d,useropts:%d",
+		td->extra_info_str = alloc_printf("prio:%" PRId8 ",useropts:%" PRIu8,
 										  thread.prio, thread.user_options);
 		if (!td->thread_name_str || !td->extra_info_str)
 			goto error;
@@ -310,12 +311,12 @@ static int Zephyr_update_threads(struct rtos *rtos)
 		}
 	}
 	if (param->offsets[OFFSET_VERSION] != 0) {
-		LOG_ERROR("Expecting OpenOCD support version 0, got %d instead",
-			param->offsets[OFFSET_VERSION]);
+		LOG_ERROR("Expecting OpenOCD support version 0, got % " PRId32
+				  " instead", param->offsets[OFFSET_VERSION]);
 		return ERROR_FAIL;
 	}
 
-	LOG_DEBUG("Zephyr OpenOCD support version %d",
+	LOG_DEBUG("Zephyr OpenOCD support version %" PRId32,
 			  param->offsets[OFFSET_VERSION]);
 
 	uint32_t current_thread;
@@ -342,7 +343,7 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	struct Zephyr_params *params;
 	int retval;
 
-	LOG_INFO("Getting thread %ld reg list", thread_id);
+	LOG_INFO("Getting thread %" PRId64 " reg list", thread_id);
 
 	if (rtos == NULL)
 		return ERROR_FAIL;
