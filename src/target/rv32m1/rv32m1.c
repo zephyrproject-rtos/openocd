@@ -1111,12 +1111,6 @@ static int rv32m1_arch_state(struct target *target)
 static int rv32m1_get_gdb_reg_list(struct target *target, struct reg **reg_list[],
 			  int *reg_list_size, enum target_register_class reg_class)
 {
-    int retval = rv32m1_save_context(target);
-    if (retval != ERROR_OK) {
-        LOG_ERROR("Error while calling rv32m1_save_context");
-        return retval;
-    }
-
 	if (reg_class == REG_CLASS_GENERAL) {
 		/* We will have this called whenever GDB connects. */
 		*reg_list_size = RV32M1_CORE_REG_NUM;
@@ -1126,6 +1120,9 @@ static int rv32m1_get_gdb_reg_list(struct target *target, struct reg **reg_list[
 
     /* this is free()'d back in gdb_server.c's gdb_get_register_packet() */
     *reg_list = malloc((*reg_list_size) * sizeof(struct reg *));
+
+	if (*reg_list == NULL)
+		return ERROR_FAIL;
 
     for (int i = 0; i < *reg_list_size; i++)
         (*reg_list)[i] = &target->reg_cache->reg_list[i];
