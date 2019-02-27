@@ -556,11 +556,24 @@ static bool Zephyr_detect_rtos(struct target *target)
 static int Zephyr_create(struct target *target)
 {
 	struct Zephyr_params *p;
+	const char *name;
 
-	LOG_INFO("Zephyr: looking for target: %s", target_type_name(target));
+	name = target_type_name(target);
+	if (!strcmp(name, "hla_target")) {
+		name = target_get_gdb_arch(target);
+		if (!name) {
+			LOG_ERROR("Zephyr: failed to determine target type");
+			return ERROR_FAIL;
+		}
+	}
+
+	LOG_INFO("Zephyr: looking for target: %s", name);
+
+	if (!strcmp(name, "arm"))
+		name = "cortex_m";
 
 	for (p = Zephyr_params_list; p->target_name; p++) {
-		if (!strcmp(p->target_name, target_type_name(target))) {
+		if (!strcmp(p->target_name, name)) {
 			LOG_INFO("Zephyr: target known, params at %p", p);
 			target->rtos->rtos_specific_params = p;
 			return ERROR_OK;
