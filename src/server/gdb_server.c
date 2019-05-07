@@ -2012,7 +2012,7 @@ static int lookup_add_arch_defined_types(char const **arch_defined_types_list[],
 				return 1;
 			} else {
 				if (!strcmp((*arch_defined_types_list)[j], type_id))
-					return 0;
+					return 1;
 			}
 		}
 	}
