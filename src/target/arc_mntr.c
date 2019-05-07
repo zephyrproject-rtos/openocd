@@ -605,7 +605,7 @@ COMMAND_HANDLER(arc_set_reg_exists)
 
 	for (unsigned int i = 0; i < CMD_ARGC; i++) {
 		const char * const reg_name = CMD_ARGV[i];
-		struct reg * const r = register_get_by_name(target->reg_cache, reg_name, true);
+		struct reg * const r = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 		if (!r) {
 			command_print(CMD_CTX, "Register `%s' is not found.", reg_name);
@@ -638,7 +638,7 @@ COMMAND_HANDLER(arc_set_reg_feature)
 	}
 
 	const char * const reg_name = CMD_ARGV[0];
-	struct reg * const r = register_get_by_name(target->reg_cache, reg_name, true);
+	struct reg * const r = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 	if (!r) {
 		command_print(CMD_CTX, "Register `%s' is not found.", reg_name);

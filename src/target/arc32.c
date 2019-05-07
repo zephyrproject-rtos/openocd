@@ -66,6 +66,33 @@ static const char * const reg_group_other = "";
 
 /* ----- Exported functions ------------------------------------------------ */
 
+/**
+ * Privae implementation of register_get_by_name() for ARC that
+ * doesn't skip not [yet] existing registers. Used in many places
+ * for iteration through registers and even for marking required registers as
+ * existing.
+ */
+struct reg *arc32_register_get_by_name(struct reg_cache *first,
+		const char *name, bool search_all)
+{
+	unsigned i;
+	struct reg_cache *cache = first;
+
+	while (cache) {
+		for (i = 0; i < cache->num_regs; i++) {
+			if (strcmp(cache->reg_list[i].name, name) == 0)
+				return &(cache->reg_list[i]);
+		}
+
+		if (search_all)
+			cache = cache->next;
+		else
+			break;
+	}
+
+	return NULL;
+}
+
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	struct jtag_tap *tap)
 {
@@ -663,8 +690,8 @@ int arc32_configure(struct target *target)
 	/* DCCM. But only if DCCM_BUILD and AUX_DCCM are known registers. */
 	arc32->dccm_start = 0;
 	arc32->dccm_end = 0;
-	if (register_get_by_name(target->reg_cache, "dccm_build", true) &&
-	    register_get_by_name(target->reg_cache, "aux_dccm", true)) {
+	if (arc32_register_get_by_name(target->reg_cache, "dccm_build", true) &&
+	    arc32_register_get_by_name(target->reg_cache, "aux_dccm", true)) {
 
 		uint32_t dccm_build_version, dccm_build_size0, dccm_build_size1;
 		CHECK_RETVAL(arc32_get_register_field(target, "dccm_build", "version",
@@ -688,8 +715,8 @@ int arc32_configure(struct target *target)
 	/* Only if ICCM_BUILD and AUX_ICCM are known registers. */
 	arc32->iccm0_start = 0;
 	arc32->iccm0_end = 0;
-	if (register_get_by_name(target->reg_cache, "iccm_build", true) &&
-	    register_get_by_name(target->reg_cache, "aux_iccm", true)) {
+	if (arc32_register_get_by_name(target->reg_cache, "iccm_build", true) &&
+	    arc32_register_get_by_name(target->reg_cache, "aux_iccm", true)) {
 		/* Common for both ICCMx  */
 		uint32_t addr_size_bits;
 		CHECK_RETVAL(arc_regs_addr_size_bits(target, &addr_size_bits));
@@ -974,7 +1001,7 @@ int arc32_get_register_value_u32(struct target *target, const char *reg_name,
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
+	struct reg *reg = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 	if (!reg)
 		return ERROR_ARC_REGISTER_NOT_FOUND;
@@ -1001,7 +1028,7 @@ int arc32_set_register_value_u32(struct target *target, const char *reg_name,
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
-	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
+	struct reg *reg = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 	if (!reg)
 		return ERROR_ARC_REGISTER_NOT_FOUND;
@@ -1024,7 +1051,7 @@ int arc32_get_register_field(struct target *target, const char *reg_name,
 	}
 
 	/* Get register */
-	struct reg *reg = register_get_by_name(target->reg_cache, reg_name, true);
+	struct reg *reg = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 	if (!reg) {
 		LOG_ERROR("Requested register `%s' doens't exist.", reg_name);
