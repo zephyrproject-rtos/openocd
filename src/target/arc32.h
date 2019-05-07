@@ -261,6 +261,9 @@ static inline struct arc32_common * target_to_arc32(struct target *target)
 
 /* ----- Exported functions ------------------------------------------------ */
 
+struct reg *arc32_register_get_by_name(struct reg_cache *first,
+					const char *name, bool search_all);
+
 int arc32_init_arch_info(struct target *target, struct arc32_common *arc32,
 	struct jtag_tap *tap);
 
