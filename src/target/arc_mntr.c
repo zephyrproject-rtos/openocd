@@ -327,6 +327,7 @@ int jim_arc_add_reg_type_struct(Jim_Interp *interp, int argc,
 				}
 				bitfields[cur_field].start = start;
 				bitfields[cur_field].end = end;
+				bitfields[cur_field].type = REG_TYPE_INT;
 				fields[cur_field].bitfield = &(bitfields[cur_field]);
 				/* Only bitfields are supported so far. */
 				fields[cur_field].use_bitfields = true;
