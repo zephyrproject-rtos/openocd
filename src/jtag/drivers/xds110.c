@@ -1597,8 +1597,6 @@ static void xds110_execute_reset(struct jtag_command *cmd)
 	char trst;
 	char srst;
 
-	static bool first = true;
-
 	if (cmd->cmd.reset->trst != -1) {
 		if (cmd->cmd.reset->trst == 0) {
 			/* Deassert nTRST (active low) */
@@ -1615,19 +1613,8 @@ static void xds110_execute_reset(struct jtag_command *cmd)
 			/* Deassert nSRST (active low) */
 			srst = 1;
 		} else {
-			/* TODO: Workaround for double nSRST reset in JTAG mode */
-			if (xds110.is_swd_mode) {
-				/* Always assert nSRST in SWD mode (active low) */
-				srst = 0;
-			} else if (first) {
-				/* Assert nSRST first time in JTAG mode (active low) */
-				srst = 0;
-				first = false;
-			} else {
-				/* Do not assert nSRST second time in JTAG mode (active low) */
-				srst = 1;
-				first = true;
-			}
+			/* Assert nSRST (active low) */
+			srst = 0;
 		}
 		(void)xds_set_srst(srst);
 

@@ -1132,25 +1132,10 @@ static void cmsis_dap_execute_reset(struct jtag_command *cmd)
 	 * there's no way to tristate them */
 
 	output_pins = 0;
-
-	static bool first = true;
-
-	if (!cmd->cmd.reset->trst)
-		output_pins |= SWJ_PIN_TRST;
-
 	if (!cmd->cmd.reset->srst)
 		output_pins |= SWJ_PIN_SRST;
-	else if (swd_mode) {
-		/* Always assert nSRST in SWD mode */
-		/* pin = 0 */
-	} else if (first) {
-		/* Assert nSRST in JTAG mode on first call */
-		first = false;
-	} else {
-		/* Do not assert nSRST in JTAG mode on second call */
-		output_pins |= SWJ_PIN_SRST;
-		first = true;
-	}
+	if (!cmd->cmd.reset->trst)
+		output_pins |= SWJ_PIN_TRST;
 
 	int retval = cmsis_dap_cmd_DAP_SWJ_Pins(output_pins,
 			SWJ_PIN_TRST | SWJ_PIN_SRST, 0, NULL);
