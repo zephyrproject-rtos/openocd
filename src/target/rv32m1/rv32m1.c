@@ -141,6 +141,9 @@ static int rv32m1_save_context(struct target *target)
 {
 	struct rv32m1_info *rv32m1 = target_to_rv32m1(target);
 	struct rv32m1_du *du_core = rv32m1_to_du(rv32m1);
+	uint32_t dbg_cause;
+	uint32_t next_pc;
+	struct breakpoint *breakpoint;
 	int retval;
 
 	LOG_DEBUG("-");
@@ -169,6 +172,30 @@ static int rv32m1_save_context(struct target *target)
         target->reg_cache->reg_list[i].valid = true;
         target->reg_cache->reg_list[i].dirty = false;
     }
+
+	/* Check if halt because of software break point. */
+	retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
+			RV32M1_DEBUG_REG_ADDR(coreIdx, DBG_CAUSE), 1,
+			&dbg_cause);
+
+	if (retval != ERROR_OK)
+		return retval;
+
+	/*
+	 * If the core is halt because of software break point. Then the next PC
+	 * should be set to previous PC. Otherwise the original instruction is skipped.
+	 */
+	if (RV32M1_DEBUG_CAUSE_BP == (dbg_cause & RV32M1_DEBUG_CAUSE_MASK))
+	{
+		next_pc = buf_get_u32(target->reg_cache->reg_list[RV32M1_REG_PPC].value, 0, 32);
+		breakpoint = breakpoint_find(target, next_pc);
+
+		if (breakpoint && (BKPT_SOFT == breakpoint->type))
+		{
+			buf_set_u32(target->reg_cache->reg_list[RV32M1_REG_NPC].value, 0, 32, next_pc);
+			target->reg_cache->reg_list[RV32M1_REG_NPC].dirty = true;
+		}
+	}
 
 	return ERROR_OK;
 }
