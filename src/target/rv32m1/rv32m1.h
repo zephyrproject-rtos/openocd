@@ -127,6 +127,19 @@ target_to_rv32m1(struct target *target)
 #define RV32M1_DEBUG_IE_IAF   (1 << 1 ) // Instruction Access Fault (not implemented)
 #define RV32M1_DEBUG_IE_IAM   (1 << 0 ) // Instruction Address Misaligned (never traps)
 
+/* RV32M1 DEBUG cause. */
+#define RV32M1_DEBUG_CAUSE_ECALL (11) // Environment call from M-Mode
+#define RV32M1_DEBUG_CAUSE_SAF   (7 ) // Store Access Fault (together with LAF)
+#define RV32M1_DEBUG_CAUSE_SAM   (6 ) // Store Address Misaligned (never traps)
+#define RV32M1_DEBUG_CAUSE_LAF   (5 ) // Load Access Fault (together with SAF)
+#define RV32M1_DEBUG_CAUSE_LAM   (4 ) // Load Address Misaligned (never traps)
+#define RV32M1_DEBUG_CAUSE_BP    (3 ) // EBREAK instruction causes trap
+#define RV32M1_DEBUG_CAUSE_ILL   (2 ) // Illegal Instruction
+#define RV32M1_DEBUG_CAUSE_IAF   (1 ) // Instruction Access Fault (not implemented)
+#define RV32M1_DEBUG_CAUSE_IAM   (0 ) // Instruction Address Misaligned (never traps)
+
+#define RV32M1_DEBUG_CAUSE_MASK  (0x7FFFFFFFU)
+
 #define RV32M1_DEBUG_REG_ADDR(coreIdx, reg) ((uint32_t)(rv32m1_debug_unit_reg_addr[coreIdx] + \
             offsetof(struct rv32m1_debug_unit, reg)))
 
