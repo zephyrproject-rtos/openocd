@@ -29,8 +29,13 @@
 #include "target/target.h"
 #include "target/target_type.h"
 #include "target/armv7m.h"
+#include "target/arc32.h"
 
 #define UNIMPLEMENTED 0xFFFFFFFFU
+
+/*ARC specific defines*/
+#define ARC_AUX_SEC_BUILD_REG 0xdb
+#define ARC_REG_NUM 38
 
 struct Zephyr_thread {
 	uint32_t ptr, next_ptr;
@@ -705,6 +710,26 @@ static int Zephyr_create(struct target *target)
 	}
 
 	LOG_INFO("Zephyr: looking for target: %s", name);
+
+	/* ARC specific, check if EM target has security subsystem
+	 * In case of ARC_HAS_SECURE zephyr option enabled
+	 * the thread stack contains blink,sec_stat,status32 register
+	 * values. If ARC_HAS_SECURE is disabled, only blink and status32
+	 * register values are saved on stack. */
+	if (!strcmp(name, "arcv2")){
+		uint32_t value;
+		struct arc32_common *arc32 = target_to_arc32(target);
+		/* Reading SEC_BUILD bcr */
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, ARC_AUX_SEC_BUILD_REG, &value));
+		if (value != 0){
+			LOG_DEBUG("ARC EM board has security subsystem, changing offsets");
+			arc_cpu_saved[ARC_REG_NUM-1].offset = 8;
+			/* After reading callee registers in stack
+			 * now blink,sec_stat,status32 registers
+			 * are located. */
+			arc_cpu_saved_stacking.stack_registers_size = 12;
+		}
+	}
 
 	if (!strcmp(name, "arm"))
 		name = "cortex_m";
