@@ -29,8 +29,13 @@
 #include "target/target.h"
 #include "target/target_type.h"
 #include "target/armv7m.h"
+#include "target/arc.h"
 
 #define UNIMPLEMENTED 0xFFFFFFFFU
+
+/*ARC specific defines*/
+#define ARC_AUX_SEC_BUILD_REG 0xdb
+#define ARC_REG_NUM 38
 
 struct Zephyr_thread {
 	uint32_t ptr, next_ptr;
@@ -82,11 +87,36 @@ static const struct stack_register_offset arm_callee_saved[] = {
 	{ 11, 28, 32 },
 };
 
+static const struct stack_register_offset arc_callee_saved[] = {
+	{ 13,  0,  32 },   //r13
+	{ 14,  4,  32 },   //r14
+	{ 15,  8,  32 },   //r15
+	{ 16,  12,  32 },  //r16
+	{ 17,  16,  32 },  //r17
+	{ 18,  20,  32 },  //r18
+	{ 19,  24,  32 },  //r19
+	{ 20,  28,  32 },  //r20
+	{ 21,  32,  32 },  //r21
+	{ 22,  36,  32 },  //r22
+	{ 23,  40,  32 },  //r23
+	{ 24,  44,  32 },  //r24
+	{ 25,  48,  32 },  //r25
+	{ 26,  52,  32 },  //GP
+	{ 27,  56,  32 },  //FP
+	{ 30,  60,  32 }   //r30
+};
 static const struct rtos_register_stacking arm_callee_saved_stacking = {
 	.stack_registers_size = 36,
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(arm_callee_saved),
 	.register_offsets = arm_callee_saved,
+};
+
+static const struct rtos_register_stacking arc_callee_saved_stacking = {
+        .stack_registers_size = sizeof(arc_callee_saved),
+        .stack_growth_direction = -1,
+        .num_output_registers = ARRAY_SIZE(arc_callee_saved),
+        .register_offsets = arc_callee_saved,
 };
 
 static const struct stack_register_offset arm_cpu_saved[] = {
@@ -107,6 +137,47 @@ static const struct stack_register_offset arm_cpu_saved[] = {
 	{ ARMV7M_R14,  20, 32 },
 	{ ARMV7M_PC,   24, 32 },
 	{ ARMV7M_xPSR, 28, 32 },
+};
+
+static struct stack_register_offset arc_cpu_saved[] = {
+	{ 0,   -1,  32 }, //r0
+	{ 1,   -1,  32 }, //r1
+	{ 2,   -1,  32 }, //r2
+	{ 3,   -1,  32 }, //r3
+	{ 4,   -1,  32 }, //r4
+	{ 5,   -1,  32 }, //r5
+	{ 6,   -1,  32 }, //r6
+	{ 7,   -1,  32 }, //r7
+	{ 8,   -1,  32 }, //r8
+	{ 9,   -1,  32 }, //r9
+	{ 10,   -1,  32 }, //r10
+	{ 11,   -1,  32 }, //r11
+	{ 12,   -1,  32 }, //r12
+	{ 13,   -1,  32 }, //r13
+	{ 14,   -1,  32 }, //r14
+	{ 15,   -1,  32 }, //r15
+	{ 16,   -1,  32 }, //r16
+	{ 17,   -1,  32 }, //r17
+	{ 18,   -1,  32 }, //r18
+	{ 19,   -1,  32 }, //r19
+	{ 20,   -1,  32 }, //r20
+	{ 21,   -1,  32 }, //r21
+	{ 22,   -1,  32 }, //r22
+	{ 23,   -1,  32 }, //r23
+	{ 24,   -1,  32 }, //r24
+	{ 25,   -1,  32 }, //r25
+	{ 26,   -1,  32 }, //GP
+	{ 27,   -1,  32 }, //FP
+	{ 28,   -1,  32 }, //SP
+	{ 29,   -1,  32 }, //ILINK
+	{ 30,   -1,  32 }, //r30
+	{ 31,   0,  32 }, //BLINK
+	{ 60,   -1, 32 }, //lp_count
+	{ 63,   -1, 32 }, //pcl
+	{ 64,   -1,  32 }, // pc
+	{ 65,   -1,  32 }, // lp_start
+	{ 66,   -1,  32 }, // lp_end
+	{ 67,   4,  32 } // status32
 };
 
 static int64_t Zephyr_Cortex_M_stack_align(struct target *target,
@@ -135,6 +206,16 @@ static const struct rtos_register_stacking arm_cpu_saved_fp_stacking = {
 	.register_offsets = arm_cpu_saved,
 };
 
+/* stack_registers_size is 8 because besides caller registers
+ * there are only blink and Status32 registers on stack left */
+static struct rtos_register_stacking arc_cpu_saved_stacking = {
+	.stack_registers_size = 8,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arc_cpu_saved),
+	.register_offsets = arc_cpu_saved,
+};
+
+
 static struct Zephyr_params Zephyr_params_list[] = {
 	{
 		.target_name = "cortex_m",
@@ -142,6 +223,12 @@ static struct Zephyr_params Zephyr_params_list[] = {
 		.callee_saved_stacking = &arm_callee_saved_stacking,
 		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
 		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
+	},
+	{
+		.target_name = "arcv2",
+		.pointer_width = 4,
+		.callee_saved_stacking = &arc_callee_saved_stacking,
+		.cpu_saved_nofp_stacking = &arc_cpu_saved_stacking,
 	},
 	{
 		.target_name = NULL
@@ -483,28 +570,98 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 
 	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
 		 - params->callee_saved_stacking->register_offsets[0].offset;
-	retval = rtos_generic_stack_read(rtos->target,
-									 params->callee_saved_stacking,
-									 addr, &callee_saved_reg_list,
-									 &num_callee_saved_regs);
-	if (retval < 0)
-		return retval;
 
-	addr = target_buffer_get_u32(rtos->target,
-								 callee_saved_reg_list[0].value);
-	if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
-		stacking = params->cpu_saved_fp_stacking;
-	else
+	/* ARCv2 specific implementation */
+	if (!strcmp(params->target_name, "arcv2")) {
+		uint32_t real_stack_addr;
+
+		/* Getting real stack addres from Kernel thread struct */
+		retval = target_read_u32(rtos->target, addr, &real_stack_addr);
+		if (retval < 0)
+			return retval;
+
+		/* Getting callee registers */
+		retval = rtos_generic_stack_read(rtos->target,
+				params->callee_saved_stacking,
+				real_stack_addr, &callee_saved_reg_list,
+				&num_callee_saved_regs);
+		if (retval < 0)
+			return retval;
+
 		stacking = params->cpu_saved_nofp_stacking;
-	retval = rtos_generic_stack_read(rtos->target, stacking, addr, reg_list,
-									 num_regs);
 
-	if (retval >= 0)
-		for (int i = 1; i < num_callee_saved_regs; i++)
-			buf_cpy(callee_saved_reg_list[i].value,
+		/* Getting blink and status32 registers */
+		retval = rtos_generic_stack_read(rtos->target, stacking,
+				real_stack_addr + num_callee_saved_regs * 4,
+				reg_list, num_regs);
+		if (retval >= 0)
+			for (int i = 0; i < num_callee_saved_regs; i++)
+				buf_cpy(callee_saved_reg_list[i].value,
 					(*reg_list)[callee_saved_reg_list[i].number].value,
 					callee_saved_reg_list[i].size);
 
+		/* The blink, sp, pc offsets in arc_cpu_saved structure may be changed,
+		 * but the registers number shall not. So the next code searches the
+		 * offsetst of these registers in arc_cpu_saved structure. */
+		unsigned short blink_offset = 0, pc_offset = 0, sp_offset = 0;
+
+		for (uint32_t i = 0; i < sizeof(arc_cpu_saved) / 6; i++) {
+			if( arc_cpu_saved[i].number == 31 ) /* blink regnum is 31 */
+				blink_offset = i;
+                        if( arc_cpu_saved[i].number == 28 ) /* sp regnum is 28 */
+                                sp_offset = i;
+                        if( arc_cpu_saved[i].number == 64 ) /* pc regnum us 64 */
+                                pc_offset = i;
+		}
+
+		if (blink_offset == 0 || sp_offset == 0 || pc_offset == 0) {
+			LOG_DEBUG("Basic registers offsets are missing, check <arc_cpu_saved> struct");
+			return ERROR_FAIL;
+		}
+
+		/* Put blink value into PC */
+		buf_cpy((*reg_list)[blink_offset].value, (*reg_list)[pc_offset].value, sizeof(uint32_t) * 8);
+
+		/* Put address after callee/caller in SP.
+		 * Here stack_p is similar to callee_saved_reg_list[i].value.
+		 * Each callee_saved_reg_list[i].value is 8-size array of uint8_t, see rtos.h */
+		uint8_t stack_p[8];
+		int64_t stack_top;
+
+		stack_top = real_stack_addr + num_callee_saved_regs * 4 + arc_cpu_saved_stacking.stack_registers_size;
+		memcpy(stack_p, &(stack_top), 8);
+		buf_cpy(stack_p, (*reg_list)[sp_offset].value, sizeof(uint32_t) * 8);
+	}
+	/* ARM Cortex-M-specific implementation */
+	else if (!strcmp(params->target_name, "cortex_m")) {
+		retval = rtos_generic_stack_read(rtos->target,
+				params->callee_saved_stacking,
+				addr, &callee_saved_reg_list,
+				&num_callee_saved_regs);
+		if (retval < 0)
+			return retval;
+
+		addr = target_buffer_get_u32(rtos->target,
+						callee_saved_reg_list[0].value);
+
+		if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
+			stacking = params->cpu_saved_fp_stacking;
+		else
+			stacking = params->cpu_saved_nofp_stacking;
+
+		retval = rtos_generic_stack_read(rtos->target, stacking, addr, reg_list,
+										num_regs);
+		if (retval >= 0)
+			for (int i = 1; i < num_callee_saved_regs; i++)
+				buf_cpy(callee_saved_reg_list[i].value,
+					(*reg_list)[callee_saved_reg_list[i].number].value,
+					callee_saved_reg_list[i].size);
+	}
+	/* Unsupported target target */
+	else {
+		LOG_DEBUG("Error: Unsupported target: should be coretx_m or arcv2.");
+		return ERROR_FAIL;
+	}
 	free(callee_saved_reg_list);
 
 	return retval;
@@ -558,6 +715,26 @@ static int Zephyr_create(struct target *target)
 	}
 
 	LOG_INFO("Zephyr: looking for target: %s", name);
+
+	/* ARC specific, check if EM target has security subsystem
+	 * In case of ARC_HAS_SECURE zephyr option enabled
+	 * the thread stack contains blink,sec_stat,status32 register
+	 * values. If ARC_HAS_SECURE is disabled, only blink and status32
+	 * register values are saved on stack. */
+	if (!strcmp(name, "arcv2")){
+		uint32_t value;
+		struct arc_common *arc = target_to_arc(target);
+		/* Reading SEC_BUILD bcr */
+		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc->jtag_info, ARC_AUX_SEC_BUILD_REG, &value));
+		if (value != 0){
+			LOG_DEBUG("ARC EM board has security subsystem, changing offsets");
+			arc_cpu_saved[ARC_REG_NUM-1].offset = 8;
+			/* After reading callee registers in stack
+			 * now blink,sec_stat,status32 registers
+			 * are located. */
+			arc_cpu_saved_stacking.stack_registers_size = 12;
+		}
+	}
 
 	if (!strcmp(name, "arm"))
 		name = "cortex_m";
