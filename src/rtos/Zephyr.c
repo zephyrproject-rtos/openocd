@@ -82,11 +82,36 @@ static const struct stack_register_offset arm_callee_saved[] = {
 	{ 11, 28, 32 },
 };
 
+static const struct stack_register_offset arc_callee_saved[] = {
+	{ 13,  0,  32 },   //r13
+	{ 14,  4,  32 },   //r14
+	{ 15,  8,  32 },   //r15
+	{ 16,  12,  32 },  //r16
+	{ 17,  16,  32 },  //r17
+	{ 18,  20,  32 },  //r18
+	{ 19,  24,  32 },  //r19
+	{ 20,  28,  32 },  //r20
+	{ 21,  32,  32 },  //r21
+	{ 22,  36,  32 },  //r22
+	{ 23,  40,  32 },  //r23
+	{ 24,  44,  32 },  //r24
+	{ 25,  48,  32 },  //r25
+	{ 26,  52,  32 },  //GP
+	{ 27,  56,  32 },  //FP
+	{ 30,  60,  32 }   //r30
+};
 static const struct rtos_register_stacking arm_callee_saved_stacking = {
 	.stack_registers_size = 36,
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(arm_callee_saved),
 	.register_offsets = arm_callee_saved,
+};
+
+static const struct rtos_register_stacking arc_callee_saved_stacking = {
+        .stack_registers_size = sizeof(arc_callee_saved),
+        .stack_growth_direction = -1,
+        .num_output_registers = ARRAY_SIZE(arc_callee_saved),
+        .register_offsets = arc_callee_saved,
 };
 
 static const struct stack_register_offset arm_cpu_saved[] = {
@@ -107,6 +132,47 @@ static const struct stack_register_offset arm_cpu_saved[] = {
 	{ ARMV7M_R14,  20, 32 },
 	{ ARMV7M_PC,   24, 32 },
 	{ ARMV7M_xPSR, 28, 32 },
+};
+
+static struct stack_register_offset arc_cpu_saved[] = {
+	{ 0,   -1,  32 }, //r0
+	{ 1,   -1,  32 }, //r1
+	{ 2,   -1,  32 }, //r2
+	{ 3,   -1,  32 }, //r3
+	{ 4,   -1,  32 }, //r4
+	{ 5,   -1,  32 }, //r5
+	{ 6,   -1,  32 }, //r6
+	{ 7,   -1,  32 }, //r7
+	{ 8,   -1,  32 }, //r8
+	{ 9,   -1,  32 }, //r9
+	{ 10,   -1,  32 }, //r10
+	{ 11,   -1,  32 }, //r11
+	{ 12,   -1,  32 }, //r12
+	{ 13,   -1,  32 }, //r13
+	{ 14,   -1,  32 }, //r14
+	{ 15,   -1,  32 }, //r15
+	{ 16,   -1,  32 }, //r16
+	{ 17,   -1,  32 }, //r17
+	{ 18,   -1,  32 }, //r18
+	{ 19,   -1,  32 }, //r19
+	{ 20,   -1,  32 }, //r20
+	{ 21,   -1,  32 }, //r21
+	{ 22,   -1,  32 }, //r22
+	{ 23,   -1,  32 }, //r23
+	{ 24,   -1,  32 }, //r24
+	{ 25,   -1,  32 }, //r25
+	{ 26,   -1,  32 }, //GP
+	{ 27,   -1,  32 }, //FP
+	{ 28,   -1,  32 }, //SP
+	{ 29,   -1,  32 }, //ILINK
+	{ 30,   -1,  32 }, //r30
+	{ 31,   0,  32 }, //BLINK
+	{ 60,   -1, 32 }, //lp_count
+	{ 63,   -1, 32 }, //pcl
+	{ 64,   -1,  32 }, // pc
+	{ 65,   -1,  32 }, // lp_start
+	{ 66,   -1,  32 }, // lp_end
+	{ 67,   4,  32 } // status32
 };
 
 static int64_t Zephyr_Cortex_M_stack_align(struct target *target,
@@ -135,6 +201,16 @@ static const struct rtos_register_stacking arm_cpu_saved_fp_stacking = {
 	.register_offsets = arm_cpu_saved,
 };
 
+/* stack_registers_size is 8 because besides caller registers
+ * there are only blink and Status32 registers on stack left */
+static struct rtos_register_stacking arc_cpu_saved_stacking = {
+	.stack_registers_size = 8,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arc_cpu_saved),
+	.register_offsets = arc_cpu_saved,
+};
+
+
 static struct Zephyr_params Zephyr_params_list[] = {
 	{
 		.target_name = "cortex_m",
@@ -142,6 +218,12 @@ static struct Zephyr_params Zephyr_params_list[] = {
 		.callee_saved_stacking = &arm_callee_saved_stacking,
 		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
 		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
+	},
+		{
+		.target_name = "arcv2",
+		.pointer_width = 4,
+		.callee_saved_stacking = &arc_callee_saved_stacking,
+		.cpu_saved_nofp_stacking = &arc_cpu_saved_stacking,
 	},
 	{
 		.target_name = NULL
