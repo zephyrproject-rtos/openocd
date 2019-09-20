@@ -273,23 +273,13 @@ static int Zephyr_fetch_thread(const struct rtos *rtos,
 
 	thread->name[0] = '\0';
 	if (param->offsets[OFFSET_T_NAME] != UNIMPLEMENTED) {
-		uint32_t name_ptr;
 
-		retval = target_read_u32(rtos->target,
-								 ptr + param->offsets[OFFSET_T_NAME],
-								 &name_ptr);
+		retval = target_read_buffer(rtos->target,  ptr + param->offsets[OFFSET_T_NAME],
+							sizeof(thread->name) - 1, (uint8_t *)thread->name);
 		if (retval != ERROR_OK)
 			return retval;
 
-		if (name_ptr) {
-			retval = target_read_buffer(rtos->target, name_ptr,
-										sizeof(thread->name) - 1,
-										(uint8_t *)thread->name);
-			if (retval != ERROR_OK)
-				return retval;
-
-			thread->name[sizeof(thread->name) - 1] = '\0';
-		}
+		thread->name[sizeof(thread->name) - 1] = '\0';
 	}
 
 	LOG_DEBUG("Fetched thread%" PRIx32 ": {entry@0x%" PRIx32
