@@ -565,28 +565,93 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 
 	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
 		 - params->callee_saved_stacking->register_offsets[0].offset;
-	retval = rtos_generic_stack_read(rtos->target,
-									 params->callee_saved_stacking,
-									 addr, &callee_saved_reg_list,
-									 &num_callee_saved_regs);
-	if (retval < 0)
-		return retval;
 
-	addr = target_buffer_get_u32(rtos->target,
-								 callee_saved_reg_list[0].value);
-	if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
-		stacking = params->cpu_saved_fp_stacking;
-	else
+	/* ARCv2 specific implementation */
+	if (!strcmp(params->target_name, "arcv2")) {
+		int32_t real_stack_addr;
+
+		/* Getting real stack addres from Kernel thread struct */
+		retval = target_read_u32(rtos->target, addr, &real_stack_addr);
+		if (retval < 0)
+			return retval;
+
+		/* Getting callee registers */
+		retval = rtos_generic_stack_read(rtos->target,
+				params->callee_saved_stacking,
+				real_stack_addr, &callee_saved_reg_list,
+				&num_callee_saved_regs);
+		if (retval < 0)
+			return retval;
+
 		stacking = params->cpu_saved_nofp_stacking;
-	retval = rtos_generic_stack_read(rtos->target, stacking, addr, reg_list,
-									 num_regs);
 
-	if (retval >= 0)
-		for (int i = 1; i < num_callee_saved_regs; i++)
-			buf_cpy(callee_saved_reg_list[i].value,
+		/* Getting blink and status32 registers */
+		retval = rtos_generic_stack_read(rtos->target, stacking,
+				real_stack_addr + num_callee_saved_regs * 4,
+				reg_list, num_regs);
+		if (retval >= 0)
+			for (int i = 0; i < num_callee_saved_regs; i++)
+				buf_cpy(callee_saved_reg_list[i].value,
 					(*reg_list)[callee_saved_reg_list[i].number].value,
 					callee_saved_reg_list[i].size);
 
+		/* The blink, sp, pc offsets in arc_cpu_saved structure may be changed,
+		 * but the registers number shall not. So the next code searches the
+		 * offsetst of these registers in arc_cpu_saved structure. */
+		unsigned short blink_offset, pc_offset, sp_offset;
+
+		for (int i = 0; i < sizeof(arc_cpu_saved) / 6; i++) {
+			if( arc_cpu_saved[i].number == 31 )
+				blink_offset = i;
+                        if( arc_cpu_saved[i].number == 28 )
+                                sp_offset = i;
+                        if( arc_cpu_saved[i].number == 64 )
+                                pc_offset = i;
+		}
+
+		/* Put blink value into PC */
+		buf_cpy((*reg_list)[blink_offset].value, (*reg_list)[pc_offset].value, sizeof(uint32_t) * 8);
+
+		/* Put address after callee/caller in SP.
+		 * Here stack_p is similar to callee_saved_reg_list[i].value.
+		 * Each callee_saved_reg_list[i].value is 8-size array of uint8_t, see rtos.h */
+		uint8_t stack_p[8];
+		int64_t stack_top;
+
+		stack_top = real_stack_addr + num_callee_saved_regs * 4 + arc_cpu_saved_stacking.stack_registers_size;
+		memcpy(stack_p, &(stack_top), 8);
+		buf_cpy(stack_p, (*reg_list)[sp_offset].value, sizeof(uint32_t) * 8);
+	}
+	/* ARM Cortex-M-specific implementation */
+	else if (!strcmp(params->target_name, "cortex_m")) {
+		retval = rtos_generic_stack_read(rtos->target,
+				params->callee_saved_stacking,
+				addr, &callee_saved_reg_list,
+				&num_callee_saved_regs);
+		if (retval < 0)
+			return retval;
+
+		addr = target_buffer_get_u32(rtos->target,
+						callee_saved_reg_list[0].value);
+
+		if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
+			stacking = params->cpu_saved_fp_stacking;
+		else
+			stacking = params->cpu_saved_nofp_stacking;
+
+		retval = rtos_generic_stack_read(rtos->target, stacking, addr, reg_list,
+										num_regs);
+		if (retval >= 0)
+			for (int i = 1; i < num_callee_saved_regs; i++)
+				buf_cpy(callee_saved_reg_list[i].value,
+					(*reg_list)[callee_saved_reg_list[i].number].value,
+					callee_saved_reg_list[i].size);
+	}
+	/* Unsupported target target */
+	else {
+		LOG_DEBUG("Error: Unsupported target: should be coretx_m or arcv2.");
+		return ERROR_FAIL;
+	}
 	free(callee_saved_reg_list);
 
 	return retval;
