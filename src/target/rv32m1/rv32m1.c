@@ -1267,7 +1267,7 @@ COMMAND_HANDLER(rv32m1_tap_list_command_handler)
 
 	list_for_each_entry(rv32m1_tap, &rv32m1_tap_list, list) {
 		if (rv32m1_tap->name)
-			command_print(CMD_CTX, "%s", rv32m1_tap->name);
+			command_print(CMD, "%s", rv32m1_tap->name);
 	}
 
 	return ERROR_OK;
@@ -1315,7 +1315,7 @@ COMMAND_HANDLER(rv32m1_du_list_command_handler)
 
 	list_for_each_entry(rv32m1_du, &rv32m1_du_list, list) {
 		if (rv32m1_du->name)
-			command_print(CMD_CTX, "%s", rv32m1_du->name);
+			command_print(CMD, "%s", rv32m1_du->name);
 	}
 
 	return ERROR_OK;
