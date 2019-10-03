@@ -121,7 +121,7 @@ FLASH_BANK_COMMAND_HANDLER(rv32m1_flash_bank_command)
      */
     if ((0 != bank->base) && (0x01000000 != bank->base))
     {
-        LOG_WARNING("Invalid flash base %d, use 0 instead", bank->base);
+        LOG_WARNING("Invalid flash base " TARGET_ADDR_FMT ", use 0 instead", bank->base);
     }
 
 	bank_info = malloc(sizeof(struct rv32m1_flash_bank));
@@ -452,13 +452,13 @@ static int rv32m1_write_sections(struct flash_bank *bank, const uint8_t *buffer,
 			result = target_write_memory(bank->target, FLEXRAM,
 						4, size_aligned / 4, buffer_aligned);
 
-			LOG_DEBUG("section @ %08" PRIx32 " aligned begin %" PRIu32 ", end %" PRIu32,
+			LOG_DEBUG("section @ " TARGET_ADDR_FMT " aligned begin %" PRIu32 ", end %" PRIu32,
 					bank->base + offset, align_begin, align_end);
 		} else
 			result = target_write_memory(bank->target, FLEXRAM,
 						4, size_aligned / 4, buffer);
 
-		LOG_DEBUG("write section @ %08" PRIx32 " with length %" PRIu32 " bytes",
+		LOG_DEBUG("write section @ " TARGET_ADDR_FMT " with length %" PRIu32 " bytes",
 			  bank->base + offset, size);
 
 		if (result != ERROR_OK) {
@@ -473,12 +473,12 @@ static int rv32m1_write_sections(struct flash_bank *bank, const uint8_t *buffer,
 				0, 0, 0, 0,  &ftfx_fstat);
 
 		if (result != ERROR_OK) {
-			LOG_ERROR("Error writing section at %08" PRIx32, bank->base + offset);
+			LOG_ERROR("Error writing section at " TARGET_ADDR_FMT, bank->base + offset);
 			break;
 		}
 
 		if (ftfx_fstat & 0x01)
-			LOG_ERROR("Flash write error at %08" PRIx32, bank->base + offset);
+			LOG_ERROR("Flash write error at " TARGET_ADDR_FMT, bank->base + offset);
 
 		buffer += size;
 		offset += size;
@@ -501,7 +501,7 @@ static int rv32m1_write_inner(struct flash_bank *bank, const uint8_t *buffer,
         return result;
     }
 
-	LOG_DEBUG("flash write @08%" PRIx32, bank->base + offset);
+	LOG_DEBUG("flash write @" TARGET_ADDR_FMT, bank->base + offset);
 
     result = rv32m1_write_sections(bank, buffer, offset, count);
 
@@ -610,7 +610,7 @@ static int rv32m1_info(struct flash_bank *bank, char *buf, int buf_size)
 	struct rv32m1_flash_bank *kinfo = bank->driver_priv;
 
 	(void) snprintf(buf, buf_size,
-			"%s driver for %s flash bank %s at 0x%8.8" PRIx32 "",
+			"%s driver for %s flash bank %s at " TARGET_ADDR_FMT "",
 			bank->driver->name, bank_class_names[kinfo->flash_class],
 			bank->name, bank->base);
 
