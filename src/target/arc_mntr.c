@@ -599,7 +599,7 @@ COMMAND_HANDLER(arc_set_reg_exists)
 	struct target * const target = get_current_target(CMD_CTX);
 
 	if (CMD_ARGC == 0) {
-		command_print(CMD_CTX, "At least one register name must be specified.");
+		command_print(CMD, "At least one register name must be specified.");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -608,7 +608,7 @@ COMMAND_HANDLER(arc_set_reg_exists)
 		struct reg * const r = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 		if (!r) {
-			command_print(CMD_CTX, "Register `%s' is not found.", reg_name);
+			command_print(CMD, "Register `%s' is not found.", reg_name);
 			return ERROR_COMMAND_ARGUMENT_INVALID;
 		}
 
@@ -633,7 +633,7 @@ COMMAND_HANDLER(arc_set_reg_feature)
 	struct target * const target = get_current_target(CMD_CTX);
 
 	if (CMD_ARGC != 2) {
-		command_print(CMD_CTX, "arc set-reg-feature $reg_name $feature");
+		command_print(CMD, "arc set-reg-feature $reg_name $feature");
 		return ERROR_COMMAND_SYNTAX_ERROR;
 	}
 
@@ -641,7 +641,7 @@ COMMAND_HANDLER(arc_set_reg_feature)
 	struct reg * const r = arc32_register_get_by_name(target->reg_cache, reg_name, true);
 
 	if (!r) {
-		command_print(CMD_CTX, "Register `%s' is not found.", reg_name);
+		command_print(CMD, "Register `%s' is not found.", reg_name);
 		return ERROR_COMMAND_ARGUMENT_INVALID;
 	}
 
@@ -931,7 +931,7 @@ COMMAND_HANDLER(set_actionpoint_auxreg_addr)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
@@ -978,7 +978,7 @@ COMMAND_HANDLER(remove_actionpoint_auxreg_addr)
 	head = target->head;
 
 	if (target->state != TARGET_HALTED) {
-		command_print(CMD_CTX, "NOTE: target must be HALTED for \"%s\" command",
+		command_print(CMD, "NOTE: target must be HALTED for \"%s\" command",
 			CMD_NAME);
 		return ERROR_OK;
 	}
