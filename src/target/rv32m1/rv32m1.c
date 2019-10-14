@@ -173,6 +173,22 @@ static int rv32m1_save_context(struct target *target)
         target->reg_cache->reg_list[i].dirty = false;
     }
 
+	/* Read CSR */
+	for (uint32_t i=0; i<ARRAY_SIZE(rv32m1_csr_names); i++)
+	{
+		uint32_t reg_idx = rv32m1_csr_names[i].index + RV32M1_REG_CSR0;
+		retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
+						 RV32M1_DEBUG_REG_ADDR(coreIdx, CSR[rv32m1_csr_names[i].index]),
+						 1,
+						 target->reg_cache->reg_list[reg_idx].value);
+
+		if (retval != ERROR_OK)
+			return retval;
+
+		target->reg_cache->reg_list[reg_idx].valid = true;
+		target->reg_cache->reg_list[reg_idx].dirty = false;
+    }
+
 	/* Check if halt because of software break point. */
 	retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
 			RV32M1_DEBUG_REG_ADDR(coreIdx, DBG_CAUSE), 1,
@@ -307,6 +323,11 @@ static int rv32m1_set_core_reg(struct reg *reg, uint8_t *buf)
 			LOG_ERROR("Error while writing CSR 0x%08" PRIx32, reg->number);
 			return retval;
 		}
+
+		buf_set_u32(target->reg_cache->reg_list[reg->number].value, 0, 32, value);
+
+		reg->dirty = false;
+		reg->valid = true;
 	}
 
 	return ERROR_OK;
@@ -769,6 +790,19 @@ static int rv32m1_step(struct target *target, int current,
 				   SINGLE_STEP);
 }
 
+static int rv32m1_detect_instruction_length(target_addr_t addr, uint32_t code)
+{
+	/* Check whether instruction addr is 2 bytes aligned */
+	if (0x2 == (addr & 0x3))
+	{
+		return 2;
+	}
+	else
+	{
+		return rv32m1_chk_instruction_len(code);
+	}
+}
+
 static int rv32m1_add_breakpoint(struct target *target,
 			       struct breakpoint *breakpoint)
 {
@@ -851,9 +885,35 @@ static int rv32m1_add_breakpoint(struct target *target,
             }
         }
 
-        /* Read and save the instruction */
-        retval = du_core->rv32m1_jtag_read_memory(&rv32m1->jtag, breakpoint->address,
-                 breakpoint->length, 1, (uint8_t*)(&data));
+		/* Read and save the instruction */
+		retval = rv32m1_read_memory(target,
+						 breakpoint->address,
+						 breakpoint->length,
+						 1,
+						 (uint8_t*)(&data));
+
+		/* Detect Instruction length at breakpoint address again
+		   Some older version GDB dose not handle compressed instruction correct */
+		int instruction_len = rv32m1_detect_instruction_length(breakpoint->address, data);
+
+		if (instruction_len <= 0)
+		{
+			LOG_ERROR("Error while detecting instruction length at 0x%08" TARGET_PRIxADDR ", instruction 0x%08x",
+							 breakpoint->address, data);
+			retval = ERROR_FAIL;
+			return retval;
+		}
+
+		if (instruction_len != breakpoint->length)
+		{
+			LOG_WARNING("Warning at addr: 0x%08" TARGET_PRIxADDR ", instruction len reported by debugger is %d, detected is %d",
+							 breakpoint->address, breakpoint->length, instruction_len);
+		}
+
+		/* Corrected Breakpoint length */
+		breakpoint->length = instruction_len;
+		LOG_DEBUG("BRKP: addr: 0x%08" TARGET_PRIxADDR ", inst len: %d", breakpoint->address, instruction_len);
+
         if (retval != ERROR_OK) {
             LOG_ERROR("Error while reading the instruction at 0x%08" TARGET_PRIxADDR,
                    breakpoint->address);
@@ -938,11 +998,11 @@ static int rv32m1_remove_breakpoint(struct target *target,
     }
 
 	/* Replace the removed instruction */
-	retval = du_core->rv32m1_jtag_write_memory(&rv32m1->jtag,
-					  breakpoint->address,
-					  breakpoint->length,
-					  1,
-					  breakpoint->orig_instr);
+	retval = rv32m1_write_memory(target,
+                             breakpoint->address,
+                             breakpoint->length,
+                             1,
+                             breakpoint->orig_instr);
 
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Error while writing back the instruction at 0x%08" TARGET_PRIxADDR,
