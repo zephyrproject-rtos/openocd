@@ -41,6 +41,7 @@
  * Debug unit 0 for core 0, debug unit 1 for core 1.
  */
 #define CORE_NUM 2
+
 #define DEBUG_UNIT0_BASE        (0xF9000000)
 #define DEBUG_UNIT1_BASE        (0xF9008000)
 #define EVENT_UNIT0_BASE        (0xE0041000)
@@ -109,6 +110,21 @@ static inline struct rv32m1_info *
 target_to_rv32m1(struct target *target)
 {
     return (struct rv32m1_info *)target->arch_info;
+}
+
+static inline uint32_t rv32m1_chk_instruction_len(uint32_t instruction)
+{
+	/* RV32M1 instruction len is 2 or 4 bytes */
+	if ((instruction & 0x3) != 0x3)
+	{
+		return 2;
+	}
+	else if ((instruction & 0x1f) != 0x1f)
+	{
+		return 4;
+	}
+
+	return 0;
 }
 
 #define NO_SINGLE_STEP     0
