@@ -573,7 +573,7 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 
 	/* ARCv2 specific implementation */
 	if (!strcmp(params->target_name, "arcv2")) {
-		int32_t real_stack_addr;
+		uint32_t real_stack_addr;
 
 		/* Getting real stack addres from Kernel thread struct */
 		retval = target_read_u32(rtos->target, addr, &real_stack_addr);
@@ -603,15 +603,20 @@ static int Zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 		/* The blink, sp, pc offsets in arc_cpu_saved structure may be changed,
 		 * but the registers number shall not. So the next code searches the
 		 * offsetst of these registers in arc_cpu_saved structure. */
-		unsigned short blink_offset, pc_offset, sp_offset;
+		unsigned short blink_offset = 0, pc_offset = 0, sp_offset = 0;
 
-		for (int i = 0; i < sizeof(arc_cpu_saved) / 6; i++) {
-			if( arc_cpu_saved[i].number == 31 )
+		for (uint32_t i = 0; i < sizeof(arc_cpu_saved) / 6; i++) {
+			if( arc_cpu_saved[i].number == 31 ) /* blink regnum is 31 */
 				blink_offset = i;
-                        if( arc_cpu_saved[i].number == 28 )
+                        if( arc_cpu_saved[i].number == 28 ) /* sp regnum is 28 */
                                 sp_offset = i;
-                        if( arc_cpu_saved[i].number == 64 )
+                        if( arc_cpu_saved[i].number == 64 ) /* pc regnum us 64 */
                                 pc_offset = i;
+		}
+
+		if (blink_offset == 0 || sp_offset == 0 || pc_offset == 0) {
+			LOG_DEBUG("Basic registers offsets are missing, check <arc_cpu_saved> struct");
+			return ERROR_FAIL;
 		}
 
 		/* Put blink value into PC */
