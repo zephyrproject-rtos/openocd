@@ -51,6 +51,14 @@ COMMAND_HANDLER(arc_handle_has_dcache)
 		&arc32->has_dcache, "target has data-cache");
 }
 
+COMMAND_HANDLER(arc_handle_has_l2cache)
+{
+	struct arc32_common *arc32 = target_to_arc32(
+		get_current_target(CMD_CTX));
+	return CALL_COMMAND_HANDLER(handle_command_parse_bool,
+		&arc32->has_l2cache, "target has l2 cache");
+}
+
 /* Add flags register data type */
 enum add_reg_type_flags {
 	CFG_ADD_REG_TYPE_FLAGS_NAME,
@@ -1097,6 +1105,13 @@ static const struct command_registration arc_core_command_handlers[] = {
 		.mode = COMMAND_ANY,
 		.usage = "True or false",
 		.help = "Does target has D$? If yes it will be flushed before memory reads.",
+	},
+	{
+		.name = "has-l2cache",
+		.handler = arc_handle_has_l2cache,
+		.mode = COMMAND_ANY,
+		.usage = "True or false",
+		.help = "Does target have L2$? If yes it will be flushed before memory reading."
 	},
 	{
 		.name = "add-reg-type-flags",
