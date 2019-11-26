@@ -547,6 +547,11 @@ int arc_dbg_halt(struct target *target)
 	target->state = TARGET_HALTED;
 	target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 
+	/* We need to reset ARC cache variables so caches
+	 * would be flushed on read and actual data
+	 * would be placed in memory. */
+	arc32_reset_caches_states(target);
+
 	return ERROR_OK;
 }
 
@@ -588,6 +593,10 @@ int arc_dbg_resume(struct target *target, int current, target_addr_t address,
 		resume_pc = buf_get_u32(pc->value,
 			0, 32);
 
+	/* We need to reset ARC cache variables so caches
+	 * would be invalidated and actual data
+	 * would be fetched from memory. */
+	arc32_reset_caches_states(target);
 	arc32_restore_context(target);
 
 	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
