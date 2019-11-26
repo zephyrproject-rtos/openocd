@@ -61,6 +61,15 @@
 #define AUX_DC_CTRL_REG			0X48
 #define DC_CTRL_IM			(1 << 6)
 
+/* L2 cache registers */
+#define SLC_AUX_CACHE_CTRL 		0x903
+#define L2_CTRL_IM			(1 << 6)
+#define L2_CTRL_BS			(1 << 8)
+#define SLC_AUX_CACHE_FLUSH 		0x904
+#define L2_FLUSH_FL     		(1)
+#define SLC_AUX_CACHE_INV 		0x905
+#define L2_INV_IV       		(1)
+
 #define AUX_IENABLE_REG			0x40C
 #define SET_CORE_DISABLE_INTERRUPTS		0x00000000
 #define SET_CORE_ENABLE_INTERRUPTS		0xFFFFFFFF
