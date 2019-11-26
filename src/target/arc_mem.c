@@ -55,9 +55,9 @@ static int arc_mem_read_block(struct target *target, target_addr_t addr,
 	assert(!(addr & 3));
 	assert(size == 4);
 
-	/* Always call D$ flush, it will decide whether to perform actual
+	/* Always call D$/L2 flush, it will decide whether to perform actual
 	 * flush. */
-	CHECK_RETVAL(arc32_dcache_flush(target));
+	CHECK_RETVAL(arc32_cache_flush(target));
 	CHECK_RETVAL(arc_jtag_read_memory(&arc32->jtag_info, addr, count, buf,
 		    arc_mem_is_slow_memory(arc32, addr, size, count)));
 
@@ -98,8 +98,8 @@ static int arc_mem_write_block16(struct target *target, uint32_t addr,
 	/* Check arguments */
 	assert(!(addr & 1));
 
-	/* We will read data from memory, so we need to flush D$. */
-	CHECK_RETVAL(arc32_dcache_flush(target));
+	/* We will read data from memory, so we need to flush the cache. */
+	CHECK_RETVAL(arc32_cache_flush(target));
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
@@ -149,8 +149,8 @@ static int arc_mem_write_block8(struct target *target, uint32_t addr,
 	LOG_DEBUG("Write 1-byte memory block: addr=0x%08" PRIx32 ", count=%" PRIu32,
 			addr, count);
 
-	/* We will read data from memory, so we need to flush D$. */
-	CHECK_RETVAL(arc32_dcache_flush(target));
+	/* We will read data from memory, so we need to flush the cache. */
+	CHECK_RETVAL(arc32_cache_flush(target));
 
 	uint32_t buffer_he;
 	uint8_t buffer_te[sizeof(uint32_t)];
