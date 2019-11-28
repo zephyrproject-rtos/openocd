@@ -112,9 +112,9 @@ target_to_rv32m1(struct target *target)
     return (struct rv32m1_info *)target->arch_info;
 }
 
+/* RV32M1 instruction len is 2 or 4 bytes */
 static inline uint32_t rv32m1_chk_instruction_len(uint32_t instruction)
 {
-	/* RV32M1 instruction len is 2 or 4 bytes */
 	if ((instruction & 0x3) != 0x3)
 	{
 		return 2;
