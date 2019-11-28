@@ -790,19 +790,6 @@ static int rv32m1_step(struct target *target, int current,
 				   SINGLE_STEP);
 }
 
-static int rv32m1_detect_instruction_length(target_addr_t addr, uint32_t code)
-{
-	/* Check whether instruction addr is 2 bytes aligned */
-	if (0x2 == (addr & 0x3))
-	{
-		return 2;
-	}
-	else
-	{
-		return rv32m1_chk_instruction_len(code);
-	}
-}
-
 static int rv32m1_add_breakpoint(struct target *target,
 			       struct breakpoint *breakpoint)
 {
@@ -894,7 +881,7 @@ static int rv32m1_add_breakpoint(struct target *target,
 
 		/* Detect Instruction length at breakpoint address again
 		   Some older version GDB dose not handle compressed instruction correct */
-		int instruction_len = rv32m1_detect_instruction_length(breakpoint->address, data);
+		int instruction_len = rv32m1_chk_instruction_len(data);
 
 		if (instruction_len <= 0)
 		{
