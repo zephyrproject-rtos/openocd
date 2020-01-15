@@ -1,0 +1,19 @@
+name: Build Test
+
+on: [push,pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: install pkg
+      run: sudo apt-get install -y libusb-1.0 libhidapi-dev libhidapi-libusb0 libftdi-dev
+    - name: bootstrap
+      run: ./bootstrap
+    - name: configure
+      run: ./configure --enable-ftdi --enable-cmsis-dap --enable-jlink --enable-stlink --disable-doxygen-html
+    - name: make
+      run: make -j4
