@@ -389,7 +389,7 @@ int arc32_start_core(struct target *target)
 	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
 	value &= ~SET_CORE_HALT_BIT;        /* clear the HALT bit */
 	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, value));
-	LOG_DEBUG("Core started to run");
+	LOG_DEBUG("Core %s started to run", target_name(target));
 
 #ifdef DEBUG
 	CHECK_RETVAL(arc32_print_core_state(target));

@@ -32,6 +32,7 @@
 #include "target.h"
 #include "target_request.h"
 #include "target_type.h"
+#include "smp.h"
 
 #include "arc_dbg.h"
 #include "arc_jtag.h"

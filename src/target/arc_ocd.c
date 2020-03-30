@@ -44,6 +44,33 @@ static int arc_ocd_init_arch_info(struct target *target,
 	return ERROR_OK;
 }
 
+static int arc_ocd_poll_smp(struct target *target)
+{
+
+	struct target_list *head;
+	struct target *curr;
+	int retval = 0;
+
+	foreach_smp_target(head, target->head) {
+		curr = head->target;
+
+		/* skip calling context */
+		if (curr == target)
+			continue;
+		if (!target_was_examined(curr))
+			continue;
+		/* skip targets that were already halted */
+		if (curr->state == TARGET_HALTED)
+			continue;
+		/* avoid recursion in arc_ocd_poll() */
+		curr->smp = 0;
+		arc_ocd_poll(curr);
+		curr->smp = 1;
+	}
+
+	return retval;
+}
+
 /* ----- Exported functions ------------------------------------------------ */
 
 int arc_ocd_poll(struct target *target)
@@ -53,7 +80,6 @@ int arc_ocd_poll(struct target *target)
 
 	/* gdb calls continuously through this arc_poll() function  */
 	CHECK_RETVAL(arc_jtag_status(&arc32->jtag_info, &status));
-
 	/* check for processor halted */
 	if (status & ARC_JTAG_STAT_RU) {
 		if (target->state != TARGET_RUNNING){
@@ -68,6 +94,13 @@ int arc_ocd_poll(struct target *target)
 			LOG_DEBUG("ARC core is halted or in reset.");
 
 			CHECK_RETVAL(arc_dbg_debug_entry(target));
+			int retval = 0;
+
+			if (target->smp) {
+				retval = arc_ocd_poll_smp(target);
+				if (retval != ERROR_OK)
+					return retval;
+			}
 
 			target_call_event_callbacks(target, TARGET_EVENT_HALTED);
 		} else if (target->state == TARGET_DEBUG_RUNNING) {
