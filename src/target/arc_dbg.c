@@ -555,13 +555,72 @@ int arc_dbg_halt(struct target *target)
 	return ERROR_OK;
 }
 
+static int arc_dbg_set_pc(struct target *target, int current, target_addr_t address)
+{
+
+	int retval = ERROR_OK;
+	uint32_t resume_pc = 0;
+	struct arc32_common *arc32 = target_to_arc32(target);
+	struct reg *pc = &arc32->core_cache->reg_list[arc32->pc_index_in_cache];
+
+
+	/* current = 1: continue on current PC, otherwise continue at <address> */
+	if (!current) {
+		buf_set_u32(pc->value, 0, 32, address);
+		pc->dirty = 1;
+		pc->valid = 1;
+		LOG_DEBUG("Changing the value of current PC to 0x%08" TARGET_PRIxADDR, address);
+	}
+
+	if (!current)
+		resume_pc = address;
+	else
+		resume_pc = buf_get_u32(pc->value, 0, 32);
+
+
+	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
+								resume_pc, pc->dirty, pc->valid);
+
+	/* check if GDB tells to set our PC where to continue from */
+	if ((pc->valid == 1) && (resume_pc == buf_get_u32(pc->value, 0, 32))) {
+		uint32_t value;
+		value = buf_get_u32(pc->value, 0, 32);
+		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
+		retval = arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
+	}
+
+	return retval;
+}
+
+static int arc_dbg_restore_smp(struct target *target, int current, target_addr_t address, int debug_execution)
+{
+	int retval = 0;
+	struct target_list *head;
+	struct target *curr;
+	head = target->head;
+	LOG_DEBUG("Restoring smp");
+	while (head != (struct target_list *)NULL) {
+		curr = head->target;
+		if ((curr != target) && (curr->state != TARGET_RUNNING)
+			&& target_was_examined(curr)) {
+
+			retval += arc32_restore_context(curr);
+			retval = arc_dbg_set_pc(curr, current, address);
+			arc32_enable_interrupts(curr, !debug_execution);
+			retval += arc32_start_core(curr);
+		}
+		head = head->next;
+	}
+	return retval;
+}
+
+
 int arc_dbg_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution)
 {
 	struct arc32_common *arc32 = target_to_arc32(target);
 	struct breakpoint *breakpoint = NULL;
 	uint32_t resume_pc = 0;
-	struct reg *pc = &arc32->core_cache->reg_list[arc32->pc_index_in_cache];
 
 	LOG_DEBUG("current:%i, address:0x%08" TARGET_PRIxADDR ", handle_breakpoints:%i, debug_execution:%i",
 		current, address, handle_breakpoints, debug_execution);
@@ -579,36 +638,20 @@ int arc_dbg_resume(struct target *target, int current, target_addr_t address,
 		arc_dbg_enable_watchpoints(target);
 	}
 
-	/* current = 1: continue on current PC, otherwise continue at <address> */
-	if (!current) {
-		buf_set_u32(pc->value, 0, 32, address);
-		pc->dirty = 1;
-		pc->valid = 1;
-		LOG_DEBUG("Changing the value of current PC to 0x%08" TARGET_PRIxADDR, address);
-	}
-
-	if (!current)
-		resume_pc = address;
-	else
-		resume_pc = buf_get_u32(pc->value,
-			0, 32);
-
 	/* We need to reset ARC cache variables so caches
 	 * would be invalidated and actual data
 	 * would be fetched from memory. */
 	arc32_reset_caches_states(target);
-	arc32_restore_context(target);
 
-	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
-		resume_pc, pc->dirty, pc->valid);
-
-	/* check if GDB tells to set our PC where to continue from */
-	if ((pc->valid == 1) && (resume_pc == buf_get_u32(pc->value, 0, 32))) {
-		uint32_t value;
-		value = buf_get_u32(pc->value, 0, 32);
-		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
-		arc_jtag_write_aux_reg_one(&arc32->jtag_info, AUX_PC_REG, value);
+	int retval;
+	if (target->smp) {
+		target->gdb_service->core[0] = -1;
+		retval = arc_dbg_restore_smp(target, current, address, debug_execution);
+		if (retval != ERROR_OK)
+			return retval;
 	}
+	arc32_restore_context(target);
+	arc_dbg_set_pc(target, current, address);
 
 	/* the front-end may request us not to handle breakpoints */
 	if (handle_breakpoints) {
