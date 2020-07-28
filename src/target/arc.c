@@ -57,6 +57,8 @@ static int arc_unset_breakpoint(struct target *target,
 static int arc_set_breakpoint(struct target *target,
 		struct breakpoint *breakpoint);
 int arc_config_step(struct target *target, int enable_step);
+static int arc_halt(struct target *target);
+static int arc_poll(struct target *target);
 
 
 void arc_reg_data_type_add(struct target *target,
@@ -756,12 +758,53 @@ static int arc_examine(struct target *target)
 	return ERROR_OK;
 }
 
+int arc_start_core(struct target *target)
+{
+	uint32_t value;
+
+	struct arc_common *arc = target_to_arc(target);
+
+	target->state = TARGET_RUNNING;
+
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc->jtag_info, AUX_STATUS32_REG, &value));
+	value &= ~SET_CORE_HALT_BIT;        /* clear the HALT bit */
+	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc->jtag_info, AUX_STATUS32_REG, value));
+	LOG_DEBUG("Core %s started to run", target_name(target));
+
+	return ERROR_OK;
+}
+
+static int arc_halt_smp(struct target *target)
+{
+	int retval = 0;
+	struct target_list *head;
+	struct target *curr;
+
+	foreach_smp_target(head, target->smp_targets) {
+		curr = head->target;
+		if ((curr != target) && (curr->state != TARGET_HALTED)
+				&& target_was_examined(curr)) {
+
+			/*avoid recursion in arc_dbg_halt */
+			curr->smp = 0;
+			retval += arc_halt(curr);
+			curr->smp = 1;
+		}
+	}
+	return retval;
+}
+
 static int arc_halt(struct target *target)
 {
 	uint32_t value, irq_state;
 	struct arc_common *arc = target_to_arc(target);
 
 	LOG_DEBUG("target->state: %s", target_state_name(target));
+
+	if (target->smp) {
+		LOG_DEBUG("halting smp");
+		CHECK_RETVAL(arc_halt_smp(target));
+	}
 
 	if (target->state == TARGET_HALTED) {
 		LOG_DEBUG("target was already halted");
@@ -1017,9 +1060,37 @@ static int arc_debug_entry(struct target *target)
 	return ERROR_OK;
 }
 
+static int arc_ocd_poll_smp(struct target *target)
+{
+
+	struct target_list *head;
+	struct target *curr;
+	int retval = 0;
+
+	foreach_smp_target(head, target->smp_targets) {
+		curr = head->target;
+
+		/* skip calling context */
+		if (curr == target)
+			continue;
+		if (!target_was_examined(curr))
+			continue;
+		/* skip targets that were already halted */
+		if (curr->state == TARGET_HALTED)
+			continue;
+		/* avoid recursion in arc_ocd_poll() */
+		curr->smp = 0;
+		arc_poll(curr);
+		curr->smp = 1;
+	}
+
+	return retval;
+}
+
 static int arc_poll(struct target *target)
 {
 	uint32_t status, value;
+	int retval;
 	struct arc_common *arc = target_to_arc(target);
 
 	/* gdb calls continuously through this arc_poll() function  */
@@ -1044,6 +1115,13 @@ static int arc_poll(struct target *target)
 			if (target->state == TARGET_RUNNING)
 				CHECK_RETVAL(arc_debug_entry(target));
 			target->state = TARGET_HALTED;
+
+			if (target->smp) {
+				retval = arc_ocd_poll_smp(target);
+				if (retval != ERROR_OK)
+					return retval;
+			}
+
 			CHECK_RETVAL(target_call_event_callbacks(target, TARGET_EVENT_HALTED));
 		} else {
 		LOG_DEBUG("Discrepancy of STATUS32[0] HALT bit and ARC_JTAG_STAT_RU, "
@@ -1292,6 +1370,63 @@ static int arc_single_step_core(struct target *target)
 	return ERROR_OK;
 }
 
+static int arc_set_pc(struct target *target, int current, target_addr_t address)
+{
+
+	int retval = ERROR_OK;
+	uint32_t resume_pc = 0;
+	struct arc_common *arc = target_to_arc(target);
+	struct reg *pc = &arc->core_and_aux_cache->reg_list[arc->pc_index_in_cache];
+
+
+	/* current = 1: continue on current PC, otherwise continue at <address> */
+	if (!current) {
+		buf_set_u32(pc->value, 0, 32, address);
+		pc->dirty = 1;
+		pc->valid = 1;
+		LOG_DEBUG("Changing the value of current PC to 0x%08" TARGET_PRIxADDR, address);
+	}
+
+	if (!current)
+		resume_pc = address;
+	else
+		resume_pc = buf_get_u32(pc->value, 0, 32);
+
+
+	LOG_DEBUG("Target resumes from PC=0x%" PRIx32 ", pc.dirty=%i, pc.valid=%i",
+								resume_pc, pc->dirty, pc->valid);
+
+	/* check if GDB tells to set our PC where to continue from */
+	if ((pc->valid == 1) && (resume_pc == buf_get_u32(pc->value, 0, 32))) {
+		uint32_t value;
+		value = buf_get_u32(pc->value, 0, 32);
+		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
+		retval = arc_jtag_write_aux_reg_one(&arc->jtag_info, AUX_PC_REG, value);
+	}
+
+	return retval;
+}
+
+static int arc_restore_smp(struct target *target, int current, target_addr_t address, int debug_execution)
+{
+	int retval = 0;
+	struct target_list *head;
+	struct target *curr;
+	LOG_DEBUG("Restoring smp");
+	foreach_smp_target(head, target->smp_targets) {
+		curr = head->target;
+		if ((curr != target) && (curr->state != TARGET_RUNNING)
+			&& target_was_examined(curr)) {
+
+			retval += arc_restore_context(curr);
+			retval = arc_set_pc(curr, current, address);
+			arc_enable_interrupts(curr, !debug_execution);
+			retval += arc_start_core(curr);
+		}
+	}
+	return retval;
+}
+
 static int arc_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution)
 {
@@ -1320,6 +1455,14 @@ static int arc_resume(struct target *target, int current, target_addr_t address,
 		target_free_all_working_areas(target);
 		arc_enable_breakpoints(target);
 		arc_enable_watchpoints(target);
+	}
+
+	int retval;
+	if (target->smp) {
+		target->gdb_service->core[0] = -1;
+		retval = arc_restore_smp(target, current, address, debug_execution);
+		if (retval != ERROR_OK)
+			return retval;
 	}
 
 	/* current = 1: continue on current PC, otherwise continue at <address> */
