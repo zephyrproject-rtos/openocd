@@ -50,6 +50,14 @@
 
 static int arc_remove_watchpoint(struct target *target,
 	struct watchpoint *watchpoint);
+static void arc_enable_watchpoints(struct target *target);
+static void arc_enable_breakpoints(struct target *target);
+static int arc_unset_breakpoint(struct target *target,
+		struct breakpoint *breakpoint);
+static int arc_set_breakpoint(struct target *target,
+		struct breakpoint *breakpoint);
+int arc_config_step(struct target *target, int enable_step);
+
 
 void arc_reg_data_type_add(struct target *target,
 		struct arc_reg_data_type *data_type)
@@ -1245,6 +1253,45 @@ static int arc_enable_interrupts(struct target *target, int enable)
 	return ERROR_OK;
 }
 
+int arc_enter_debug(struct target *target)
+{
+	uint32_t value;
+	struct arc_common *arc = target_to_arc(target);
+
+	target->state = TARGET_HALTED;
+
+	/* Do read-modify-write sequence, or DEBUG.UB will be reset unintentionally. */
+	/* TODO: I think this should be moved to halt(). */
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc->jtag_info, AUX_DEBUG_REG, &value));
+	value |= SET_CORE_FORCE_HALT; /* set the HALT bit */
+	CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc->jtag_info, AUX_DEBUG_REG, value));
+	alive_sleep(1);
+
+#ifdef DEBUG
+	LOG_DEBUG("core stopped (halted) DEGUB-REG: 0x%08" PRIx32, value);
+	CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc32->jtag_info, AUX_STATUS32_REG, &value));
+	LOG_DEBUG("core STATUS32: 0x%08" PRIx32, value);
+#endif
+
+	return ERROR_OK;
+}
+
+static int arc_single_step_core(struct target *target)
+{
+	arc_debug_entry(target);
+
+	/* disable interrupts while stepping */
+	arc_enable_interrupts(target, 0);
+
+	/* configure single step mode */
+	arc_config_step(target, 1);
+
+	/* exit debug mode */
+	arc_enter_debug(target);
+
+	return ERROR_OK;
+}
+
 static int arc_resume(struct target *target, int current, target_addr_t address,
 	int handle_breakpoints, int debug_execution)
 {
@@ -1252,6 +1299,7 @@ static int arc_resume(struct target *target, int current, target_addr_t address,
 	uint32_t resume_pc = 0;
 	uint32_t value;
 	struct reg *pc = &arc->core_and_aux_cache->reg_list[arc->pc_index_in_cache];
+	struct breakpoint *breakpoint = NULL;
 
 	LOG_DEBUG("current:%i, address:0x%08" TARGET_PRIxADDR ", handle_breakpoints(not supported yet):%i,"
 		" debug_execution:%i", current, address, handle_breakpoints, debug_execution);
@@ -1264,6 +1312,14 @@ static int arc_resume(struct target *target, int current, target_addr_t address,
 	if (target->state != TARGET_HALTED) {
 		LOG_WARNING("target not halted");
 		return ERROR_TARGET_NOT_HALTED;
+	}
+
+	if (!debug_execution) {
+		/* (gdb) continue = execute until we hit break/watch-point */
+		LOG_DEBUG("we are in debug execution mode");
+		target_free_all_working_areas(target);
+		arc_enable_breakpoints(target);
+		arc_enable_watchpoints(target);
 	}
 
 	/* current = 1: continue on current PC, otherwise continue at <address> */
@@ -1289,6 +1345,19 @@ static int arc_resume(struct target *target, int current, target_addr_t address,
 		value = target_buffer_get_u32(target, pc->value);
 		LOG_DEBUG("resume Core (when start-core) with PC @:0x%08" PRIx32, value);
 		CHECK_RETVAL(arc_jtag_write_aux_reg_one(&arc->jtag_info, AUX_PC_REG, value));
+	}
+
+	/* the front-end may request us not to handle breakpoints here*/
+	if (handle_breakpoints) {
+		/* Single step past breakpoint at current address */
+		breakpoint = breakpoint_find(target, resume_pc);
+		if (breakpoint) {
+			LOG_DEBUG("unset breakpoint at 0x%08" TARGET_PRIxADDR,
+				breakpoint->address);
+			arc_unset_breakpoint(target, breakpoint);
+			arc_single_step_core(target);
+			arc_set_breakpoint(target, breakpoint);
+		}
 	}
 
 	/* Restore IRQ state if not in debug_execution*/
@@ -1905,6 +1974,18 @@ static int arc_unset_watchpoint(struct target *target,
 	return retval;
 }
 
+static void arc_enable_watchpoints(struct target *target)
+{
+	struct watchpoint *watchpoint = target->watchpoints;
+
+	// set any pending watchpoints
+		while (watchpoint) {
+		if (!watchpoint->is_set)
+			arc_set_watchpoint(target, watchpoint);
+		watchpoint = watchpoint->next;
+	}
+}
+
 static int arc_add_watchpoint(struct target *target,
 	struct watchpoint *watchpoint)
 {
@@ -1961,6 +2042,18 @@ static int arc_hit_watchpoint(struct target *target, struct watchpoint **hit_wat
 	}
 
 	return ERROR_FAIL;
+}
+
+static void arc_enable_breakpoints(struct target *target)
+{
+	struct breakpoint *breakpoint = target->breakpoints;
+
+	/* set any pending breakpoints */
+	while (breakpoint) {
+		if (!breakpoint->is_set)
+			arc_set_breakpoint(target, breakpoint);
+		breakpoint = breakpoint->next;
+	}
 }
 
 /* Helper function which switches core to single_step mode by
