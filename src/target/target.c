@@ -2899,8 +2899,8 @@ COMMAND_HANDLER(handle_reg_command)
 					continue;
 				/* only print cached values if they are valid */
 				if (reg->valid) {
-					value = buf_to_str(reg->value,
-							reg->size, 16);
+					value = buf_to_hex_str(reg->value,
+							reg->size);
 					command_print(CMD,
 							"(%i) %s (/%" PRIu32 "): 0x%s%s",
 							count, reg->name,
@@ -2967,7 +2967,7 @@ COMMAND_HANDLER(handle_reg_command)
 
 		if (reg->valid == 0)
 			reg->type->get(reg);
-		value = buf_to_str(reg->value, reg->size, 16);
+		value = buf_to_hex_str(reg->value, reg->size);
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
 		return ERROR_OK;
@@ -2982,7 +2982,7 @@ COMMAND_HANDLER(handle_reg_command)
 
 		reg->type->set(reg, buf);
 
-		value = buf_to_str(reg->value, reg->size, 16);
+		value = buf_to_hex_str(reg->value, reg->size);
 		command_print(CMD, "%s (/%i): 0x%s", reg->name, (int)(reg->size), value);
 		free(value);
 
@@ -3746,8 +3746,8 @@ static int handle_bp_command_list(struct command_invocation *cmd)
 	struct breakpoint *breakpoint = target->breakpoints;
 	while (breakpoint) {
 		if (breakpoint->type == BKPT_SOFT) {
-			char *buf = buf_to_str(breakpoint->orig_instr,
-					breakpoint->length, 16);
+			char *buf = buf_to_hex_str(breakpoint->orig_instr,
+					breakpoint->length);
 			command_print(cmd, "IVA breakpoint: " TARGET_ADDR_FMT ", 0x%x, %i, 0x%s",
 					breakpoint->address,
 					breakpoint->length,
