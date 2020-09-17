@@ -49,7 +49,8 @@ TARGET_CORE_SRC = \
 	%D%/target_request.c \
 	%D%/testee.c \
 	%D%/semihosting_common.c \
-	%D%/smp.c
+	%D%/smp.c \
+	%D%/rtt.c
 
 ARMV4_5_SRC = \
 	%D%/armv4_5.c \
@@ -260,7 +261,8 @@ ARC_SRC = \
 	%D%/arc.h \
 	%D%/arc_cmd.h \
 	%D%/arc_jtag.h \
-	%D%/arc_mem.h
+	%D%/arc_mem.h \
+	%D%/rtt.h
 
 PULPINO_SRC = \
 	%D%/rv32m1/rv32m1_tap_mohor.c \
