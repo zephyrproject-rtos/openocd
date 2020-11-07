@@ -824,6 +824,12 @@ static int stm32x_probe(struct flash_bank *bank)
 			flash_size_in_kb /= 2;
 		break;
 	case 0x483:
+		/* For STM32H72x/73x
+		 *  - STM32H7xxxG devices contains single bank, 1024 Kbyte
+		 */
+		if (flash_size_in_kb == 128) {
+			has_dual_bank = false;
+		}
 		break;
 	default:
 		LOG_ERROR("unsupported device");
