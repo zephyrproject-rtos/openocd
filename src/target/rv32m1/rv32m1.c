@@ -145,6 +145,7 @@ static int rv32m1_save_context(struct target *target)
 	uint32_t next_pc;
 	struct breakpoint *breakpoint;
 	int retval;
+	uint32_t reg_value;
 
 	LOG_DEBUG("-");
 
@@ -153,10 +154,11 @@ static int rv32m1_save_context(struct target *target)
 	for (int i = RV32M1_REG_R0; i <= RV32M1_REG_R31; i++) {
         retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
                 RV32M1_DEBUG_REG_ADDR(coreIdx, GPR[i-RV32M1_REG_R0]), 1,
-                target->reg_cache->reg_list[i].value);
+                &reg_value);
         if (retval != ERROR_OK)
             return retval;
 
+        buf_set_u32(target->reg_cache->reg_list[i].value, 0, 32, reg_value);
         target->reg_cache->reg_list[i].valid = true;
         target->reg_cache->reg_list[i].dirty = false;
     }
@@ -165,10 +167,11 @@ static int rv32m1_save_context(struct target *target)
 	for (int i = RV32M1_REG_NPC; i <= RV32M1_REG_PPC; i++) {
         retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
                 RV32M1_DEBUG_REG_ADDR(coreIdx, DBG_NPC) + (i-RV32M1_REG_NPC) * 4, 1,
-                target->reg_cache->reg_list[i].value);
+                &reg_value);
         if (retval != ERROR_OK)
             return retval;
 
+        buf_set_u32(target->reg_cache->reg_list[i].value, 0, 32, reg_value);
         target->reg_cache->reg_list[i].valid = true;
         target->reg_cache->reg_list[i].dirty = false;
     }
@@ -180,11 +183,12 @@ static int rv32m1_save_context(struct target *target)
 		retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
 						 RV32M1_DEBUG_REG_ADDR(coreIdx, CSR[rv32m1_csr_names[i].index]),
 						 1,
-						 target->reg_cache->reg_list[reg_idx].value);
+						 &reg_value);
 
 		if (retval != ERROR_OK)
 			return retval;
 
+		buf_set_u32(target->reg_cache->reg_list[reg_idx].value, 0, 32, reg_value);
 		target->reg_cache->reg_list[reg_idx].valid = true;
 		target->reg_cache->reg_list[reg_idx].dirty = false;
     }
@@ -221,6 +225,7 @@ static int rv32m1_restore_context(struct target *target)
 	struct rv32m1_info *rv32m1 = target_to_rv32m1(target);
 	struct rv32m1_du *du_core = rv32m1_to_du(rv32m1);
 	int retval;
+	uint32_t reg_value;
 
 	LOG_DEBUG("-");
 
@@ -230,9 +235,10 @@ static int rv32m1_restore_context(struct target *target)
         if (target->reg_cache->reg_list[i].valid && target->reg_cache->reg_list[i].dirty)
         {
             LOG_DEBUG("%s: 0x%08x", target->reg_cache->reg_list[i].name, *(uint32_t*)(target->reg_cache->reg_list[i].value));
+	    reg_value = buf_get_u32(target->reg_cache->reg_list[i].value, 0, 32);
             retval = du_core->rv32m1_jtag_write_cpu(&rv32m1->jtag,
                     RV32M1_DEBUG_REG_ADDR(coreIdx, GPR[i-RV32M1_REG_R0]), 1,
-                    target->reg_cache->reg_list[i].value);
+                    &reg_value);
             if (retval != ERROR_OK)
                 return retval;
 
@@ -245,9 +251,10 @@ static int rv32m1_restore_context(struct target *target)
 	for (int i = RV32M1_REG_NPC; i <= RV32M1_REG_PPC; i++) {
         if (target->reg_cache->reg_list[i].valid && target->reg_cache->reg_list[i].dirty)
         {
+	    reg_value = buf_get_u32(target->reg_cache->reg_list[i].value, 0, 32);
             retval = du_core->rv32m1_jtag_write_cpu(&rv32m1->jtag,
                     RV32M1_DEBUG_REG_ADDR(coreIdx, DBG_NPC) + (i-RV32M1_REG_NPC) * 4, 1,
-                    target->reg_cache->reg_list[i].value);
+                    &reg_value);
             if (retval != ERROR_OK)
                 return retval;
 
@@ -281,13 +288,15 @@ static int rv32m1_get_core_reg(struct reg *reg)
     else
     {
         /* Read CSR HW register. */
+		uint32_t reg_value;
 		int retval = du_core->rv32m1_jtag_read_cpu(&rv32m1->jtag,
                               RV32M1_DEBUG_REG_ADDR(coreIdx, CSR[reg->number-RV32M1_REG_CSR0]),
-                              1, reg->value);
+                              1, &reg_value);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Error while reading CSR 0x%08" PRIx32, reg->number);
 			return retval;
 		}
+		buf_set_u32(reg->value, 0, 32, reg_value);
 	}
 
 	return ERROR_OK;

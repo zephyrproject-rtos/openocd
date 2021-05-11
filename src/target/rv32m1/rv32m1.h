@@ -102,7 +102,7 @@ struct rv32m1_jtag {
 
 struct rv32m1_info {
     struct rv32m1_jtag jtag;
-    uint32_t* reg_cache_mem;
+    uint8_t* reg_cache_mem;
     char * reg_name_mem;
 };
 
