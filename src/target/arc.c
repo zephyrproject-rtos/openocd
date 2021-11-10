@@ -2472,6 +2472,14 @@ int arc_cache_flush(struct target *target)
 	return ERROR_OK;
 }
 
+static int arc_checksum_memory(struct target *target,
+		target_addr_t address, uint32_t count,
+		uint32_t *checksum)
+{
+	/* Return non ERROR_OK to trigger real host-side memory read-back */
+	return ERROR_FAIL;
+}
+
 /* ARC v2 target */
 struct target_type arcv2_target = {
 	.name = "arcv2",
@@ -2498,7 +2506,7 @@ struct target_type arcv2_target = {
 
 	.read_memory = arc_mem_read,
 	.write_memory = arc_mem_write,
-	.checksum_memory = NULL,
+	.checksum_memory = arc_checksum_memory,
 	.blank_check_memory = NULL,
 
 	.add_breakpoint = arc_add_breakpoint,
