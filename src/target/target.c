@@ -2150,11 +2150,10 @@ static int target_restore_working_area(struct target *target, struct working_are
 /* Restore the area's backup memory, if any, and return the area to the allocation pool */
 static int target_free_working_area_restore(struct target *target, struct working_area *area, int restore)
 {
+	if (!area || area->free)
+		return ERROR_OK;
+
 	int retval = ERROR_OK;
-
-	if (area->free)
-		return retval;
-
 	if (restore) {
 		retval = target_restore_working_area(target, area);
 		/* REVISIT: Perhaps the area should be freed even if restoring fails. */
@@ -6403,8 +6402,7 @@ next:
 out:
 	free(test_pattern);
 
-	if (wa)
-		target_free_working_area(target, wa);
+	target_free_working_area(target, wa);
 
 	/* Test writes */
 	num_bytes = test_size + 4 + 4 + 4;
@@ -6488,8 +6486,7 @@ nextw:
 
 	free(test_pattern);
 
-	if (wa)
-		target_free_working_area(target, wa);
+	target_free_working_area(target, wa);
 	return retval;
 }
 
