@@ -779,8 +779,7 @@ static int arc_halt_smp(struct target *target)
 	int retval = 0;
 	struct target_list *head;
 	struct target *curr;
-	head = target->head;
-	while (head != (struct target_list *)NULL) {
+	foreach_smp_target(head, target->smp_targets) {
 		curr = head->target;
 		if ((curr != target) && (curr->state != TARGET_HALTED)
 				&& target_was_examined(curr)) {
@@ -790,7 +789,6 @@ static int arc_halt_smp(struct target *target)
 					retval += arc_halt(curr);
 					curr->smp = 1;
 				}
-				head = head->next;
 			}
 			return retval;
 }
@@ -1068,7 +1066,7 @@ static int arc_ocd_poll_smp(struct target *target)
 	struct target *curr;
 	int retval = 0;
 
-	foreach_smp_target(head, target->head) {
+	foreach_smp_target(head, target->smp_targets) {
 		curr = head->target;
 
 		/* skip calling context */
@@ -1413,9 +1411,8 @@ static int arc_restore_smp(struct target *target, int current, target_addr_t add
 	int retval = 0;
 	struct target_list *head;
 	struct target *curr;
-	head = target->head;
 	LOG_DEBUG("Restoring smp");
-	while (head != (struct target_list *)NULL) {
+	foreach_smp_target(head, target->smp_targets) {
 		curr = head->target;
 		if ((curr != target) && (curr->state != TARGET_RUNNING)
 			&& target_was_examined(curr)) {
@@ -1425,7 +1422,6 @@ static int arc_restore_smp(struct target *target, int current, target_addr_t add
 			arc_enable_interrupts(curr, !debug_execution);
 			retval += arc_start_core(curr);
 		}
-		head = head->next;
 	}
 	return retval;
 }
@@ -2126,7 +2122,7 @@ static void arc_enable_watchpoints(struct target *target)
 
 	// set any pending watchpoints
 		while (watchpoint) {
-		if (watchpoint->set == 0)
+		if (watchpoint->is_set == 0)
 			arc_set_watchpoint(target, watchpoint);
 		watchpoint = watchpoint->next;
 	}
@@ -2196,7 +2192,7 @@ static void arc_enable_breakpoints(struct target *target)
 
 	/* set any pending breakpoints */
 	while (breakpoint) {
-		if (breakpoint->set == 0)
+		if (breakpoint->is_set == 0)
 			arc_set_breakpoint(target, breakpoint);
 		breakpoint = breakpoint->next;
 	}

@@ -808,9 +808,9 @@ static int rv32m1_add_breakpoint(struct target *target,
 
 	LOG_DEBUG("Adding breakpoint: addr 0x%08" TARGET_PRIxADDR ", len %d, type %d, set: %d, id: %" PRId32,
 			breakpoint->address, breakpoint->length, breakpoint->type,
-			breakpoint->set, breakpoint->unique_id);
+			breakpoint->is_set, breakpoint->unique_id);
 
-	if (breakpoint->set) {
+	if (breakpoint->is_set) {
 		LOG_WARNING("breakpoint (BPID: %" PRIu32 ") already set", breakpoint->unique_id);
 		return ERROR_OK;
 	}
@@ -849,7 +849,7 @@ static int rv32m1_add_breakpoint(struct target *target,
 					return retval;
 				}
 
-				breakpoint->set = true;
+				breakpoint->is_set = true;
 
 				return ERROR_OK;
 			}
@@ -936,7 +936,7 @@ static int rv32m1_add_breakpoint(struct target *target,
 		/* TODO:
 		 * Maintain I-Cache here.
 		 */
-		breakpoint->set = true;
+		breakpoint->is_set = true;
 
 		return ERROR_OK;
 	}
@@ -952,7 +952,7 @@ static int rv32m1_remove_breakpoint(struct target *target,
 
 	LOG_DEBUG("Removing breakpoint: addr 0x%08" TARGET_PRIxADDR ", len %d, type %d, set: %d, id: %" PRId32,
 			breakpoint->address, breakpoint->length, breakpoint->type,
-			breakpoint->set, breakpoint->unique_id);
+			breakpoint->is_set, breakpoint->unique_id);
 
 	if (breakpoint->type == BKPT_HARD)
 	{
