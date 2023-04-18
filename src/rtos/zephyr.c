@@ -422,26 +422,6 @@ static int zephyr_create(struct target *target)
 
 	LOG_INFO("Zephyr: looking for target: %s", name);
 
-	/* ARC specific, check if EM target has security subsystem
-	 * In case of ARC_HAS_SECURE zephyr option enabled
-	 * the thread stack contains blink,sec_stat,status32 register
-	 * values. If ARC_HAS_SECURE is disabled, only blink and status32
-	 * register values are saved on stack. */
-	if (!strcmp(name, "arcv2")) {
-		uint32_t value;
-		struct arc_common *arc = target_to_arc(target);
-		/* Reading SEC_BUILD bcr */
-		CHECK_RETVAL(arc_jtag_read_aux_reg_one(&arc->jtag_info, ARC_AUX_SEC_BUILD_REG, &value));
-		if (value != 0) {
-			LOG_DEBUG("ARC EM board has security subsystem, changing offsets");
-			arc_cpu_saved[ARC_REG_NUM - 1].offset = 8;
-			/* After reading callee registers in stack
-			 * now blink,sec_stat,status32 registers
-			 * are located. */
-			arc_cpu_saved_stacking.stack_registers_size = 12;
-		}
-	}
-
 	for (struct zephyr_params *p = zephyr_params_list; p->target_name; p++) {
 		if (!strcmp(p->target_name, name)) {
 			LOG_INFO("Zephyr: target known, params at %p", p);
