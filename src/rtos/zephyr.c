@@ -29,6 +29,10 @@
 /* ARC specific defines */
 #define ARC_AUX_SEC_BUILD_REG 0xdb
 #define ARC_REG_NUM 38
+#define ARC_RELINQUISH_CAUSE_NONE 0
+#define ARC_RELINQUISH_CAUSE_COOP 1
+#define ARC_RELINQUISH_CAUSE_RIRQ 2
+#define ARC_RELINQUISH_CAUSE_FIRQ 3
 
 /* ARM specific defines */
 #define ARM_XPSR_OFFSET 28
@@ -57,6 +61,8 @@ enum zephyr_offsets {
 	OFFSET_T_ARCH,
 	OFFSET_T_PREEMPT_FLOAT,
 	OFFSET_T_COOP_FLOAT,
+	OFFSET_T_ARM_EXC_RETURN,
+	OFFSET_T_ARC_RELINQUISH_CAUSE,
 	OFFSET_MAX
 };
 
@@ -67,9 +73,10 @@ struct zephyr_params {
 	uint32_t num_offsets;
 	uint32_t offsets[OFFSET_MAX];
 	const struct rtos_register_stacking *callee_saved_stacking;
-	const struct rtos_register_stacking *cpu_saved_nofp_stacking;
+	const struct rtos_register_stacking *cpu_saved_nofp_stacking_coop;
+	const struct rtos_register_stacking *cpu_saved_nofp_stacking_preempt;
 	const struct rtos_register_stacking *cpu_saved_fp_stacking;
-	int (*get_cpu_state)(struct rtos *rtos, target_addr_t *addr,
+	int (*get_cpu_state)(struct rtos *rtos, target_addr_t *thread_addr,
 			struct zephyr_params *params,
 			struct rtos_reg *callee_saved_reg_list,
 			struct rtos_reg **reg_list, int *num_regs);
@@ -139,7 +146,10 @@ static const struct stack_register_offset arm_cpu_saved[] = {
 	{ ARMV7M_xPSR, 28, 32 },
 };
 
-static struct stack_register_offset arc_cpu_saved[] = {
+/* in the case of cooperative switches, the kernel will save
+ * status32 and blink on the stack before the callee-saved registers;
+ * the compiler is responsible for caller-saved registers */
+static struct stack_register_offset arc_cpu_saved_coop[] = {
 	{ ARC_R0,		-1,  32 },
 	{ ARC_R1,		-1,  32 },
 	{ ARC_R2,		-1,  32 },
@@ -180,6 +190,49 @@ static struct stack_register_offset arc_cpu_saved[] = {
 	{ ARC_STATUS32,		 4,  32 }
 };
 
+/* in the case of preemptive switches, the kernel will save
+ * status32 and blink, and caller-saved registers are pushed
+ * automatically by hardware (RIRQ) or by the kernel (FIRQ) */
+static struct stack_register_offset arc_cpu_saved_preempt[] = {
+	{ ARC_R0,		 8,  32 },
+	{ ARC_R1,		12,  32 },
+	{ ARC_R2,		16,  32 },
+	{ ARC_R3,		20,  32 },
+	{ ARC_R4,		24,  32 },
+	{ ARC_R5,		28,  32 },
+	{ ARC_R6,		32,  32 },
+	{ ARC_R7,		36,  32 },
+	{ ARC_R8,		40,  32 },
+	{ ARC_R9,		44,  32	},
+	{ ARC_R10,		48,  32	},
+	{ ARC_R11,		52,  32 },
+	{ ARC_R12,		56,  32 },
+	{ ARC_R13,		60,  32 },
+	{ ARC_R14,		-1,  32 },
+	{ ARC_R15,		-1,  32 },
+	{ ARC_R16,		-1,  32 },
+	{ ARC_R17,		-1,  32 },
+	{ ARC_R18,		-1,  32 },
+	{ ARC_R19,		-1,  32 },
+	{ ARC_R20,		-1,  32 },
+	{ ARC_R21,		-1,  32 },
+	{ ARC_R22,		-1,  32 },
+	{ ARC_R23,		-1,  32 },
+	{ ARC_R24,		-1,  32 },
+	{ ARC_R25,		-1,  32 },
+	{ ARC_GP,		-1,  32 },
+	{ ARC_FP,		-1,  32 },
+	{ ARC_SP,		-1,  32 },
+	{ ARC_ILINK,		-1,  32 },
+	{ ARC_R30,		-1,  32 },
+	{ ARC_BLINK,		 0,  32 },
+	{ ARC_LP_COUNT,		-1,  32 },
+	{ ARC_PCL,		-1,  32 },
+	{ ARC_PC,		-1,  32 },
+	{ ARC_LP_START,		-1,  32 },
+	{ ARC_LP_END,		-1,  32 },
+	{ ARC_STATUS32,		 4,  32 }
+};
 
 enum zephyr_symbol_values {
 	ZEPHYR_VAL__KERNEL,
@@ -195,6 +248,16 @@ static target_addr_t zephyr_cortex_m_stack_align(struct target *target,
 {
 	return rtos_cortex_m_stack_align(target, stack_data, stacking,
 			stack_ptr, ARM_XPSR_OFFSET);
+}
+
+static target_addr_t zephyr_thread_addr(int64_t thread_id) {
+	return thread_id;
+}
+
+static target_addr_t zephyr_callee_saved_stack_addr(target_addr_t* thread_addr,
+						struct zephyr_params *params) {
+	return *thread_addr + params->offsets[OFFSET_T_STACK_POINTER]
+		 - params->callee_saved_stacking->register_offsets[0].offset;
 }
 
 static const struct rtos_register_stacking arm_cpu_saved_nofp_stacking = {
@@ -213,29 +276,34 @@ static const struct rtos_register_stacking arm_cpu_saved_fp_stacking = {
 	.register_offsets = arm_cpu_saved,
 };
 
-/* stack_registers_size is 8 because besides caller registers
- * there are only blink and Status32 registers on stack left */
-static struct rtos_register_stacking arc_cpu_saved_stacking = {
-	.stack_registers_size = 8,
+static struct rtos_register_stacking arc_cpu_saved_stacking_coop = {
+	.stack_registers_size = 2*4,
 	.stack_growth_direction = -1,
-	.num_output_registers = ARRAY_SIZE(arc_cpu_saved),
-	.register_offsets = arc_cpu_saved,
+	.num_output_registers = ARRAY_SIZE(arc_cpu_saved_coop),
+	.register_offsets = arc_cpu_saved_coop,
+};
+
+static struct rtos_register_stacking arc_cpu_saved_stacking_preempt = {
+	.stack_registers_size = 2*4 + 14*4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(arc_cpu_saved_preempt),
+	.register_offsets = arc_cpu_saved_preempt,
 };
 
 /* ARCv2 specific implementation */
-static int zephyr_get_arc_state(struct rtos *rtos, target_addr_t *addr,
+static int zephyr_get_arc_state(struct rtos *rtos, target_addr_t *thread_addr,
 			 struct zephyr_params *params,
 			 struct rtos_reg *callee_saved_reg_list,
 			 struct rtos_reg **reg_list, int *num_regs)
 {
-
 	uint32_t real_stack_addr;
 	int retval = 0;
 	int num_callee_saved_regs;
 	const struct rtos_register_stacking *stacking;
 
-	/* Getting real stack address from Kernel thread struct */
-	retval = target_read_u32(rtos->target, *addr, &real_stack_addr);
+	/* Getting real stack address from kernel thread struct */
+	target_addr_t thread_stack_ptr = zephyr_callee_saved_stack_addr(thread_addr, params);
+	retval = target_read_u32(rtos->target, thread_stack_ptr, &real_stack_addr);
 	if (retval != ERROR_OK)
 		return retval;
 
@@ -247,15 +315,32 @@ static int zephyr_get_arc_state(struct rtos *rtos, target_addr_t *addr,
 	if (retval != ERROR_OK)
 		return retval;
 
-	stacking = params->cpu_saved_nofp_stacking;
+	/* Read thread relinquish cause to know whether
+	 * we can read caller-saved registers from the stack */
+	if (params->offsets[OFFSET_T_ARC_RELINQUISH_CAUSE] != UNIMPLEMENTED) {
+		target_addr_t relinquish_cause_ptr = *thread_addr + params->offsets[OFFSET_T_ARCH]
+			+ params->offsets[OFFSET_T_ARC_RELINQUISH_CAUSE];
+		uint32_t relinquish_cause;
 
-	/* Getting blink and status32 registers */
+		retval = target_read_u32(rtos->target, relinquish_cause_ptr, &relinquish_cause);
+		if (retval != ERROR_OK)
+			return retval;
+
+		stacking = relinquish_cause == ARC_RELINQUISH_CAUSE_FIRQ || relinquish_cause == ARC_RELINQUISH_CAUSE_RIRQ ?
+			params->cpu_saved_nofp_stacking_preempt : params->cpu_saved_nofp_stacking_coop;
+	} else {
+		stacking = params->cpu_saved_nofp_stacking_coop;
+	}
+
+	/* Getting cpu saved registers into reg_list */
 	retval = rtos_generic_stack_read(rtos->target, stacking,
 			real_stack_addr + num_callee_saved_regs * 4,
 			reg_list, num_regs);
 	if (retval != ERROR_OK)
 		return retval;
 
+	/* Since reg_list does not contain callee saved values,
+	 * copy them from the values read from the thread's stack */
 	for (int i = 0; i < num_callee_saved_regs; i++)
 		buf_cpy(callee_saved_reg_list[i].value,
 			(*reg_list)[callee_saved_reg_list[i].number].value,
@@ -265,12 +350,12 @@ static int zephyr_get_arc_state(struct rtos *rtos, target_addr_t *addr,
 	 * but the registers number shall not. So the next code searches the
 	 * offsetst of these registers in arc_cpu_saved structure. */
 	unsigned short blink_offset = 0, pc_offset = 0, sp_offset = 0;
-	for (size_t i = 0; i < ARRAY_SIZE(arc_cpu_saved); i++) {
-		if (arc_cpu_saved[i].number == ARC_BLINK)
+	for (size_t i = 0; i < stacking->num_output_registers; i++) {
+		if (stacking->register_offsets[i].number == ARC_BLINK)
 			blink_offset = i;
-		if (arc_cpu_saved[i].number == ARC_SP)
+		if (stacking->register_offsets[i].number == ARC_SP)
 			sp_offset = i;
-		if (arc_cpu_saved[i].number == ARC_PC)
+		if (stacking->register_offsets[i].number == ARC_PC)
 			pc_offset = i;
 	}
 
@@ -285,41 +370,41 @@ static int zephyr_get_arc_state(struct rtos *rtos, target_addr_t *addr,
 
 	/* Put address after callee/caller in SP. */
 	int64_t stack_top;
-
 	stack_top = real_stack_addr + num_callee_saved_regs * 4
-			+ arc_cpu_saved_stacking.stack_registers_size;
+			+ stacking->stack_registers_size;
 	buf_cpy(&stack_top, (*reg_list)[sp_offset].value, sizeof(stack_top));
 
 	return retval;
 }
 
 /* ARM Cortex-M-specific implementation */
-static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *addr,
+static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *thread_addr,
 			 struct zephyr_params *params,
 			 struct rtos_reg *callee_saved_reg_list,
 			 struct rtos_reg **reg_list, int *num_regs)
 {
-
 	int retval = 0;
 	int num_callee_saved_regs;
 	const struct rtos_register_stacking *stacking;
 
+	target_addr_t thread_stack_ptr = zephyr_callee_saved_stack_addr(thread_addr, params);
+
 	retval = rtos_generic_stack_read(rtos->target,
 			params->callee_saved_stacking,
-			*addr, &callee_saved_reg_list,
+			thread_stack_ptr, &callee_saved_reg_list,
 			&num_callee_saved_regs);
 	if (retval != ERROR_OK)
 		return retval;
 
-	*addr = target_buffer_get_u32(rtos->target,
+	thread_stack_ptr = target_buffer_get_u32(rtos->target,
 			callee_saved_reg_list[0].value);
 
 	if (params->offsets[OFFSET_T_PREEMPT_FLOAT] != UNIMPLEMENTED)
 		stacking = params->cpu_saved_fp_stacking;
-	else
-		stacking = params->cpu_saved_nofp_stacking;
+	else 
+		stacking = params->cpu_saved_nofp_stacking_coop;
 
-	retval = rtos_generic_stack_read(rtos->target, stacking, *addr, reg_list,
+	retval = rtos_generic_stack_read(rtos->target, stacking, thread_stack_ptr, reg_list,
 			num_regs);
 	if (retval != ERROR_OK)
 		return retval;
@@ -332,11 +417,13 @@ static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *addr,
 }
 
 static struct zephyr_params zephyr_params_list[] = {
+	/* TODO check if more registers can be read on ARM in case of preemption */
 	{
 		.target_name = "cortex_m",
 		.pointer_width = 4,
 		.callee_saved_stacking = &arm_callee_saved_stacking,
-		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_coop = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_preempt = &arm_cpu_saved_nofp_stacking,
 		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
 		.get_cpu_state = &zephyr_get_arm_state,
 	},
@@ -344,7 +431,8 @@ static struct zephyr_params zephyr_params_list[] = {
 		.target_name = "cortex_r4",
 		.pointer_width = 4,
 		.callee_saved_stacking = &arm_callee_saved_stacking,
-		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_coop = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_preempt = &arm_cpu_saved_nofp_stacking,
 		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
 		.get_cpu_state = &zephyr_get_arm_state,
 	},
@@ -352,7 +440,8 @@ static struct zephyr_params zephyr_params_list[] = {
 		.target_name = "hla_target",
 		.pointer_width = 4,
 		.callee_saved_stacking = &arm_callee_saved_stacking,
-		.cpu_saved_nofp_stacking = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_coop = &arm_cpu_saved_nofp_stacking,
+		.cpu_saved_nofp_stacking_preempt = &arm_cpu_saved_nofp_stacking,
 		.cpu_saved_fp_stacking = &arm_cpu_saved_fp_stacking,
 		.get_cpu_state = &zephyr_get_arm_state,
 
@@ -361,7 +450,8 @@ static struct zephyr_params zephyr_params_list[] = {
 		.target_name = "arcv2",
 		.pointer_width = 4,
 		.callee_saved_stacking = &arc_callee_saved_stacking,
-		.cpu_saved_nofp_stacking = &arc_cpu_saved_stacking,
+		.cpu_saved_nofp_stacking_coop = &arc_cpu_saved_stacking_coop,
+		.cpu_saved_nofp_stacking_preempt = &arc_cpu_saved_stacking_preempt,
 		.get_cpu_state = &zephyr_get_arc_state,
 	},
 	{
@@ -651,6 +741,7 @@ static int zephyr_update_threads(struct rtos *rtos)
 	}
 
 	if (rtos->symbols[ZEPHYR_VAL__KERNEL_OPENOCD_NUM_OFFSETS].address) {
+		/* use the number of offsets symbol issued by the kernel */
 		retval = target_read_u32(rtos->target,
 				rtos->symbols[ZEPHYR_VAL__KERNEL_OPENOCD_NUM_OFFSETS].address,
 				&param->num_offsets);
@@ -664,11 +755,12 @@ static int zephyr_update_threads(struct rtos *rtos)
 			return ERROR_FAIL;
 		}
 	} else {
+		/* hardcode the number of offsets based on the offsets version */
 		retval = target_read_u32(rtos->target,
 				rtos->symbols[ZEPHYR_VAL__KERNEL_OPENOCD_OFFSETS].address,
 				&param->offsets[OFFSET_VERSION]);
 		if (retval != ERROR_OK) {
-			LOG_ERROR("Couldn't not fetch offsets from Zephyr");
+			LOG_ERROR("Could not fetch offsets from Zephyr");
 			return retval;
 		}
 
@@ -677,6 +769,7 @@ static int zephyr_update_threads(struct rtos *rtos)
 					param->offsets[OFFSET_VERSION]);
 			return ERROR_FAIL;
 		}
+
 		switch (param->offsets[OFFSET_VERSION]) {
 		case 0:
 			param->num_offsets = OFFSET_T_STACK_POINTER + 1;
@@ -686,6 +779,7 @@ static int zephyr_update_threads(struct rtos *rtos)
 			break;
 		}
 	}
+
 	/* We can fetch the whole array for version 0, as they're supposed
 	 * to grow only */
 	uint32_t address;
@@ -728,7 +822,6 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 {
 	struct zephyr_params *params;
 	struct rtos_reg *callee_saved_reg_list = NULL;
-	target_addr_t addr;
 	int retval;
 
 	LOG_INFO("Getting thread %" PRId64 " reg list", thread_id);
@@ -743,10 +836,9 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	if (!params)
 		return ERROR_FAIL;
 
-	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
-		 - params->callee_saved_stacking->register_offsets[0].offset;
+	target_addr_t thread_addr = zephyr_thread_addr(thread_id);
 
-	retval = params->get_cpu_state(rtos, &addr, params, callee_saved_reg_list, reg_list, num_regs);
+	retval = params->get_cpu_state(rtos, &thread_addr, params, callee_saved_reg_list, reg_list, num_regs);
 
 	free(callee_saved_reg_list);
 
