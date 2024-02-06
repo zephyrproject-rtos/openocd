@@ -25,6 +25,7 @@ NOR_DRIVERS = \
 	%D%/cfi.c \
 	%D%/dsp5680xx_flash.c \
 	%D%/efm32.c \
+	%D%/efm32s2.c \
 	%D%/em357.c \
 	%D%/esirisc_flash.c \
 	%D%/faux.c \
