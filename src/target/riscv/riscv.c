@@ -22,6 +22,7 @@
 #include "rtos/rtos.h"
 #include "debug_defines.h"
 #include <helper/bits.h>
+#include <rtt/rtt.h>
 
 #define get_field(reg, mask) (((reg) & (mask)) / ((mask) & ~((mask) << 1)))
 #define set_field(reg, mask, val) (((reg) & ~(mask)) | (((val) * ((mask) & ~((mask) << 1))) & (mask)))
@@ -3130,6 +3131,9 @@ const struct command_registration riscv_command_handlers[] = {
 		.help = "ARM Command Group",
 		.usage = "",
 		.chain = semihosting_common_handlers
+	},
+	{
+		.chain = rtt_target_command_handlers,
 	},
 	COMMAND_REGISTRATION_DONE
 };
