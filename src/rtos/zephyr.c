@@ -882,7 +882,7 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	target_addr_t addr;
 	int retval;
 
-	LOG_INFO("Getting thread %" PRId64 " reg list", thread_id);
+	LOG_INFO("Getting thread %" PRIx64 " reg list", thread_id);
 
 	if (!rtos)
 		return ERROR_FAIL;
