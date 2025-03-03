@@ -23,6 +23,8 @@
 #include "target/target_type.h"
 #include "target/armv7m.h"
 #include "target/arc.h"
+#include "target/riscv/encoding.h"
+#include "target/riscv/gdb_regs.h"
 
 #define UNIMPLEMENTED 0xFFFFFFFFU
 
@@ -105,6 +107,64 @@ static const struct stack_register_offset arc_callee_saved[] = {
 	{ ARC_FP,  56,  32 },
 	{ ARC_R30,  60,  32 }
 };
+
+static const struct stack_register_offset riscv_callee_saved[] = {
+	{ GDB_REGNO_SP,  0,  32 },
+	{ GDB_REGNO_RA,  4,  32 },
+	{ GDB_REGNO_S0,  8,  32 },
+	{ GDB_REGNO_S1,  12,  32 },
+	{ GDB_REGNO_S2,  16,  32 },
+	{ GDB_REGNO_S3,  20,  32 },
+	{ GDB_REGNO_S4,  24,  32 },
+	{ GDB_REGNO_S5,  28,  32 },
+	{ GDB_REGNO_S6,  32,  32 },
+	{ GDB_REGNO_S7,  36,  32 },
+	{ GDB_REGNO_S8,  40,  32 },
+	{ GDB_REGNO_S9,  44,  32 },
+	{ GDB_REGNO_S10, 48,  32 },
+	{ GDB_REGNO_S11, 52,  32 },
+};
+
+/* There are no riscv cpu saved registers; hope this works */
+static struct stack_register_offset riscv_cpu_saved[] = {
+	{GDB_REGNO_ZERO, -1, 32},        /* Read-only register, always 0.  */
+	{ GDB_REGNO_RA,  4,  32 },
+	{GDB_REGNO_SP, 0, 32},          /* Stack Pointer.  */
+	{GDB_REGNO_GP, -1, 32},          /* Global Pointer.  */
+	{GDB_REGNO_TP, -1, 32},          /* Thread Pointer.  */
+	{GDB_REGNO_T0, -1, 32},
+	{GDB_REGNO_T1, -1, 32},
+	{GDB_REGNO_T2, -1, 32},
+	{ GDB_REGNO_S0,  8,  32 },
+	{ GDB_REGNO_FP,  8,  32 },          /* Frame Pointer.  */
+	{ GDB_REGNO_S1,  12,  32 },
+	{GDB_REGNO_A0, -1, 32},         /* First argument.  */
+	{GDB_REGNO_A1, -1, 32},         /* Second argument.  */
+	{GDB_REGNO_A2, -1, 32},
+	{GDB_REGNO_A3, -1, 32},
+	{GDB_REGNO_A4, -1, 32},
+	{GDB_REGNO_A5, -1, 32},
+	{GDB_REGNO_XPR15, -1, 32},
+	{GDB_REGNO_A6, -1, 32},
+	{GDB_REGNO_A7, -1, 32},
+	{ GDB_REGNO_S2,  16,  32 },
+	{ GDB_REGNO_S3,  20,  32 },
+	{ GDB_REGNO_S4,  24,  32 },
+	{ GDB_REGNO_S5,  28,  32 },
+	{ GDB_REGNO_S6,  32,  32 },
+	{ GDB_REGNO_S7,  36,  32 },
+	{ GDB_REGNO_S8,  40,  32 },
+	{ GDB_REGNO_S9,  44,  32 },
+	{ GDB_REGNO_S10, 48,  32 },
+	{ GDB_REGNO_S11, 52,  32 },
+	{GDB_REGNO_T3, -1, 32},
+	{GDB_REGNO_T4, -1, 32},
+	{GDB_REGNO_T5, -1, 32},
+	{GDB_REGNO_T6, -1, 32},
+	{GDB_REGNO_XPR31, -1, 32},
+	{GDB_REGNO_PC, -1, 32},
+};
+
 static const struct rtos_register_stacking arm_callee_saved_stacking = {
 	.stack_registers_size = 36,
 	.stack_growth_direction = -1,
@@ -117,6 +177,13 @@ static const struct rtos_register_stacking arc_callee_saved_stacking = {
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(arc_callee_saved),
 	.register_offsets = arc_callee_saved,
+};
+
+static const struct rtos_register_stacking riscv_callee_saved_stacking = {
+	.stack_registers_size = ARRAY_SIZE(riscv_callee_saved) * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(riscv_callee_saved),
+	.register_offsets = riscv_callee_saved,
 };
 
 static const struct stack_register_offset arm_cpu_saved[] = {
@@ -220,6 +287,15 @@ static struct rtos_register_stacking arc_cpu_saved_stacking = {
 	.stack_growth_direction = -1,
 	.num_output_registers = ARRAY_SIZE(arc_cpu_saved),
 	.register_offsets = arc_cpu_saved,
+};
+
+/* stack_registers_size is 0 because besides caller registers
+ * there are no registers on stack left for riscv */
+static struct rtos_register_stacking riscv_cpu_saved_stacking = {
+	.stack_registers_size = ARRAY_SIZE(riscv_cpu_saved) * 4,
+	.stack_growth_direction = -1,
+	.num_output_registers = ARRAY_SIZE(riscv_cpu_saved),
+	.register_offsets = riscv_cpu_saved,
 };
 
 /* ARCv2 specific implementation */
@@ -331,6 +407,55 @@ static int zephyr_get_arm_state(struct rtos *rtos, target_addr_t *addr,
 	return 0;
 }
 
+/* Riscv implementation */
+static int zephyr_get_riscv_state(struct rtos *rtos, target_addr_t *addr,
+	struct zephyr_params *params,
+	struct rtos_reg *callee_saved_reg_list,
+	struct rtos_reg **reg_list, int *num_regs)
+{
+	int retval = 0;
+	int num_callee_saved_regs;
+	const struct rtos_register_stacking *stacking;
+
+	/* Getting callee registers */
+	retval = rtos_generic_stack_read(rtos->target,
+			params->callee_saved_stacking,
+			*addr, &callee_saved_reg_list,
+			&num_callee_saved_regs);
+
+	if (retval != ERROR_OK)
+		return retval;
+
+	/* This part is a bit weird; this is absolutely necessary because rtos_generic_stack_read initializes
+	 * a neat little GDB compatible register list for us. But then we move onto reading some bogus values
+	 * because indexes are incompatble with the Zephyr callee-saved layout.
+	 */
+	stacking = params->cpu_saved_nofp_stacking;
+	retval = rtos_generic_stack_read(rtos->target, stacking,
+			*addr,
+			reg_list, num_regs);
+	if (retval != ERROR_OK)
+			return retval;
+
+	/* Then we copy over the stuff we read via callee_saved_stacking onto their correct gdb compatible indexes
+	 * in the reg_list. What I'm afraid is what happens to the bogus values we read from the stack in the previous
+	 * rtos_generic_stack_read call.
+	 */
+	for (int i = 0; i < num_callee_saved_regs; i++) {
+		LOG_DEBUG("reg[%d]->reg[%d]: old=0x%x new=0x%x, same=0x%x",
+			i, callee_saved_reg_list[i].number,
+			*(uint32_t *)((*reg_list)[callee_saved_reg_list[i].number].value),
+			*(uint32_t *)callee_saved_reg_list[i].value,
+			*(uint32_t *)((*reg_list)[callee_saved_reg_list[i].number].value) == *(uint32_t *)callee_saved_reg_list[i].value);
+		buf_cpy(callee_saved_reg_list[i].value,
+			(*reg_list)[callee_saved_reg_list[i].number].value,
+			callee_saved_reg_list[i].size);
+	}
+
+	return retval;
+}
+
+
 static struct zephyr_params zephyr_params_list[] = {
 	{
 		.target_name = "cortex_m",
@@ -363,6 +488,13 @@ static struct zephyr_params zephyr_params_list[] = {
 		.callee_saved_stacking = &arc_callee_saved_stacking,
 		.cpu_saved_nofp_stacking = &arc_cpu_saved_stacking,
 		.get_cpu_state = &zephyr_get_arc_state,
+	},
+	{
+		.target_name = "riscv",
+		.pointer_width = 4,
+		.callee_saved_stacking = &riscv_callee_saved_stacking,
+		.cpu_saved_nofp_stacking = &riscv_cpu_saved_stacking,
+		.get_cpu_state = &zephyr_get_riscv_state,
 	},
 	{
 		.target_name = NULL
