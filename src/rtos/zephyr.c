@@ -426,6 +426,14 @@ static int zephyr_get_riscv_state(struct rtos *rtos, target_addr_t *addr,
 	if (retval != ERROR_OK)
 		return retval;
 
+
+#if 0
+	for (int i = 0; i < num_callee_saved_regs; i++) {
+		LOG_OUTPUT("%x ", *(uint32_t *)callee_saved_reg_list[i].value);
+	}
+	LOG_OUTPUT("\r\n");
+#endif
+
 	/* This part is a bit weird; this is absolutely necessary because rtos_generic_stack_read initializes
 	 * a neat little GDB compatible register list for us. But then we move onto reading some bogus values
 	 * because indexes are incompatble with the Zephyr callee-saved layout.
@@ -640,6 +648,9 @@ static int zephyr_fetch_thread(const struct rtos *rtos,
 	if (retval != ERROR_OK)
 		return retval;
 
+	LOG_DEBUG("thread->ptr=0x%x, thread->next_ptr=0x%x, thread->stack_pointer=0x%x",
+			thread->ptr, thread->next_ptr, thread->stack_pointer);
+
 	retval = target_read_u8(rtos->target, ptr + param->offsets[OFFSET_T_STATE],
 				&thread->state);
 	if (retval != ERROR_OK)
@@ -692,6 +703,9 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 		return retval;
 	}
 
+	LOG_DEBUG("zephyr_kptr(rtos, OFFSET_K_THREADS)=0x%x, curr=0x%x",
+		zephyr_kptr(rtos, OFFSET_K_THREADS), curr);
+
 	zephyr_array_init(&thread_array);
 
 	for (; curr; curr = thread.next_ptr) {
@@ -704,6 +718,7 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 			goto error;
 
 		td->threadid = thread.ptr;
+		LOG_DEBUG("td->threadid=0x%x", (uint32_t)td->threadid);
 		td->exists = true;
 
 		if (thread.name[0])
@@ -728,6 +743,7 @@ static int zephyr_fetch_thread_list(struct rtos *rtos, uint32_t current_thread)
 	rtos->thread_details = zephyr_array_detach_ptr(&thread_array);
 
 	rtos->current_threadid = curr_id;
+	LOG_DEBUG("rtos->current_threadid=%lx", rtos->current_threadid);
 	rtos->current_thread = current_thread;
 
 	return ERROR_OK;
@@ -833,6 +849,9 @@ static int zephyr_update_threads(struct rtos *rtos)
 			LOG_ERROR("Could not fetch offsets from Zephyr");
 			return ERROR_FAIL;
 		}
+		else {
+			LOG_DEBUG("Zephyr offset %zu: 0x%" PRIx32, i, param->offsets[i]);
+		}
 	}
 
 	LOG_DEBUG("Zephyr OpenOCD support version %" PRId32,
@@ -874,6 +893,9 @@ static int zephyr_get_thread_reg_list(struct rtos *rtos, int64_t thread_id,
 	params = rtos->rtos_specific_params;
 	if (!params)
 		return ERROR_FAIL;
+
+	LOG_DEBUG("thread_id=%lx, params->offsets[OFFSET_T_STACK_POINTER]=%x, params->callee_saved_stacking->register_offsets[0].offset=%x",
+		thread_id, params->offsets[OFFSET_T_STACK_POINTER], params->callee_saved_stacking->register_offsets[0].offset);
 
 	addr = thread_id + params->offsets[OFFSET_T_STACK_POINTER]
 		 - params->callee_saved_stacking->register_offsets[0].offset;
