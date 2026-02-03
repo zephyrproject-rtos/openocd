@@ -99,6 +99,9 @@ static const struct efm32_dev_info_addr efm32_dev_info_addr[] = {
 #define EFM32_MSC_STATUS_ERASEABORTED_MASK   0x0020
 #define EFM32_MSC_LOCK_LOCKKEY               0x1b71
 
+/* Series 2 only */
+#define EFM32_CMU_REG_CLKEN1_SET         0x50009068
+
 enum efm32_bank_index {
 	EFM32_BANK_INDEX_MAIN,
 	EFM32_BANK_INDEX_USER_DATA,
@@ -386,6 +389,58 @@ static void efm32_free_driver_priv(struct flash_bank *bank)
 	}
 }
 
+static int efm32_mcs_clock_enable(struct flash_bank *bank)
+{
+	struct efm32_flash_chip *efm32_info = bank->driver_priv;
+	unsigned int s2_family;
+	uint32_t msc_clken;
+	int ret;
+
+	if (efm32_info->info.family_data->series == 0 ||
+	    efm32_info->info.family_data->series == 1)
+		return ERROR_OK;
+
+	ret = target_read_u32(bank->target,
+			      EFM32_CMU_REG_CLKEN1_SET,
+			      &msc_clken);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to read CMU register");
+		return ret;
+	}
+
+	s2_family = FIELD_GET(EFM32_DI_PARTINFO_FAMILY_MASK,
+			      efm32_info->info.part_info);
+	switch (s2_family) {
+	case 21:
+		msc_clken = 0;
+		break;
+	case 22:
+	case 27:
+	case 29:
+		msc_clken = BIT(17);
+		break;
+	case 23:
+	case 24:
+	case 25:
+	case 26:
+	case 28:
+		msc_clken = BIT(16);
+		break;
+	default:
+		LOG_WARNING("Don't know EFR/EFM Gx family number, can't set MSC register. Use default values..");
+		msc_clken = BIT(16);
+	}
+	ret = target_write_u32(bank->target,
+			       EFM32_CMU_REG_CLKEN1_SET,
+			       msc_clken);
+	if (ret != ERROR_OK) {
+		LOG_ERROR("Failed to enable MSC clock");
+		return ret;
+	}
+
+	return ERROR_OK;
+}
+
 /* set or reset given bits in a register */
 static int efm32_set_reg_bits(struct flash_bank *bank, uint32_t reg,
 			      uint32_t bitmask, int set)
@@ -514,6 +569,8 @@ static int efm32_erase(struct flash_bank *bank, unsigned int first,
 		LOG_ERROR("Target not halted");
 		return ERROR_TARGET_NOT_HALTED;
 	}
+
+	efm32_mcs_clock_enable(bank);
 
 	efm32_msc_lock(bank, 0);
 	ret = efm32_set_wren(bank, 1);
@@ -1005,6 +1062,8 @@ static int efm32_priv_write(struct flash_bank *bank, const uint8_t *buffer,
 	uint32_t words_remaining = count / 4;
 	int retval, retval2;
 
+	efm32_mcs_clock_enable(bank);
+
 	/* unlock flash registers */
 	efm32_msc_lock(bank, 0);
 	retval = efm32_set_wren(bank, 1);
@@ -1119,6 +1178,8 @@ static int efm32_probe(struct flash_bank *bank)
 
 	free(bank->sectors);
 	bank->sectors = NULL;
+
+	efm32_mcs_clock_enable(bank);
 
 	if (bank->base == EFM32_FLASH_BASE) {
 		bank->num_sectors = efm32_mcu_info->flash_sz_kib * 1024 / efm32_mcu_info->page_size;
