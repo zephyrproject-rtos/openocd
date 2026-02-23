@@ -348,7 +348,7 @@ static const struct reg_arch_type rv32m1_reg_type = {
 
 static int rv32m1_build_reg_cache(struct target *target)
 {
-	struct reg_cache *cache = calloc(sizeof(struct reg_cache), 1);
+	struct reg_cache *cache = calloc(1, sizeof(struct reg_cache));
 	struct rv32m1_info *rv32m1 = target_to_rv32m1(target);
 
 	LOG_DEBUG("-");
