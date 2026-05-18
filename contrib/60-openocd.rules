@@ -226,6 +226,12 @@ ATTRS{idVendor}=="2aec", ATTRS{idProduct}=="1106", MODE="660", GROUP="plugdev", 
 ATTRS{idVendor}=="303a", ATTRS{idProduct}=="1001", MODE="660", GROUP="plugdev", TAG+="uaccess"
 ATTRS{idVendor}=="303a", ATTRS{idProduct}=="1002", MODE="660", GROUP="plugdev", TAG+="uaccess"
 
+# T-Head CK-Link Lite (PingTouGe Semiconductor)
+ATTRS{idVendor}=="32bf", ATTRS{idProduct}=="b210", MODE="660", GROUP="plugdev", TAG+="uaccess"
+
+# Bouffalo Lab BL616/BL702 CK-Link clones
+ATTRS{idVendor}=="42bf", ATTRS{idProduct}=="b210", MODE="660", GROUP="plugdev", TAG+="uaccess"
+
 # Marvell Sheevaplug
 ATTRS{idVendor}=="9e88", ATTRS{idProduct}=="9e8f", MODE="660", GROUP="plugdev", TAG+="uaccess"
 
