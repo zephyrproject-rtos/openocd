@@ -616,6 +616,10 @@ This is deprecated from Linux v5.3; prefer using @b{linuxgpiod}.
 @item @b{esp_usb_jtag}
 @* A JTAG driver to communicate with builtin debug modules of Espressif ESP32-C3 and ESP32-S3 chips using OpenOCD.
 
+@item @b{ch347}
+@* A JTAG driver that works with the WCH CH347F and CH347T chips.
+When using the CH347T, it must be configured to operate in mode 3 (UART + JTAG).
+
 @end itemize
 
 @node About Jim-Tcl
@@ -2421,6 +2425,7 @@ the hardware can support.
         @option{-push-pull} | @option{-open-drain} | @option{-open-source} | @
         @option{-pull-none} | @option{-pull-up} | @option{-pull-down} | @
         @option{-init-inactive} | @option{-init-active} | @option{-init-input} @
+        @option{-exit-inactive} | @option{-exit-active} | @option{-exit-input} | @option{-exit-no-change} @
     ] ]}
 
 Define the GPIO mapping that the adapter will use. The following signals can be
@@ -2455,11 +2460,14 @@ equivalent to issuing the single command @command{gpio led 7 -chip 1
 signals which are inputs. The drive mode for the srst and trst signals must be
 set with the @command{adapter reset_config} command. It is not permissible to
 set the initial state of swdio_dir as it is derived from the initial state of
-swdio. The command @command{adapter gpio} prints the current configuration for
-all GPIOs while the command @command{adapter gpio gpio_name} prints the current
-configuration for gpio_name. Not all adapters support this generic GPIO mapping,
-some require their own commands to define the GPIOs used. Adapters that support
-the generic mapping may not support all of the listed options.
+swdio. Accordingly, the final state before the adapter terminates its operation,
+so-called “exit state”, can be set. By default the state and configuration of an
+output pin is not changed when the driver terminates its operation. The
+command @command{adapter gpio} prints the current configuration for all GPIOs
+while the command @command{adapter gpio gpio_name} prints the current configuration
+for gpio_name. Not all adapters support this generic GPIO mapping, some require
+their own commands to define the GPIOs used. Adapters that support the generic
+mapping may not support all of the listed options.
 @end deffn
 
 @deffn {Command} {adapter name}
@@ -2521,6 +2529,119 @@ presuming that system is an Atmel AT91rm9200
 and a specific set of GPIOs is used.
 @c command:	at91rm9200_device NAME
 @c chooses among list of bit configs ... only one option
+@end deffn
+
+@deffn {Interface Driver} {ch347}
+Driver for WCH CH347F and CH347T chips.
+When using the CH347T, it must be configured to operate in mode 3 (UART + JTAG).
+
+@b{WARNING:} WCH CH347T chips have rather poor performance
+with respect to the USB HS connection. Upgrade firmware to the latest version!
+@itemize @bullet
+@item Chip version 2.41:
+@itemize @minus
+@item JTAG timing is very weird, some clock pulses are
+much shorter then the requested clock frequency.
+@item SWD is not implemented.
+@end itemize
+@item Chip version 4.41:
+@itemize @minus
+@item SWD clock is limited to 1 MHz maximum.
+@item SWD reading AP reg CH347 erroneously drives
+SWDIO to H for 392 ns after the last ACK bit. Some devices get so upset
+that send wrong data with parity error. A resistor in the SWDIO circuit
+mitigates the problem.
+@item A long SWD operation causes that USB host disconnects the adapter.
+@end itemize
+@item Chip version 5.44:
+@itemize @minus
+@item Maximal SWD clock speed is 5 MHz
+@item A long SWD operation causes that USB host disconnects the adapter.
+@end itemize
+@end itemize
+
+The driver supports activity LED through the generic
+command @ref{adapter gpio, @command{adapter gpio led}}.
+Also SRST and TRST signals can be configured as
+@ref{adapter gpio, @command{adapter gpio srst|trst}}.
+
+@b{CH347T} mode 3 @b{GPIOs:}
+@multitable @columnfractions .1 .08 .12 .7
+@item @b{GPIO} @tab @b{pin#} @tab @b{function} @tab @b{note}
+@item GPIO0 @tab 6 @tab TCK
+	@tab Fixed function in JTAG and SWD, do not reconfigure
+@item GPIO1 @tab 7 @tab TDO
+	@tab Can be configured in SWD mode
+@item GPIO2 @tab 5 @tab TMS
+	@tab Fixed function in JTAG and SWD, do not reconfigure
+@item GPIO3 @tab 11 @tab -
+	@tab Free GPIO, can be configured
+@item GPIO4 @tab 15 @tab ACT
+	@tab USB connected active low, usually LED connected, can be reconfigured
+@item GPIO5 @tab 9 @tab TRST
+	@tab TRST by default, can be reconfigured
+@item GPIO6 @tab 2 @tab CTS1
+	@tab Can be reconfigured, may be readable from UART1
+@item GPIO7 @tab 13 @tab RTS1
+	@tab With boot time sampling, can be reconfigured if UART1 is not used
+@end multitable
+
+@b{CH347F GPIOs:}
+@multitable @columnfractions .1 .08 .12 .7
+@item @b{GPIO} @tab @b{pin#} @tab @b{function} @tab @b{note}
+@item GPIO0 @tab 17 @tab CTS0
+	@tab Can be reconfigured, pin may be readable from UART0
+@item GPIO1 @tab 18 @tab RTS0
+	@tab With boot time sampling, can be configured if UART0 is not used
+@item GPIO2 @tab 10 @tab DTR0
+	@tab With boot time sampling, can be configured if UART0 is not used
+@item GPIO3 @tab 9 @tab TRST
+	@tab TRST by default, can be reconfigured
+@item GPIO4 @tab 23 @tab TCK
+	@tab Fixed function in JTAG and SWD, do not reconfigure
+@item GPIO5 @tab 24 @tab TDO
+	@tab Can be configured in SWD mode
+@item GPIO6 @tab 25 @tab TDI
+	@tab Can be configured in SWD mode
+@item GPIO7 @tab 26 @tab TMS
+	@tab Fixed function in JTAG and SWD, do not reconfigure
+@item @tab @tab @tab
+@item SRST @tab 8 @tab ACT
+	@tab USB connected active low function after CH347F power up,
+LED connected on CH347F EV board.
+	@* SRST in OpenOCD by default, can be reconfigured as gpio 8, push-pull only.
+	@* @b{Warning:} CH347F drives the pin low since USB bus initialisation
+and holds a wired target in reset until reconfigured by OpenOCD.
+@end multitable
+
+The real GPIOs (not CH347F dedicated SRST pin, aliased as gpio 8) configured
+for SRST and TRST signals follow the drive mode of
+@ref{reset_config,,@command{reset_config}}.
+
+CH347T in SWD mode with activity LED and SRST signal on TRST pin:
+@example
+adapter gpio srst 5
+adapter gpio led 4 -active-low -exit-active
+@end example
+
+CH347T in any mode with default TRST and SRST on GPIO 6 pin:
+@example
+adapter gpio srst 6
+@end example
+
+CH347F in any mode with crossed TRST and SRST, TRST pin is open-drain capable
+therefore more suitable for SRST signal:
+@example
+adapter gpio srst 3
+adapter gpio trst 8
+@end example
+
+CH347F evaluation board in any mode with activity LED, default TRST and
+SRST moved to GPIO0:
+@example
+adapter gpio srst 0
+adapter gpio led 8 -active-low -exit-active
+@end example
 @end deffn
 
 @deffn {Interface Driver} {cklink}
