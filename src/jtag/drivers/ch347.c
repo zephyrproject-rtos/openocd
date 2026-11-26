@@ -146,6 +146,10 @@
 #define DEFAULT_CH347F_PRODUCT_ID	0x55de
 #define DEFAULT_OTHER_PRODUCT_ID	0x55e7
 
+extern struct adapter_driver *adapter_driver;
+
+#define ADAPTER_GPIO_NOT_SET -1
+
 /* There are 3 different CH347 variants. The datasheet mentions the CH347T chip which has the product id 0x55dd
 	as default when it's configured to mode 3. The CH347F chip is also mentioned in the datasheet and has the
 	default product id 0x55de. The 3rd variant is not mentioned in a datasheet but was found here
@@ -1218,7 +1222,7 @@ static int ch347_scratchpad_add_move_path(struct pathmove_command *cmd)
 	if (retval != ERROR_OK)
 		return retval;
 
-	for (unsigned int i = 0; i < cmd->num_states; i++) {
+	for (int i = 0; i < cmd->num_states; i++) {
 		if (tap_state_transition(tap_get_state(), false) == cmd->path[i]) {
 			retval = ch347_scratchpad_add_clock_tms(0);
 			if (retval != ERROR_OK)
@@ -1499,7 +1503,7 @@ static int ch347_set_gpio(enum adapter_gpio_config_index gpio_idx, bool active,
 						   uint8_t *gpios_data, uint8_t *bit_op)
 {
 	const struct adapter_gpio_config *gpio_config = &adapter_gpio_get_config()[gpio_idx];
-	unsigned int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
+	int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
 	const struct ch347_bit_op *gpio_to_bit_op = ch347.chip_variant == CH347F ?
 					ch347f_gpio_to_bit_op : ch347t_gpio_to_bit_op;
 	bool value = active ^ gpio_config->active_low;
@@ -1585,7 +1589,7 @@ static int ch347_init_gpio(enum adapter_gpio_config_index gpio_idx,
 {
 	const struct adapter_gpio_config *gpio_config = &adapter_gpio_get_config()[gpio_idx];
 	if (gpio_config->init_state == ADAPTER_GPIO_INIT_STATE_INPUT) {
-		unsigned int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
+		int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
 		if (gpio_num < GPIO_CNT && ch347.cmd_gpio_allowed) {
 			gpios_data[gpio_num] = GPIO_SET_INPUT;
 			return ERROR_OK;
@@ -1605,7 +1609,7 @@ static int ch347_exit_gpio(enum adapter_gpio_config_index gpio_idx,
 		return ERROR_OK;
 
 	if (gpio_config->exit_state == ADAPTER_GPIO_EXIT_STATE_INPUT) {
-		unsigned int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
+		int gpio_num = ch347_get_gpio_num_or_default(gpio_idx);
 		if (gpio_num < GPIO_CNT && ch347.cmd_gpio_allowed) {
 			gpios_data[gpio_num] = GPIO_SET_INPUT;
 			return ERROR_OK;
@@ -1717,9 +1721,9 @@ static int ch347_sleep(int us)
  *
  * @return Success returns ERROR_OK
  */
-static int ch347_execute_queue(struct jtag_command *cmd_queue)
+static int ch347_execute_queue(void)
 {
-	struct jtag_command *cmd = cmd_queue;
+	struct jtag_command *cmd = jtag_command_queue;
 	int retval = ERROR_OK;
 
 	ch347_activity_led_set(true, false);
@@ -1782,13 +1786,7 @@ static int ch347_open_device(void)
 	const uint16_t *ch347_vids = default_ch347_vids;
 	const uint16_t *ch347_pids = default_ch347_pids;
 
-	if (adapter_usb_get_vids()[0] != 0) {
-		ch347_vids = adapter_usb_get_vids();
-		ch347_pids = adapter_usb_get_pids();
-	}
-
-	int retval = jtag_libusb_open(ch347_vids, ch347_pids,
-		adapter_usb_get_product_name(), &ch347_handle, NULL);
+	int retval = jtag_libusb_open(ch347_vids, ch347_pids, &ch347_handle, NULL);
 	if (retval != ERROR_OK)	{
 		char error_message[256];
 		snprintf(error_message, sizeof(error_message), "CH347 not found. Tried VID/PID pairs: ");
@@ -1838,9 +1836,9 @@ static int ch347_open_device(void)
 
 	char firmware_version;
 	retval = jtag_libusb_control_transfer(ch347_handle,
-		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE,
+		LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_RECIPIENT_DEVICE,
 		VENDOR_VERSION, 0, 0, &firmware_version, sizeof(firmware_version),
-		USB_WRITE_TIMEOUT, NULL);
+		USB_WRITE_TIMEOUT);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("CH347 unable to get firmware version");
 		jtag_libusb_close(ch347_handle);
@@ -2544,16 +2542,14 @@ static int ch347_swd_run_queue_inner(void)
 				if (pswd_io->cmd & SWD_CMD_RNW) {
 					uint32_t data = buf_get_u32(&recv_buf[recv_len], 0, 32);
 
-					LOG_CUSTOM_LEVEL((check_ack && ack != SWD_ACK_OK)
-										? LOG_LVL_DEBUG : LOG_LVL_DEBUG_IO,
-									"%s%s %s read reg %X = %08" PRIx32,
-									check_ack ? "" : "ack ignored ",
-									ack == SWD_ACK_OK ? "OK" :
-										ack == SWD_ACK_WAIT ? "WAIT" :
-										ack == SWD_ACK_FAULT  ? "FAULT" : "JUNK",
-									pswd_io->cmd & SWD_CMD_APNDP ? "AP" : "DP",
-									(pswd_io->cmd & SWD_CMD_A32) >> 1,
-									data);
+					LOG_DEBUG_IO("%s%s %s read reg %X = %08" PRIx32,
+							check_ack ? "" : "ack ignored ",
+							ack == SWD_ACK_OK ? "OK" :
+								ack == SWD_ACK_WAIT ? "WAIT" :
+								ack == SWD_ACK_FAULT  ? "FAULT" : "JUNK",
+							pswd_io->cmd & SWD_CMD_APNDP ? "AP" : "DP",
+							(pswd_io->cmd & SWD_CMD_A32) >> 1,
+							data);
 
 					if (ack != SWD_ACK_OK && check_ack) {
 						ch347_swd_context.queued_retval = swd_ack_to_error_code(ack);
@@ -2582,16 +2578,14 @@ static int ch347_swd_run_queue_inner(void)
 				   cmd, ignore received ack */
 				check_ack = swd_cmd_returns_ack(pswd_io->cmd);
 
-				LOG_CUSTOM_LEVEL((check_ack && ack != SWD_ACK_OK)
-									? LOG_LVL_DEBUG : LOG_LVL_DEBUG_IO,
-								 "%s%s %s write reg %X = %08" PRIx32,
-								 check_ack ? "" : "ack ignored ",
-								 ack == SWD_ACK_OK ? "OK" :
-									ack == SWD_ACK_WAIT ? "WAIT" :
-									ack == SWD_ACK_FAULT  ? "FAULT" : "JUNK",
-								 pswd_io->cmd & SWD_CMD_APNDP ? "AP" : "DP",
-								 (pswd_io->cmd & SWD_CMD_A32) >> 1,
-								 pswd_io->value);
+				LOG_DEBUG_IO("%s%s %s write reg %X = %08" PRIx32,
+						check_ack ? "" : "ack ignored ",
+						ack == SWD_ACK_OK ? "OK" :
+						ack == SWD_ACK_WAIT ? "WAIT" :
+						ack == SWD_ACK_FAULT  ? "FAULT" : "JUNK",
+						pswd_io->cmd & SWD_CMD_APNDP ? "AP" : "DP",
+						(pswd_io->cmd & SWD_CMD_A32) >> 1,
+						pswd_io->value);
 
 				if (ack != SWD_ACK_OK && check_ack) {
 					ch347_swd_context.queued_retval = swd_ack_to_error_code(ack);
@@ -2765,10 +2759,11 @@ static struct jtag_interface ch347_interface = {
 	.execute_queue = ch347_execute_queue,
 };
 
+static const char * const ch347_transports[] = { "jtag", "swd", NULL };
+
 struct adapter_driver ch347_adapter_driver = {
 	.name = "ch347",
-	.transport_ids = TRANSPORT_JTAG | TRANSPORT_SWD,
-	.transport_preferred_id = TRANSPORT_JTAG,
+	.transports = ch347_transports,
 	.commands = ch347_command_handlers,
 
 	.init = ch347_init,
